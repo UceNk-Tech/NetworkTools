@@ -1,37 +1,159 @@
+#!/usr/bin/env python3
+import os, time, telnetlib, sys, json
+
+# Warna ANSI
+RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET = (
+    "\033[31m", "\033[32m", "\033[33m", "\033[34m", 
+    "\033[35m", "\033[36m", "\033[37m", "\033[0m"
+)
+
+VAULT_FILE = os.path.join(os.path.dirname(__file__), "vault_session.json")
+
+def load_vault():
+    if os.path.exists(VAULT_FILE):
+        try:
+            with open(VAULT_FILE, 'r') as f:
+                return json.load(f)
+        except:
+            return {"olt": {}, "mikrotik": {}}
+    return {"olt": {}, "mikrotik": {}}
+
+def save_vault(data):
+    with open(VAULT_FILE, 'w') as f:
+        json.dump(data, f, indent=4)
+
+def get_credentials(target_type):
+    vault = load_vault()
+    data = vault.get(target_type, {})
+    if not data or not data.get('ip'):
+        header()
+        print(f"\n{YELLOW}[!] Setup Login {target_type.upper()} (Tersimpan Lokal){RESET}")
+        data = {}
+        data['ip'] = input(f" Masukkan IP {target_type}: ").strip()
+        data['user'] = input(f" Masukkan Username: ").strip()
+        import getpass
+        data['pass'] = getpass.getpass(f" Masukkan Password: ").strip()
+        vault[target_type] = data
+        save_vault(vault)
+    return data
+
+def header():
+    os.system('clear')
+    print(f"{MAGENTA}======================================================{RESET}")
+    print(f"{GREEN}   Ucenk D-Tech - Private Management System          {RESET}")
+    print(f"{WHITE}      (Mikrotik: API 8728 | OLT: Telnet 23)          {RESET}")
+    print(f"{MAGENTA}======================================================{RESET}")
+
+# ---------- ENGINE MIKROTIK (API 8728) ----------
+
+def run_mt_api(menu_type):
+    try:
+        import routeros_api
+    except ImportError:
+        print(f"{RED}Error: Library 'routeros-api' tidak ditemukan!{RESET}")
+        return
+
+    creds = get_credentials("mikrotik")
+    
+    try:
+        connection = routeros_api.RouterOsApiPool(
+            creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True
+        )
+        api = connection.get_api()
+        
+        if menu_type == '1':
+            print(f"{CYAN}Monitor Traffic Interface...{RESET}")
+            res = api.get_resource('/interface').get()
+            for i in res: print(f"[{i.get('name')}] Running: {i.get('running')}")
+                
+        elif menu_type == '2':
+            active = api.get_resource('/ip/hotspot/active').get()
+            print(f"\n{GREEN}Total Hotspot Aktif: {len(active)}{RESET}")
+            for u in active: print(f"User: {u.get('user'):<15} IP: {u.get('address'):<15}")
+        
         elif menu_type == '3':
             print(f"{CYAN}Scanning Script Laporan Mikhmon...{RESET}")
-            # Akses ke System Script (Bukan User Hotspot)
             script_res = api.get_resource('/system/script')
-            
-            # Filter ketat: Hanya yang berawalan 'log-' (Format laporan Mikhmon)
+            # Filter hanya script laporan (awalan log-)
             to_delete = [s for s in script_res.get() if s.get('name', '').startswith('log-')]
             
             if not to_delete:
-                print(f"{YELLOW}Tidak ditemukan script laporan (log-) di System Script.{RESET}")
-                print(f"{GREEN}User dan Voucher aman, tidak ada yang perlu dihapus.{RESET}")
+                print(f"{YELLOW}Tidak ditemukan script laporan (log-) untuk dihapus.{RESET}")
             else:
-                print(f"{WHITE}Ditemukan {len(to_delete)} script laporan mikhmon:{RESET}")
-                for s in to_delete:
-                    print(f" - {s.get('name')}")
+                print(f"{WHITE}Ditemukan {len(to_delete)} script laporan:{RESET}")
+                for s in to_delete: print(f" - {s.get('name')}")
                 
-                # Konfirmasi manual oleh Ucenk
-                print(f"\n{RED}PERINGATAN: Ini hanya menghapus LOG LAPORAN di System Script.{RESET}")
-                confirm = input(f"{YELLOW}Hapus semua LOG ini? (y/n): {RESET}").lower()
-                
+                confirm = input(f"\n{RED}Hapus semua script di atas? (y/n): {RESET}").lower()
                 if confirm == 'y':
                     count = 0
                     for s in to_delete:
                         script_res.remove(id=s.get('id'))
                         count += 1
-                    
-                    # Kosongkan System Note (Tempat simpan totalan sementara Mikhmon)
-                    try:
-                        api.get_resource('/system/note').set(note="")
-                        print(f"{GREEN}System Note dikosongkan.{RESET}")
-                    except:
-                        pass
-                        
-                    print(f"{GREEN}Selesai! {count} script laporan dihapus. User/Voucher tetap utuh.{RESET}")
+                    try: api.get_resource('/system/note').set(note="")
+                    except: pass
+                    print(f"{GREEN}Berhasil menghapus {count} script laporan.{RESET}")
                 else:
-                    print(f"{BLUE}Dibatalkan. Tidak ada data yang dihapus.{RESET}")
-                    
+                    print(f"{YELLOW}Penghapusan dibatalkan.{RESET}")
+
+        elif menu_type == '4':
+            alerts = api.get_resource('/ip/dhcp-server/alert').get()
+            if not alerts: print(f"{YELLOW}Aman. Tidak ada Rogue DHCP.{RESET}")
+            else:
+                for a in alerts: print(f"{RED}[ALERT] Interface: {a.get('interface')}{RESET}")
+
+        connection.disconnect()
+    except Exception as e:
+        print(f"{RED}Mikrotik API Error: {e}{RESET}")
+
+# ---------- ENGINE OLT (TELNET PORT 23) ----------
+
+def run_olt_telnet(cmds):
+    creds = get_credentials("olt")
+    try:
+        tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
+        tn.read_until(b"Username:", timeout=5)
+        tn.write(creds['user'].encode('ascii') + b"\n")
+        tn.read_until(b"Password:", timeout=5)
+        tn.write(creds['pass'].encode('ascii') + b"\n")
+        time.sleep(1)
+        tn.write(b"terminal length 0\n")
+        tn.read_until(b"ZXAN#", timeout=5)
+        output = ""
+        for c in cmds:
+            tn.write(c.encode('ascii') + b"\n")
+            time.sleep(2)
+            output += tn.read_very_eager().decode('ascii')
+        tn.write(b"exit\n")
+        return output if output.strip() else "Data tidak ditemukan."
+    except Exception as e:
+        return f"Error: {e}"
+
+# ---------- MAIN MENU ----------
+
+def main():
+    while True:
+        header()
+        print(f" 1. Mikrotik: Monitor Traffic   2. Mikrotik: User Hotspot")
+        print(f" 3. Mikrotik: Hapus Lap Mikhmon 4. Mikrotik: DHCP Alert")
+        print("-" * 54)
+        print(f" 15. OLT: List ONU Aktif        16. OLT: Optical Power")
+        print(f" 88. Fix Permission Mikhmon     99. Logout (Reset Data)")
+        print(f"  0. Keluar")
+        
+        c = input(f"\n{WHITE}Pilih Menu: {RESET}").strip()
+        if c in ['1', '2', '3', '4']:
+            run_mt_api(c); input(f"\n{YELLOW}Tekan Enter...{RESET}")
+        elif c == '15':
+            slot = input("Nomor Slot: ")
+            if slot: 
+                print(f"\n{CYAN}Menghubungkan ke OLT...{RESET}")
+                print(run_olt_telnet([f"show pon onu information gpon-olt_1/{slot}/1"]))
+            input(f"\n{YELLOW}Tekan Enter...{RESET}")
+        elif c == '99':
+            if os.path.exists(VAULT_FILE): os.remove(VAULT_FILE)
+            print(f"{RED}Sesi dihapus!{RESET}"); time.sleep(1)
+        elif c == '0': break
+
+if __name__ == "__main__":
+    main()
+        

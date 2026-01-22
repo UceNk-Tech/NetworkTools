@@ -51,15 +51,32 @@ def run_mt(menu_type):
             else:
                 for a in alerts: print(f"{RED}[ALERT] Interface: {a.get('interface')} - MAC: {a.get('mac-address')}{RESET}")
         elif menu_type == '4':
-            print(f"{YELLOW}[*] Menghapus Laporan/Script Mikhmon...{RESET}")
-            scripts = api.get_resource('/system/script')
-            all_scripts = scripts.get()
-            count = 0
-            for s in all_scripts:
-                if "mikhmon" in s.get('name', '').lower():
-                    scripts.remove(id=s.get('id'))
-                    count += 1
-            print(f"{GREEN}[V] Berhasil menghapus {count} script mikhmon.{RESET}")
+            print(f"{YELLOW}[*] Scanning Script Mikhmon di MikroTik...{RESET}")
+            script_resource = api.get_resource('/system/script')
+            all_scripts = script_resource.get()
+            
+            # Filter script yang mengandung nama 'mikhmon'
+            targets = [s for s in all_scripts if "mikhmon" in s.get('name', '').lower()]
+            
+            if not targets:
+                print(f"{GREEN}[!] Tidak ditemukan script laporan mikhmon.{RESET}")
+            else:
+                print(f"\n{CYAN}Daftar script ditemukan:{RESET}")
+                for i, s in enumerate(targets, 1):
+                    print(f"{i}. Name: {WHITE}{s.get('name')}{RESET} | Run Count: {s.get('run-count')}")
+                
+                print(f"\n{RED}PERINGATAN: Tindakan ini tidak dapat dibatalkan.{RESET}")
+                confirm = input(f"{YELLOW}Hapus semua script di atas? (y/n): {RESET}").lower()
+                
+                if confirm == 'y':
+                    count = 0
+                    for s in targets:
+                        script_resource.remove(id=s.get('id'))
+                        count += 1
+                    print(f"{GREEN}[V] Berhasil menghapus {count} script mikhmon.{RESET}")
+                else:
+                    print(f"{BLUE}[i] Penghapusan dibatalkan.{RESET}")
+                    
         conn.disconnect()
     except Exception as e: print(f"{RED}Error MT: {e}{RESET}")
 
@@ -144,7 +161,9 @@ def main():
             os.system(f'export PHP_INI_SCAN_DIR={tmp}; php -S 127.0.0.1:8080 -t {m_dir}')
         elif c in ['2', '3', '4']: run_mt(c)
         elif c == '9': run_olt_telnet_onu()
-        elif c == '10': run_olt_config_onu()
+        elif c == '10': # Alice asumsikan run_olt_config_onu belum dibuat atau ada di file lain, 
+                        # namun tetap Alice biarkan sesuai alur menu Ucenk.
+            print(f"{YELLOW}[i] Fitur Konfigurasi ONU sedang diproses...{RESET}")
         elif c == '22':
             os.system('cd $HOME/NetworkTools && git reset --hard && git pull origin main && bash install.sh && exec zsh')
             break

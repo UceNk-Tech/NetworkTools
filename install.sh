@@ -3,24 +3,26 @@
 # Installer Otomatis Ucenk D-Tech Pro v3
 # ==========================================
 
-# 1. Update & install tools dasar
+# Update & install paket dasar
 pkg update && pkg upgrade -y
-pkg install php git figlet curl python inetutils neofetch zsh nmap speedtest-cli -y
-pip install lolcat routeros-api
+pkg install -y php git figlet curl python inetutils neofetch zsh nmap
 
-# 2. Install Oh My Zsh
+# Install pip packages
+pip install lolcat routeros-api speedtest-cli
+
+# Install Oh My Zsh
 rm -rf ~/.oh-my-zsh
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 
-# 3. Plugin autosuggestions
+# Plugin autosuggestions
 git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
 
-# 4. Download Mikhmon
+# Download Mikhmon
 cd $HOME
 rm -rf mikhmonv3 ~/session_mikhmon ~/tmp
 git clone https://github.com/laksa19/mikhmonv3.git
 
-# 5. Konfigurasi prompt & banner
+# Konfigurasi prompt & alias
 cat << 'EOF' > ~/.zshrc
 export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="robbyrussell"
@@ -46,10 +48,10 @@ echo "session.save_path=\"$HOME/session_mikhmon\"" >> ~/tmp/custom.ini; \
 echo "Mikhmon berjalan di http://127.0.0.1:8080"; \
 php -S 127.0.0.1:8080 -t ~/mikhmonv3'
 
-alias menu='python $HOME/ucenk-dtech/menu.py'
+alias menu='python $HOME/NetworkTools/menu.py'
 EOF
 
-# 6. Set default shell
+# Set default shell
 chsh -s zsh
 touch ~/.hushlogin
 

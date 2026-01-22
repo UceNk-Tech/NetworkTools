@@ -32,8 +32,8 @@ def get_credentials(target_type):
         save_vault(vault)
     return data
 
-def show_full_header():
-    """Menampilkan urutan visual: Banner -> Neofetch -> Menu"""
+def show_sticky_header():
+    """Urutan: Banner -> Neofetch -> List Menu"""
     os.system('clear')
     # 1. Header Paling Atas (Banner Figlet)
     os.system('echo "======================================================" | lolcat')
@@ -42,10 +42,10 @@ def show_full_header():
     os.system('echo "======================================================" | lolcat')
     os.system('echo " Welcome back, Ucenk D-Tech!" | lolcat')
     
-    # 2. Lanjut Neofetch Ubuntu di bawahnya
+    # 2. Neofetch Ubuntu di bawah banner
     os.system('neofetch --ascii_distro ubuntu')
     
-    # 3. Daftar Menu
+    # 3. Tabel Menu
     os.system('echo "Ketik nomor untuk menjalankan menu yang ada inginkan" | lolcat')
     os.system('echo "=============================" | lolcat')
     os.system('echo "Mikrotik Management Tools" | lolcat')
@@ -99,33 +99,31 @@ def run_mt(menu_type):
 
 def main():
     while True:
-        show_full_header()
+        show_sticky_header()
         c = input(f"{CYAN}Pilih Nomor: {RESET}").strip()
         
         if c == '1':
-            # FIX PERMISSION DENIED: Paksa pembuatan folder dan chmod
             p = os.path.expanduser("~/mikhmon")
-            print(f"{YELLOW}[*] Menyiapkan environment Mikhmon...{RESET}")
-            os.system(f"mkdir -p {p}")
-            os.system(f"chmod -R 777 {p}") # Izin penuh untuk web server
-            print(f"{GREEN}Menjalankan Mikhmon Server di port 8080...{RESET}")
-            # Jalankan server
-            os.system(f'php -S 0.0.0.0:8080 -t {p}')
+            tmp = os.path.join(p, "tmp")
+            print(f"{YELLOW}[*] Menghancurkan kunci permission...{RESET}")
+            os.system(f"mkdir -p {tmp}")
+            os.system(f"chmod -R 777 {p}")
+            print(f"{GREEN}Mikhmon Server: http://0.0.0.0:8080{RESET}")
+            # Menjalankan PHP dengan session path kustom agar tidak 'lock'
+            os.system(f'php -d session.save_path={tmp} -S 0.0.0.0:8080 -t {p}')
             
         elif c in ['2', '3', '4']:
             run_mt(c)
             
         elif c == '9':
             print(f"{YELLOW}Mencari ONU Aktif...{RESET}")
-            # Placeholder untuk fungsi telnet OLT (integrasi kode lama)
-            print(f"\n{WHITE}Listing ONU Aktif...{RESET}")
+            # Placeholder untuk Telnet OLT
+            input(f"\n{WHITE}Fitur Telnet OLT Sedang Berjalan...{RESET}")
             
         elif c == '22':
-            print(f"{YELLOW}[*] Force Update dari GitHub...{RESET}")
             os.system('cd $HOME/NetworkTools && git reset --hard && git pull origin main && bash install.sh')
             break
         elif c == '0': break
-        
         input(f"\n{YELLOW}Tekan Enter untuk kembali ke Menu...{RESET}")
 
 if __name__ == "__main__":

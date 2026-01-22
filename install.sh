@@ -1,17 +1,18 @@
 #!/bin/bash
 # ==========================================
-# NetworkTools Installer (Ucenk-D-Tech)
+# NetworkTools Installer (Ucenk-D-Tech) v2.0
 # ==========================================
 
 set -e
 
 # 1) Update & base packages
 pkg update -y && pkg upgrade -y
-pkg install -y git python zsh figlet curl inetutils neofetch nmap php
+pkg install -y git python zsh figlet curl inetutils neofetch nmap php \
+               traceroute dnsutils
 
 # 2) Python packages
 pip install --upgrade pip
-pip install routeros-api speedtest-cli lolcat
+pip install routeros-api speedtest-cli lolcat paramiko pysnmp
 
 # 3) Oh My Zsh (unattended)
 if [ -d "$HOME/.oh-my-zsh" ]; then

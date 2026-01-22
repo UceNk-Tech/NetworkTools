@@ -20,29 +20,18 @@ def load_vault():
 def save_vault(data):
     with open(VAULT_FILE, 'w') as f: json.dump(data, f, indent=4)
 
-def get_credentials(target_type):
-    vault = load_vault()
-    data = vault.get(target_type, {})
-    if not data or not data.get('ip'):
-        print(f"\n{YELLOW}[!] Setup Login {target_type.upper()}{RESET}")
-        data = {'ip': input(f" IP: ").strip(), 'user': input(f" User: ").strip()}
-        import getpass
-        data['pass'] = getpass.getpass(f" Pass: ").strip()
-        vault[target_type] = data
-        save_vault(vault)
-    return data
-
 def show_sticky_header():
-    """Urutan Visual: Banner Figlet (Atas) -> Neofetch (Bawah) -> List Menu"""
+    """Urutan Visual: Banner Figlet -> Neofetch Ubuntu -> List Menu"""
     os.system('clear')
-    # 1. Header Banner Figlet (Paling Atas)
+    # 1. Tampilan Banner Paling Atas
     os.system('echo "======================================================" | lolcat')
-    os.system('figlet -f slant "Ucenk D-Tech" | lolcat')
+    figlet_cmd = 'figlet -f slant "Ucenk D-Tech"'
+    os.system(f'{figlet_cmd} | lolcat')
     os.system('echo "      Author: Ucenk  |  Premium Network Management System" | lolcat')
     os.system('echo "======================================================" | lolcat')
     os.system('echo " Welcome back, Ucenk D-Tech!" | lolcat')
     
-    # 2. Neofetch Ubuntu (Di bawah banner)
+    # 2. Neofetch Ubuntu di bawah banner
     os.system('neofetch --ascii_distro ubuntu')
     
     # 3. Tabel Menu
@@ -71,43 +60,34 @@ def show_sticky_header():
     print(f"19. MAC Lookup                    22. Update-tools{RESET}")
     print(f"{MAGENTA}====================================================={RESET}")
 
-def run_mt(menu_type):
-    try:
-        import routeros_api
-        creds = get_credentials("mikrotik")
-        conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True)
-        api = conn.get_api()
-        if menu_type == '2':
-            active = api.get_resource('/ip/hotspot/active').get()
-            print(f"\n{GREEN}>>> TOTAL USER AKTIF: {len(active)} USER{RESET}")
-        elif menu_type == '3':
-            alerts = api.get_resource('/ip/dhcp-server/alert').get()
-            if not alerts: print(f"\n{GREEN}[OK] DHCP Aman.{RESET}")
-            else:
-                for a in alerts: print(f"{RED}[ALERT] Interface: {a.get('interface')} - MAC: {a.get('mac-address')}{RESET}")
-        conn.disconnect()
-    except Exception as e: print(f"{RED}Error: {e}{RESET}")
-
 def main():
     while True:
         show_sticky_header()
         c = input(f"{CYAN}Pilih Nomor: {RESET}").strip()
         
         if c == '1':
-            # JURUS PAMUNGKAS: Pindahkan ke Internal Termux agar izin tidak lock
-            p = os.path.expanduser("~/mikhmon")
-            tmp = os.path.join(p, "tmp")
-            os.system(f"mkdir -p {tmp}")
-            os.system(f"chmod -R 700 {p}") # Izin khusus folder internal Termux
-            print(f"{GREEN}Mikhmon Server: http://0.0.0.0:8080{RESET}")
-            os.system(f'php -d session.save_path={tmp} -S 0.0.0.0:8080 -t {p}')
+            # SOLUSI ANTI-LOCK (DIADAPTASI DARI REFERENSI)
+            mikhmon_dir = os.path.expanduser("~/mikhmonv3")
+            tmp_dir = os.path.expanduser("~/tmp")
+            sess_dir = os.path.expanduser("~/session_mikhmon")
             
-        elif c in ['2', '3', '4']:
-            run_mt(c)
+            print(f"{YELLOW}[*] Menyiapkan environment mikhmon (Anti-Lock)...{RESET}")
+            os.system(f"mkdir -p {tmp_dir} {sess_dir}")
+            
+            # Buat custom PHP config di dalam tmp
+            with open(os.path.join(tmp_dir, "custom.ini"), "w") as f:
+                f.write("opcache.enable=0\n")
+                f.write(f'session.save_path="{sess_dir}"\n')
+            
+            # Kill proses lama di port 8080 agar tidak bentrok
+            os.system("fuser -k 8080/tcp > /dev/null 2>&1")
+            
+            print(f"{GREEN}Mikhmon berjalan di http://127.0.0.1:8080{RESET}")
+            # Jalankan dengan PHP_INI_SCAN_DIR
+            os.system(f'export PHP_INI_SCAN_DIR={tmp_dir}; php -S 127.0.0.1:8080 -t {mikhmon_dir}')
             
         elif c == '22':
-            print(f"{YELLOW}[*] Updating & Refreshing Dashboard...{RESET}")
-            # Reset hard -> Pull -> Install -> Auto Refresh tampilan awal
+            print(f"{YELLOW}[*] Updating & Auto-Refreshing...{RESET}")
             os.system('cd $HOME/NetworkTools && git reset --hard && git pull origin main && bash install.sh && exec zsh')
             break
         elif c == '0': break

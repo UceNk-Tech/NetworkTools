@@ -25,16 +25,22 @@ def save_vault(data):
 def get_credentials(target_type):
     vault = load_vault()
     data = vault.get(target_type, {})
+    
+    # Jika data kosong, minta input ke Ucenk
     if not data or not data.get('ip'):
         header()
-        print(f"\n{YELLOW}[!] Setup {target_type.upper()} (Tersimpan Local di Termux){RESET}")
+        print(f"\n{YELLOW}[!] Setup Login {target_type.upper()} (Hanya disimpan di Lokal){RESET}")
         data = {}
         data['ip'] = input(f" Masukkan IP {target_type}: ").strip()
         data['user'] = input(f" Masukkan Username: ").strip()
         import getpass
         data['pass'] = getpass.getpass(f" Masukkan Password: ").strip()
+        
+        # Simpan ke vault_session.json agar tidak tanya lagi nanti
         vault[target_type] = data
         save_vault(vault)
+        print(f"{GREEN}[+] Data tersimpan di local Termux.{RESET}")
+        time.sleep(1)
     return data
 
 def header():
@@ -50,22 +56,26 @@ def run_mt_api(menu_type):
     try:
         import routeros_api
     except ImportError:
-        print(f"{RED}Error: Library 'routeros-api' belum ada.{RESET}")
-        print("Jalankan: pip install routeros-api --break-system-packages")
+        print(f"{RED}Error: Library 'routeros-api' tidak ditemukan!{RESET}")
         return
 
+    # Minta kredensial dulu sebelum konek
     creds = get_credentials("mikrotik")
+    
     try:
-        # Panggil class Connection secara eksplisit
-        connection = routeros_api.RouterOsApiConnection(
-            creds['ip'], user=creds['user'], password=creds['pass'], port=8728
+        # Gunakan pemanggilan paling kompatibel untuk library routeros-api
+        connection = routeros_api.RouterOsApi(
+            creds['ip'], 
+            user=creds['user'], 
+            password=creds['pass'], 
+            port=8728
         )
         api = connection.get_api()
         
         if menu_type == '1':
             print(f"{CYAN}Monitor Traffic Interface...{RESET}")
-            res = api.get_resource('/interface').get()
-            for i in res:
+            resource = api.get_resource('/interface')
+            for i in resource.get():
                 print(f"[{i.get('name')}] Type: {i.get('type')} | Running: {i.get('running')}")
                 
         elif menu_type == '2':
@@ -90,6 +100,7 @@ def run_mt_api(menu_type):
         connection.disconnect()
     except Exception as e:
         print(f"{RED}Mikrotik API Error: {e}{RESET}")
+        print(f"{YELLOW}Saran: Pastikan API Port 8728 di Winbox Aktif.{RESET}")
 
 # ---------- ENGINE OLT (TELNET PORT 23) ----------
 
@@ -123,7 +134,7 @@ def main():
         print(f" 3. Mikrotik: Hapus Voucher     4. Mikrotik: DHCP Alert")
         print("-" * 54)
         print(f" 15. OLT: List ONU Aktif        16. OLT: Optical Power")
-        print(f" 88. Fix Permission Mikhmon     99. Reset Sesi (Logout)")
+        print(f" 88. Fix Permission Mikhmon     99. Reset Sesi (Ganti IP/Logout)")
         print(f"  0. Keluar")
         
         c = input(f"\n{WHITE}Pilih Menu: {RESET}").strip()
@@ -135,21 +146,16 @@ def main():
             slot = input("Masukkan Nomor Slot (Contoh 2): ")
             if slot: print(run_olt_telnet([f"show pon onu information gpon-olt_1/{slot}/1"]))
             input(f"\n{YELLOW}Tekan Enter...{RESET}")
-        elif c == '16':
-            slot = input("Slot: "); onu = input("ONU ID: ")
-            if slot and onu: print(run_olt_telnet([f"show pon onu rx-power gpon-onu_1/{slot}/1:{onu}"]))
-            input(f"\n{YELLOW}Tekan Enter...{RESET}")
         elif c == '88':
             os.system("chmod -R 755 $HOME/mikhmon")
-            print(f"{GREEN}Permission Fixed!{RESET}"); time.sleep(1)
+            print(f"{GREEN}Permission Mikhmon diperbaiki!{RESET}"); time.sleep(1)
         elif c == '99':
             if os.path.exists(VAULT_FILE):
                 os.remove(VAULT_FILE)
-                print(f"{RED}Data dihapus!{RESET}")
+                print(f"{RED}Sesi Logout! Silakan pilih menu lagi untuk input IP baru.{RESET}")
             time.sleep(1)
         elif c == '0':
             break
 
 if __name__ == "__main__":
     main()
-    

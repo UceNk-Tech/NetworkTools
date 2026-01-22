@@ -1,31 +1,32 @@
 #!/bin/bash
 # ==========================================
-# NetworkTools Installer (Ucenk-D-Tech) v2.3
+# NetworkTools Installer (Ucenk-D-Tech) v2.4
 # ==========================================
 
 set -e
 
-# 0) Setup Storage & Repo
+# 1) Setup Storage & Repo
 termux-setup-storage -y || true
 pkg update -y && pkg upgrade -y
 
-# 1) Install Toolchain & TUR
+# 2) Install Toolchain & TUR (Wajib untuk PyNaCl/Paramiko)
 pkg install -y tur-repo
-pkg install -y bash git python zsh figlet curl inetutils neofetch nmap php traceroute dnsutils clang rust pkg-config libffi openssl
+pkg install -y bash git python zsh figlet curl inetutils neofetch nmap php traceroute dnsutils clang rust pkg-config libffi openssl libsodium
 
-# 2) Install Cryptography via PKG (Kunci utama agar tidak Error Rust)
-pkg install -y python-pip python-cryptography
+# 3) Install Library Berat via TUR (Solusi Error Failed Building Wheel)
+# Ini akan menginstall pynacl, cryptography, dan paramiko versi yang sudah jadi.
+pkg install -y python-pynacl python-cryptography python-paramiko
 
-# 3) Install Paramiko & RouterOS via PIP (Gunakan flag bypass protection)
-# Kita install Paramiko lewat pip karena pkg tidak menemukannya
-pip install paramiko routeros-api speedtest-cli lolcat pysnmp --break-system-packages
+# 4) Install sisa modul via PIP
+# Kita gunakan --break-system-packages untuk mengakomodasi aturan Python 3.12
+pip install routeros-api speedtest-cli lolcat pysnmp --break-system-packages || pip install routeros-api speedtest-cli lolcat pysnmp
 
-# 4) Oh My Zsh (Unattended)
+# 5) Oh My Zsh (Unattended)
 if [ -d "$HOME/.oh-my-zsh" ]; then rm -rf "$HOME/.oh-my-zsh"; fi
 export KEEP_ZSHRC=yes
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 
-# 5) Konfigurasi .zshrc (BANNER TETAP TIDAK DIUBAH)
+# 6) Konfigurasi .zshrc (BANNER TETAP SESUAI PERMINTAAN)
 cat > "$HOME/.zshrc" << 'EOF'
 export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="robbyrussell"
@@ -60,5 +61,6 @@ EOF
 
 chsh -s zsh || true
 echo -e "\n======================================================"
-echo "Selesai! Silakan ketik 'zsh' atau restart Termux."
+echo "Selesai! Sekarang PyNaCl & Paramiko sudah terpasang."
+echo "Silakan ketik 'zsh' atau restart Termux, lalu ketik 'menu'."
 echo "======================================================"

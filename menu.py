@@ -46,7 +46,7 @@ def run_mt(menu_type):
             active = api.get_resource('/ip/hotspot/active').get()
             print(f"\n{GREEN}>>> TOTAL USER AKTIF: {len(active)} USER{RESET}")
         elif menu_type == '3':
-            alerts = api.get_resource('/ip/dhspot-server/alert').get()
+            alerts = api.get_resource('/ip/dhcp-server/alert').get()
             if not alerts: print(f"\n{GREEN}[OK] DHCP Aman.{RESET}")
             else:
                 for a in alerts: print(f"{RED}[ALERT] Interface: {a.get('interface')} - MAC: {a.get('mac-address')}{RESET}")

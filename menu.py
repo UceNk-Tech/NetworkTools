@@ -7,7 +7,6 @@ RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET = (
     "\033[35m", "\033[36m", "\033[37m", "\033[0m"
 )
 
-# File rahasia hanya di lokal Termux (Masuk ke .gitignore)
 VAULT_FILE = os.path.join(os.path.dirname(__file__), "vault_session.json")
 
 def load_vault():
@@ -23,80 +22,105 @@ def save_vault(data):
 def get_credentials(target_type):
     vault = load_vault()
     data = vault.get(target_type, {})
-    
     if not data:
-        print(f"\n{YELLOW}[!] Data {target_type.upper()} belum ada di local.{RESET}")
+        header()
+        print(f"\n{YELLOW}[!] Setup {target_type.upper()} (Tersimpan Local di Termux){RESET}")
         data['ip'] = input(f" Masukkan IP {target_type}: ").strip()
         data['user'] = input(f" Masukkan Username: ").strip()
         import getpass
         data['pass'] = getpass.getpass(f" Masukkan Password: ").strip()
-        
-        # Simpan ke local
         vault[target_type] = data
         save_vault(vault)
-        print(f"{GREEN}[+] Data tersimpan di local Termux.{RESET}")
     return data
 
 def header():
     os.system('clear')
     print(f"{MAGENTA}======================================================{RESET}")
     print(f"{GREEN}   Ucenk D-Tech - Private Management System          {RESET}")
-    print(f"{WHITE}      (Data stored locally in Termux Vault)          {RESET}")
+    print(f"{WHITE}      (Mikrotik: API 8728 | OLT: Telnet 23)          {RESET}")
     print(f"{MAGENTA}======================================================{RESET}")
 
-def pause():
-    input(f"\n{YELLOW}Tekan Enter untuk kembali...{RESET}")
+# ---------- ENGINE MIKROTIK (API 8728) ----------
+def run_mt_api(menu_type):
+    try:
+        import routeros_api
+    except ImportError:
+        print(f"{RED}Error: Jalankan 'pip install routeros-api --break-system-packages'{RESET}")
+        return
 
-# ---------- ENGINE KONEKSI ----------
-
-def run_mt_cmd(cmd):
     creds = get_credentials("mikrotik")
-    ssh_base = f"sshpass -p '{creds['pass']}' ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 {creds['user']}@{creds['ip']}"
-    os.system(f"{ssh_base} '{cmd}'")
+    try:
+        connection = routeros_api.RouterOsApiConnection(
+            creds['ip'], user=creds['user'], password=creds['pass'], port=8728
+        )
+        api = connection.get_api()
+        
+        if menu_type == '1':
+            print(f"{CYAN}Monitoring Traffic Interface...{RESET}")
+            print(api.get_resource('/interface').get())
+        elif menu_type == '2':
+            users = api.get_resource('/ip/hotspot/active').get()
+            print(f"\n{GREEN}Total Hotspot Aktif: {len(users)}{RESET}")
+            for u in users:
+                print(f"User: {u.get('user')} | IP: {u.get('address')} | Uptime: {u.get('uptime')}")
+        
+        connection.disconnect()
+    except Exception as e:
+        print(f"{RED}Mikrotik API Error: {e}{RESET}")
 
-def run_olt_cmds(cmds):
+# ---------- ENGINE OLT (TELNET PORT 23) ----------
+def run_olt_telnet(cmds):
     creds = get_credentials("olt")
     try:
+        # Gunakan port 23 (Standar Telnet ZTE)
         tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
-        tn.read_until(b"Username:", timeout=5); tn.write(creds['user'].encode('ascii') + b"\n")
-        tn.read_until(b"Password:", timeout=5); tn.write(creds['pass'].encode('ascii') + b"\n")
+        tn.read_until(b"Username:", timeout=5)
+        tn.write(creds['user'].encode('ascii') + b"\n")
+        tn.read_until(b"Password:", timeout=5)
+        tn.write(creds['pass'].encode('ascii') + b"\n")
+        
         tn.write(b"terminal length 0\n")
-        res = ""
+        tn.read_until(b"ZXAN#")
+        
+        output = ""
         for c in cmds:
             tn.write(c.encode('ascii') + b"\n")
-            res += tn.read_until(b"ZXAN#", timeout=15).decode('ascii')
+            output += tn.read_until(b"ZXAN#", timeout=15).decode('ascii')
+        
         tn.write(b"exit\n")
-        return res
-    except Exception as e: return f"{RED}Error: {e}{RESET}"
+        return output
+    except Exception as e:
+        return f"{RED}OLT Telnet Error: {e}{RESET}"
 
 # ---------- MAIN MENU ----------
-
 def main():
     while True:
         header()
-        print(f"{GREEN} 1. Monitor Traffic Interface   {CYAN} 2. User Aktif Hotspot")
-        print(f"{YELLOW} 3. Hapus Voucher Expired       {RED} 4. Cek DHCP Alert")
-        print(f"{MAGENTA}------------------------------------------------------")
-        print(f"{MAGENTA} 15. OLT: List ONU Aktif        {BLUE} 16. OLT: Optical Power")
-        print(f"{CYAN} 88. Fix Permission Mikhmon     {WHITE} 99. Reset Local Data (Logout)")
-        print(f"{RED}  0. Keluar")
+        print(f" 1. Mikrotik: Monitor Traffic   2. Mikrotik: User Hotspot")
+        print(f" 3. Mikrotik: Hapus Voucher     4. Mikrotik: DHCP Alert")
+        print("-" * 54)
+        print(f" 15. OLT: List ONU per Slot     16. OLT: Optical Power")
+        print(f" 88. Fix Permission Mikhmon     99. Reset Sesi (Logout)")
+        print(f"  0. Keluar")
         
         c = input(f"\n{WHITE}Pilih Menu: {RESET}").strip()
 
-        if c == '1': run_mt_cmd("/interface monitor-traffic [find] once") ; pause()
-        elif c == '2': run_mt_cmd("/ip hotspot active print") ; pause()
-        elif c == '3': run_mt_cmd("/ip hotspot user remove [find where comment~\"vc-\" and uptime=limit-uptime]") ; pause()
-        elif c == '4': run_mt_cmd("/ip dhcp-server alert print") ; pause()
+        if c in ['1', '2', '3', '4']:
+            run_mt_api(c)
+            input(f"\n{YELLOW}Enter untuk kembali...{RESET}")
         elif c == '15':
-            slot = input("Masukkan Slot: ")
-            print(run_olt_cmds([f"show pon onu information gpon-olt_1/{slot}/1"])) ; pause()
+            slot = input("Masukkan Nomor Slot (Contoh 2 untuk 1/2/1): ")
+            if slot:
+                print(run_olt_telnet([f"show pon onu information gpon-olt_1/{slot}/1"]))
+            input(f"\n{YELLOW}Enter untuk kembali...{RESET}")
         elif c == '99':
             if os.path.exists(VAULT_FILE):
                 os.remove(VAULT_FILE)
-                print(f"{RED}Data local dihapus!{RESET}")
+                print(f"{RED}Sesi dihapus! Silakan login ulang nanti.{RESET}")
             time.sleep(1)
-        elif c == '0': break
-        elif c == '88': os.system("chmod -R 755 $HOME/mikhmon") ; time.sleep(1)
+        elif c == '0':
+            break
 
 if __name__ == "__main__":
     main()
+    

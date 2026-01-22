@@ -1,65 +1,144 @@
-#!/bin/bash
-# ==========================================
-# NetworkTools All-in-One Installer
-# Author: Ucenk D-Tech
-# ==========================================
+#!/usr/bin/env python3
+import os, time, telnetlib, sys, json
+import readline 
 
-set -e
-REPO_DIR="$HOME/NetworkTools"
+# Warna ANSI
+RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET = (
+    "\033[31m", "\033[32m", "\033[33m", "\033[34m", 
+    "\033[35m", "\033[36m", "\033[37m", "\033[0m"
+)
 
-echo "======================================================" | lolcat
-echo "    Sinkronisasi & Perbaikan Environment..." | lolcat
-echo "======================================================" | lolcat
+VAULT_FILE = os.path.join(os.path.dirname(__file__), "vault_session.json")
 
-# 1. Update Paket
-pkg update -y
-pkg install zsh git python figlet curl php nmap neofetch lolcat -y || pip install lolcat --break-system-packages
-pip install routeros-api speedtest-cli requests scapy --break-system-packages || true
+def load_vault():
+    if os.path.exists(VAULT_FILE):
+        try:
+            with open(VAULT_FILE, 'r') as f: return json.load(f)
+        except: return {"olt": {}, "mikrotik": {}}
+    return {"olt": {}, "mikrotik": {}}
 
-# 2. Oh My Zsh & Plugins
-if [ ! -d "$HOME/.oh-my-zsh" ]; then
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-fi
-ZSH_CUSTOM="$HOME/.oh-my-zsh/custom/plugins"
-mkdir -p "$ZSH_CUSTOM"
-[ ! -d "$ZSH_CUSTOM/zsh-autosuggestions" ] && git clone https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/zsh-autosuggestions"
-[ ! -d "$ZSH_CUSTOM/zsh-syntax-highlighting" ] && git clone https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/zsh-syntax-highlighting"
+def save_vault(data):
+    with open(VAULT_FILE, 'w') as f: json.dump(data, f, indent=4)
 
-# 3. Konfigurasi .zshrc (Tampilan yang Ucenk minta)
-cat > "$HOME/.zshrc" << 'EOF'
-export ZSH="$HOME/.oh-my-zsh"
-plugins=(git zsh-autosuggestions zsh-syntax-highlighting)
-[ -f $ZSH/oh-my-zsh.sh ] && source $ZSH/oh-my-zsh.sh
+def get_credentials(target_type):
+    vault = load_vault()
+    data = vault.get(target_type, {})
+    if not data or not data.get('ip'):
+        print(f"\n{YELLOW}[!] Setup Login {target_type.upper()} (Private Local){RESET}")
+        data = {'ip': input(f" IP: ").strip(), 'user': input(f" User: ").strip()}
+        import getpass
+        data['pass'] = getpass.getpass(f" Pass: ").strip()
+        vault[target_type] = data
+        save_vault(vault)
+    return data
 
-# --- CUSTOM PROMPT UCENK D-TECH ---
-PROMPT='%F{green}[Ucenk %F{cyan}D-Tech%F{white}]%F{yellow} ~ $ %f'
+def show_sticky_header():
+    """Urutan: Banner -> Neofetch -> List Menu"""
+    os.system('clear')
+    # 1. Header Paling Atas (Banner Figlet)
+    os.system('echo "======================================================" | lolcat')
+    os.system('figlet -f slant "Ucenk D-Tech" | lolcat')
+    os.system('echo "      Author: Ucenk  |  Premium Network Management System" | lolcat')
+    os.system('echo "======================================================" | lolcat')
+    os.system('echo " Welcome back, Ucenk D-Tech!" | lolcat')
+    
+    # 2. Neofetch Ubuntu di bawah banner
+    os.system('neofetch --ascii_distro ubuntu')
+    
+    # 3. Tabel Menu
+    os.system('echo "Ketik nomor untuk menjalankan menu yang ada inginkan" | lolcat')
+    os.system('echo "=============================" | lolcat')
+    os.system('echo "Mikrotik Management Tools" | lolcat')
+    os.system('echo "=============================" | lolcat')
+    print(f"{WHITE}1. Jalankan Mikhmon Server        5. Bandwidth Usage Report (CSV)")
+    print(f"2. Total User Aktif Hotspot       6. Backup & Restore Config MikroTik")
+    print(f"3. Cek DHCP Alert (Rogue DHCP)    7. SNMP Monitoring (placeholder)")
+    print(f"4. Hapus Laporan Mikhmon          8. Log Viewer MikroTik{RESET}")
+    
+    os.system('echo "=============================" | lolcat')
+    os.system('echo "OLT Management Tools" | lolcat')
+    os.system('echo "=============================" | lolcat')
+    print(f"{WHITE}9. Lihat semua ONU (Aktif)        10. Konfigurasi ONU")
+    print(f"11. Reset ONU                     12. Port & VLAN Config")
+    print(f"13. Alarm & Event Viewer          14. Backup & Restore Config OLT")
+    print(f"15. Traffic Report per PON (CSV)  16. Auto Audit Script (daily){RESET}")
 
-# --- TAMPILAN STARTUP ---
-clear
-neofetch --ascii_distro ubuntu
-echo "======================================================" | lolcat
-figlet -f slant "Ucenk D-Tech" | lolcat
-echo "      Author: Ucenk  |  Premium Network Management System" | lolcat
-echo "======================================================" | lolcat
-echo " Welcome back, Ucenk D-Tech!" | lolcat
+    os.system('echo "=============================" | lolcat')
+    os.system('echo "Network Tools" | lolcat')
+    os.system('echo "=============================" | lolcat')
+    print(f"{WHITE}17. Speedtest CLI                 20. Ping & Traceroute")
+    print(f"18. Nmap Scan                     21. DNS Tools (Lookup / Reverse)")
+    print(f"19. MAC Lookup                    22. Update-tools{RESET}")
+    print(f"{MAGENTA}====================================================={RESET}")
 
-# Jalankan Menu Otomatis
-[ -f "$HOME/NetworkTools/menu.py" ] && python $HOME/NetworkTools/menu.py
+def run_mt(menu_type):
+    try:
+        import routeros_api
+        creds = get_credentials("mikrotik")
+        conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True)
+        api = conn.get_api()
+        if menu_type == '2':
+            active = api.get_resource('/ip/hotspot/active').get()
+            print(f"\n{GREEN}>>> TOTAL USER AKTIF: {len(active)} USER{RESET}")
+        elif menu_type == '3':
+            alerts = api.get_resource('/ip/dhcp-server/alert').get()
+            if not alerts: print(f"\n{GREEN}[OK] DHCP Aman, tidak ada Rogue DHCP detected.{RESET}")
+            else:
+                for a in alerts: print(f"{RED}[ALERT] Interface: {a.get('interface')} - MAC: {a.get('mac-address')}{RESET}")
+        elif menu_type == '4':
+            scripts = api.get_resource('/system/script')
+            to_del = [s for s in scripts.get() if 'mikhmon' in s.get('comment', '').lower()]
+            if not to_del: print(f"{YELLOW}Tidak ada script laporan mikhmon.{RESET}")
+            else:
+                print(f"Ditemukan {len(to_del)} item."); conf = input("Hapus? (y/n): ").lower()
+                if conf == 'y':
+                    for s in to_del: scripts.remove(id=s.get('id'))
+                    print(f"{GREEN}Laporan Mikhmon telah dibersihkan.{RESET}")
+        conn.disconnect()
+    except Exception as e: print(f"{RED}Error Mikrotik: {e}{RESET}")
 
-# Aliases
-alias menu='python $HOME/NetworkTools/menu.py'
-alias update-tools='cd $HOME/NetworkTools && git reset --hard && git pull origin main && bash install.sh'
-alias mikhmon='[ ! -d $HOME/mikhmon ] && mkdir -p $HOME/mikhmon; php -S 0.0.0.0:8080 -t $HOME/mikhmon'
-EOF
+def run_olt_telnet(cmds):
+    creds = get_credentials("olt")
+    try:
+        tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
+        tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
+        tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
+        time.sleep(1); tn.write(b"terminal length 0\n")
+        tn.read_until(b"ZXAN#")
+        out = ""
+        for c in cmds:
+            tn.write(c.encode() + b"\n"); time.sleep(1)
+            out += tn.read_very_eager().decode()
+        tn.write(b"exit\n"); return out
+    except Exception as e: return f"Error OLT: {e}"
 
-# 4. Git Security & Izin
-cat > "$REPO_DIR/.gitignore" << EOF
-vault_session.json
-__pycache__/
-*.pyc
-EOF
-chmod +x $REPO_DIR/*.py $REPO_DIR/*.sh
+def main():
+    while True:
+        show_sticky_header()
+        c = input(f"{CYAN}Pilih Nomor: {RESET}").strip()
+        
+        if c == '1':
+            p = os.path.expanduser("~/mikhmon")
+            print(f"{YELLOW}[*] Memperbaiki izin folder Mikhmon...{RESET}")
+            os.system(f"mkdir -p {p}")
+            os.system(f"chmod -R 777 {p}") # Fix Permission Denied
+            print(f"{GREEN}Menjalankan Mikhmon Server di port 8080...{RESET}")
+            os.system(f'php -S 0.0.0.0:8080 -t {p}')
+            
+        elif c in ['2', '3', '4']:
+            run_mt(c)
+            
+        elif c == '9':
+            print(f"{YELLOW}Mencari ONU Aktif (OLT)...{RESET}")
+            result = run_olt_telnet(["show pon onu information"])
+            print(f"\n{WHITE}{result}{RESET}")
+            
+        elif c == '22':
+            os.system('cd $HOME/NetworkTools && git reset --hard && git pull origin main && bash install.sh')
+            break
+        elif c == '0': break
+        
+        input(f"\n{YELLOW}Tekan Enter untuk kembali ke Menu Utama...{RESET}")
 
-echo "======================================================" | lolcat
-echo "    INSTALASI SELESAI! Silakan buka ulang Termux." | lolcat
-echo "======================================================" | lolcat
+if __name__ == "__main__":
+    main()

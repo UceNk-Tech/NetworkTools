@@ -24,7 +24,7 @@ def get_credentials(target_type):
     vault = load_vault()
     data = vault.get(target_type, {})
     if not data or not data.get('ip'):
-        print(f"\n{YELLOW}[!] Setup Login {target_type.upper()} (Private Local){RESET}")
+        print(f"\n{YELLOW}[!] Setup Login {target_type.upper()}{RESET}")
         data = {'ip': input(f" IP: ").strip(), 'user': input(f" User: ").strip()}
         import getpass
         data['pass'] = getpass.getpass(f" Pass: ").strip()
@@ -33,16 +33,16 @@ def get_credentials(target_type):
     return data
 
 def show_sticky_header():
-    """Urutan: Banner -> Neofetch -> List Menu"""
+    """Urutan Visual: Banner Figlet (Atas) -> Neofetch (Bawah) -> List Menu"""
     os.system('clear')
-    # 1. Header Paling Atas (Banner Figlet)
+    # 1. Header Banner Figlet (Paling Atas)
     os.system('echo "======================================================" | lolcat')
     os.system('figlet -f slant "Ucenk D-Tech" | lolcat')
     os.system('echo "      Author: Ucenk  |  Premium Network Management System" | lolcat')
     os.system('echo "======================================================" | lolcat')
     os.system('echo " Welcome back, Ucenk D-Tech!" | lolcat')
     
-    # 2. Neofetch Ubuntu di bawah banner
+    # 2. Neofetch Ubuntu (Di bawah banner)
     os.system('neofetch --ascii_distro ubuntu')
     
     # 3. Tabel Menu
@@ -82,20 +82,11 @@ def run_mt(menu_type):
             print(f"\n{GREEN}>>> TOTAL USER AKTIF: {len(active)} USER{RESET}")
         elif menu_type == '3':
             alerts = api.get_resource('/ip/dhcp-server/alert').get()
-            if not alerts: print(f"\n{GREEN}[OK] DHCP Aman, tidak ada Rogue DHCP detected.{RESET}")
+            if not alerts: print(f"\n{GREEN}[OK] DHCP Aman.{RESET}")
             else:
                 for a in alerts: print(f"{RED}[ALERT] Interface: {a.get('interface')} - MAC: {a.get('mac-address')}{RESET}")
-        elif menu_type == '4':
-            scripts = api.get_resource('/system/script')
-            to_del = [s for s in scripts.get() if 'mikhmon' in s.get('comment', '').lower()]
-            if not to_del: print(f"{YELLOW}Tidak ada script laporan mikhmon.{RESET}")
-            else:
-                print(f"Ditemukan {len(to_del)} item."); conf = input("Hapus? (y/n): ").lower()
-                if conf == 'y':
-                    for s in to_del: scripts.remove(id=s.get('id'))
-                    print(f"{GREEN}Laporan Mikhmon telah dibersihkan.{RESET}")
         conn.disconnect()
-    except Exception as e: print(f"{RED}Error Mikrotik: {e}{RESET}")
+    except Exception as e: print(f"{RED}Error: {e}{RESET}")
 
 def main():
     while True:
@@ -103,28 +94,24 @@ def main():
         c = input(f"{CYAN}Pilih Nomor: {RESET}").strip()
         
         if c == '1':
+            # JURUS PAMUNGKAS: Pindahkan ke Internal Termux agar izin tidak lock
             p = os.path.expanduser("~/mikhmon")
             tmp = os.path.join(p, "tmp")
-            print(f"{YELLOW}[*] Menghancurkan kunci permission...{RESET}")
             os.system(f"mkdir -p {tmp}")
-            os.system(f"chmod -R 777 {p}")
+            os.system(f"chmod -R 700 {p}") # Izin khusus folder internal Termux
             print(f"{GREEN}Mikhmon Server: http://0.0.0.0:8080{RESET}")
-            # Menjalankan PHP dengan session path kustom agar tidak 'lock'
             os.system(f'php -d session.save_path={tmp} -S 0.0.0.0:8080 -t {p}')
             
         elif c in ['2', '3', '4']:
             run_mt(c)
             
-        elif c == '9':
-            print(f"{YELLOW}Mencari ONU Aktif...{RESET}")
-            # Placeholder untuk Telnet OLT
-            input(f"\n{WHITE}Fitur Telnet OLT Sedang Berjalan...{RESET}")
-            
         elif c == '22':
-            os.system('cd $HOME/NetworkTools && git reset --hard && git pull origin main && bash install.sh')
+            print(f"{YELLOW}[*] Updating & Refreshing Dashboard...{RESET}")
+            # Reset hard -> Pull -> Install -> Auto Refresh tampilan awal
+            os.system('cd $HOME/NetworkTools && git reset --hard && git pull origin main && bash install.sh && exec zsh')
             break
         elif c == '0': break
-        input(f"\n{YELLOW}Tekan Enter untuk kembali ke Menu...{RESET}")
+        input(f"\n{YELLOW}Tekan Enter untuk kembali...{RESET}")
 
 if __name__ == "__main__":
     main()

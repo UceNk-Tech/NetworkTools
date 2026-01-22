@@ -32,7 +32,7 @@ def get_credentials(target_type):
     return data
 
 # =====================================================
-# FUNGSI-FUNGSI (MIKROTIK & OLT)
+# FUNGSI MIKROTIK
 # =====================================================
 
 def run_mt(menu_type):
@@ -41,6 +41,7 @@ def run_mt(menu_type):
         creds = get_credentials("mikrotik")
         conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True)
         api = conn.get_api()
+        
         if menu_type == '2':
             active = api.get_resource('/ip/hotspot/active').get()
             print(f"\n{GREEN}>>> TOTAL USER AKTIF: {len(active)} USER{RESET}")
@@ -60,24 +61,30 @@ def run_mt(menu_type):
                     count += 1
             print(f"{GREEN}[V] Berhasil menghapus {count} script mikhmon.{RESET}")
         conn.disconnect()
-    except Exception as e: print(f"{RED}Error: {e}{RESET}")
+    except Exception as e: print(f"{RED}Error MT: {e}{RESET}")
+
+# =====================================================
+# FUNGSI OLT (FIXED TOTAL: NO LOOP, NO EXTRA SLASH)
+# =====================================================
 
 def run_olt_telnet_onu():
     creds = get_credentials("olt")
     try:
-        # REVISI FINAL: Input murni tanpa penambahan angka otomatis
-        print(f"\n{CYAN}Masukkan nomor Slot/PON/ID (Contoh: 1/1/1){RESET}")
-        target = input(f"{CYAN} Input nomor: {RESET}").strip()
+        # Input murni dari Ucenk
+        target = input(f"{CYAN} Input nomor (Slot/PON/ID): {RESET}").strip()
         if not target: return
         
         tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
         tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
         tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
-        time.sleep(1); tn.write(b"terminal length 0\n")
+        time.sleep(1)
+        tn.write(b"terminal length 0\n")
         tn.read_until(b"ZXAN#")
         
-        # Perintah ditempel persis seperti input Ucenk
+        # PERBAIKAN DISINI: Langsung kirim gpon-olt_1/ + target
+        # Jika target = 1/1/1 maka hasil = gpon-olt_1/1/1
         command = f"show pon onu information gpon-olt_1/{target}\n"
+        
         print(f"{YELLOW}[*] Mengirim: {command.strip()}{RESET}")
         
         tn.write(command.encode('ascii'))
@@ -114,10 +121,20 @@ def run_olt_config_onu():
         name = input("Nama: ").strip()
         onu_type = input("Type (ALL): ").strip() or "ALL"
         
-        cmds = ["conf t", f"interface gpon-olt_1/{s}/{p}", f"onu {oid} type {onu_type} sn {sn}", "exit",
-                f"interface gpon-onu_1/{s}/{p}:{oid}", f"name {name}", "tcont 1 profile server", "gemport 1 tcont 1",
-                f"service-port 1 vport 1 user-vlan {vlan} vlan {vlan}", "exit",
-                f"pon-onu-mng gpon-onu_1/{s}/{p}:{oid}", f"service 1 gemport 1 vlan {vlan}"]
+        cmds = [
+            "conf t",
+            f"interface gpon-olt_1/{s}/{p}",
+            f"onu {oid} type {onu_type} sn {sn}",
+            "exit",
+            f"interface gpon-onu_1/{s}/{p}:{oid}",
+            f"name {name}",
+            "tcont 1 profile server",
+            "gemport 1 tcont 1",
+            f"service-port 1 vport 1 user-vlan {vlan} vlan {vlan}",
+            "exit",
+            f"pon-onu-mng gpon-onu_1/{s}/{p}:{oid}",
+            f"service 1 gemport 1 vlan {vlan}"
+        ]
         
         if mode == "Hotspot":
             cmds.append(f"vlan port wifi_0/1 mode gtag vlan {vlan}")
@@ -127,12 +144,16 @@ def run_olt_config_onu():
             cmds.append(f"wan-ip mode pppoe username {u} password {pw} vlan-profile pppoe host 1")
         
         cmds.extend(["security-mgmt 212 state enable mode forward protocol web", "end", "write"])
-        for cmd in cmds: tn.write(cmd.encode() + b"\n"); time.sleep(0.3)
-        print(f"{GREEN}[V] Berhasil!{RESET}"); tn.close()
-    except Exception as e: print(f"{RED}Error: {e}{RESET}")
+        for cmd in cmds:
+            tn.write(cmd.encode() + b"\n")
+            time.sleep(0.3)
+            
+        print(f"{GREEN}[V] Berhasil!{RESET}")
+        tn.close()
+    except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
 
 # =====================================================
-# TAMPILAN DASHBOARD
+# UI DASHBOARD
 # =====================================================
 
 def show_sticky_header():

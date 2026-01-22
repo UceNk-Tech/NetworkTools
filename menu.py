@@ -44,7 +44,7 @@ def header():
     print(f"{WHITE}      (Mikrotik: API 8728 | OLT: Telnet 23)          {RESET}")
     print(f"{MAGENTA}======================================================{RESET}")
 
-# ---------- ENGINE MIKROTIK (FIXED API POOL) ----------
+# ---------- ENGINE MIKROTIK (API 8728) ----------
 
 def run_mt_api(menu_type):
     try:
@@ -56,27 +56,26 @@ def run_mt_api(menu_type):
     creds = get_credentials("mikrotik")
     
     try:
-        # MENGGUNAKAN RouterOsApiPool (Cara paling kompatibel)
         connection = routeros_api.RouterOsApiPool(
             creds['ip'], 
             username=creds['user'], 
             password=creds['pass'], 
             port=8728,
-            plaintext_login=True # Menambah kompatibilitas dengan RouterOS lama/baru
+            plaintext_login=True
         )
         api = connection.get_api()
         
         if menu_type == '1':
-            print(f"{CYAN}Monitor Traffic Interface...{RESET}")
-            resource = api.get_resource('/interface')
-            for i in resource.get():
-                print(f"[{i.get('name')}] Type: {i.get('type')} | Running: {i.get('running')}")
+            print(f"{CYAN}Mengambil Data Traffic...{RESET}")
+            res = api.get_resource('/interface').get()
+            for i in res:
+                print(f"[{i.get('name')}] Running: {i.get('running')}")
                 
         elif menu_type == '2':
             active = api.get_resource('/ip/hotspot/active').get()
             print(f"\n{GREEN}Total Hotspot Aktif: {len(active)}{RESET}")
             for u in active:
-                print(f"User: {u.get('user'):<15} IP: {u.get('address'):<15} Uptime: {u.get('uptime')}")
+                print(f"User: {u.get('user'):<15} IP: {u.get('address'):<15}")
         
         elif menu_type == '3':
             u_res = api.get_resource('/ip/hotspot/user')
@@ -85,12 +84,21 @@ def run_mt_api(menu_type):
                 if "vc-" in u.get('comment', '') and u.get('limit-uptime') == u.get('uptime'):
                     u_res.remove(id=u.get('id'))
                     count += 1
-            print(f"{GREEN}Berhasil menghapus {count} voucher expired.{RESET}")
+            print(f"{GREEN}Hapus {count} voucher expired selesai.{RESET}")
+
+        elif menu_type == '4':
+            print(f"{CYAN}Mengecek DHCP Alert...{RESET}")
+            # Menggunakan jalur resource yang benar
+            alerts = api.get_resource('/ip/dhcp-server/alert').get()
+            if not alerts:
+                print(f"{YELLOW}Status: Aman. Tidak ada Rogue DHCP terdeteksi.{RESET}")
+            else:
+                for a in alerts:
+                    print(f"{RED}[ALERT] Interface: {a.get('interface')} | Mac: {a.get('mac-address')}{RESET}")
 
         connection.disconnect()
     except Exception as e:
         print(f"{RED}Mikrotik API Error: {e}{RESET}")
-        print(f"{YELLOW}Tips: Jika 'Login failed', cek password atau izinkan IP di Winbox API.{RESET}")
 
 # ---------- ENGINE OLT (TELNET PORT 23) ----------
 
@@ -102,16 +110,19 @@ def run_olt_telnet(cmds):
         tn.write(creds['user'].encode('ascii') + b"\n")
         tn.read_until(b"Password:", timeout=5)
         tn.write(creds['pass'].encode('ascii') + b"\n")
+        
+        time.sleep(1)
         tn.write(b"terminal length 0\n")
-        tn.read_until(b"ZXAN#")
+        tn.read_until(b"ZXAN#", timeout=5)
         
         output = ""
         for c in cmds:
             tn.write(c.encode('ascii') + b"\n")
-            output += tn.read_until(b"ZXAN#", timeout=15).decode('ascii')
+            time.sleep(2) # Jeda agar data dari OLT masuk ke buffer
+            output += tn.read_very_eager().decode('ascii')
         
         tn.write(b"exit\n")
-        return output
+        return output if output.strip() else f"{YELLOW}Data tidak ditemukan atau OLT sibuk.{RESET}"
     except Exception as e:
         return f"{RED}OLT Error: {e}{RESET}"
 
@@ -134,16 +145,18 @@ def main():
             input(f"\n{YELLOW}Tekan Enter...{RESET}")
         elif c == '15':
             slot = input("Nomor Slot: ")
-            if slot: print(run_olt_telnet([f"show pon onu information gpon-olt_1/{slot}/1"]))
+            if slot:
+                result = run_olt_telnet([f"show pon onu information gpon-olt_1/{slot}/1"])
+                print(f"\n{GREEN}--- HASIL OLT ---{RESET}\n{result}")
             input(f"\n{YELLOW}Tekan Enter...{RESET}")
         elif c == '99':
             if os.path.exists(VAULT_FILE):
                 os.remove(VAULT_FILE)
-                print(f"{RED}Data dihapus! Silakan pilih menu lagi untuk input baru.{RESET}")
+                print(f"{RED}Data lokal dihapus!{RESET}")
             time.sleep(1)
         elif c == '0':
             break
 
 if __name__ == "__main__":
     main()
-        
+    

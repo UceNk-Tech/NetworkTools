@@ -56,3 +56,6 @@ chsh -s zsh
 touch ~/.hushlogin
 
 echo "Berhasil! Restart Termux lalu ketik 'menu'."
+
+# Alias untuk update tools
+echo "alias update-tools='bash ~/NetworkTools/update.sh'" >> ~/.zshrc

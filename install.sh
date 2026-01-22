@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================
-# NetworkTools Installer (Ucenk-D-Tech) v2.4
+# NetworkTools Installer (Ucenk-D-Tech) v2.5
 # ==========================================
 
 set -e
@@ -9,24 +9,27 @@ set -e
 termux-setup-storage -y || true
 pkg update -y && pkg upgrade -y
 
-# 2) Install Toolchain & TUR (Wajib untuk PyNaCl/Paramiko)
+# 2) Install Toolchain Lengkap (Agar Build Pynacl Berhasil)
 pkg install -y tur-repo
-pkg install -y bash git python zsh figlet curl inetutils neofetch nmap php traceroute dnsutils clang rust pkg-config libffi openssl libsodium
+pkg install -y bash git python zsh figlet curl inetutils neofetch nmap php traceroute dnsutils clang rust pkg-config libffi openssl libsodium make
 
-# 3) Install Library Berat via TUR (Solusi Error Failed Building Wheel)
-# Ini akan menginstall pynacl, cryptography, dan paramiko versi yang sudah jadi.
-pkg install -y python-pynacl python-cryptography python-paramiko
+# 3) Update PIP & Setup Tools
+pip install --upgrade pip setuptools wheel --break-system-packages
 
-# 4) Install sisa modul via PIP
-# Kita gunakan --break-system-packages untuk mengakomodasi aturan Python 3.12
-pip install routeros-api speedtest-cli lolcat pysnmp --break-system-packages || pip install routeros-api speedtest-cli lolcat pysnmp
+# 4) Install paket yang sudah pasti ada di PKG untuk meringankan PIP
+pkg install -y python-cryptography || pip install cryptography --break-system-packages
 
-# 5) Oh My Zsh (Unattended)
+# 5) Install Paramiko & PyNaCl via PIP dengan env variable khusus
+# SODIUM_INSTALL=system memaksa pynacl memakai libsodium yang kita install di langkah 2
+export SODIUM_INSTALL=system
+pip install pynacl paramiko routeros-api speedtest-cli lolcat pysnmp --break-system-packages
+
+# 6) Oh My Zsh (Unattended)
 if [ -d "$HOME/.oh-my-zsh" ]; then rm -rf "$HOME/.oh-my-zsh"; fi
 export KEEP_ZSHRC=yes
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 
-# 6) Konfigurasi .zshrc (BANNER TETAP SESUAI PERMINTAAN)
+# 7) Konfigurasi .zshrc (BANNER TETAP SESUAI PERMINTAAN)
 cat > "$HOME/.zshrc" << 'EOF'
 export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="robbyrussell"
@@ -61,6 +64,5 @@ EOF
 
 chsh -s zsh || true
 echo -e "\n======================================================"
-echo "Selesai! Sekarang PyNaCl & Paramiko sudah terpasang."
-echo "Silakan ketik 'zsh' atau restart Termux, lalu ketik 'menu'."
+echo "Selesai! Jika tidak ada error merah, silakan restart Termux."
 echo "======================================================"

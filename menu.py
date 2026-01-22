@@ -31,9 +31,7 @@ def get_credentials(target_type):
         save_vault(vault)
     return data
 
-# =====================================================
-# MENU 10: KONFIGURASI ONU (ZTE/FH) - NEW
-# =====================================================
+# --- MENU 10: KONFIGURASI ONU ---
 def run_olt_config_onu():
     creds = get_credentials("olt")
     try:
@@ -44,11 +42,10 @@ def run_olt_config_onu():
         print(f"\nPilih Mode:\n1. Hotspot\n2. PPPoE")
         mode = "Hotspot" if input(f"{CYAN}Pilih (1/2): {RESET}").strip() == "1" else "PPPoE"
 
-        # Input data dari Ucenk
         slot = input("Input Slot: ").strip()
         pon  = input("Input PON: ").strip()
-        onu_id = input("ONU ID (misal 1): ").strip()
-        onu_type = input("ONU Type (ALL/F660/F609): ").strip()
+        onu_id = input("ONU ID: ").strip()
+        onu_type = input("ONU Type: ").strip()
         sn = input("SN ONU: ").strip()
         vlan = input("VLAN ID: ").strip()
         name = input("Nama Pelanggan: ").strip()
@@ -63,7 +60,6 @@ def run_olt_config_onu():
         tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
         time.sleep(1)
         
-        # Eksekusi Script Konfigurasi
         cmds = [
             "conf t",
             f"interface gpon-olt_1/{slot}/{pon}",
@@ -87,18 +83,16 @@ def run_olt_config_onu():
 
         cmds.extend(["security-mgmt 212 state enable mode forward protocol web", "end", "write"])
 
-        print(f"{YELLOW}[*] Mengirim perintah ke OLT...{RESET}")
+        print(f"{YELLOW}[*] Mengirim perintah...{RESET}")
         for cmd in cmds:
             tn.write(cmd.encode() + b"\n")
             time.sleep(0.5)
 
-        print(f"{GREEN}[V] Konfigurasi {brand} {mode} Selesai!{RESET}")
+        print(f"{GREEN}[V] Selesai!{RESET}")
         tn.close()
     except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
 
-# =====================================================
-# FUNGSI-FUNGSI LAMA (DIJAMIN TIDAK BERUBAH)
-# =====================================================
+# --- FUNGSI MIKROTIK ---
 def run_mt(menu_type):
     try:
         import routeros_api
@@ -116,10 +110,11 @@ def run_mt(menu_type):
         conn.disconnect()
     except Exception as e: print(f"{RED}Error Mikrotik: {e}{RESET}")
 
+# --- FUNGSI SCAN OLT ---
 def run_olt_telnet_onu():
     creds = get_credentials("olt")
     try:
-        slot = input(f"{CYAN} Masukkan Nomor Slot (Tengah): {RESET}").strip()
+        slot = input(f"{CYAN} Masukkan Nomor Slot: {RESET}").strip()
         if not slot: return
         tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
         tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
@@ -136,6 +131,7 @@ def run_olt_telnet_onu():
         tn.close()
     except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
 
+# --- TAMPILAN HEADER (DIPERBAIKI) ---
 def show_sticky_header():
     os.system('clear')
     os.system('echo "======================================================" | lolcat')
@@ -143,11 +139,16 @@ def show_sticky_header():
     os.system('echo "      Author: Ucenk  |  Premium Network Management System" | lolcat')
     os.system('echo "======================================================" | lolcat')
     os.system('neofetch --ascii_distro ubuntu')
+    
+    # Grid Menu agar rapi dan tampil semua
     print(f"{WHITE}1. Jalankan Mikhmon Server        5. Bandwidth Usage Report (CSV)")
-    print(f"2. Total User Aktif Hotspot       6. Backup & Restore Config MikroTik")
-    print(f"3. Cek DHCP Alert (Rogue DHCP)    4. Hapus Laporan Mikhmon")
+    print(f"2. Total User Aktif Hotspot       6. Backup & Restore Config MT")
+    print(f"3. Cek DHCP Alert (Rogue)         7. SNMP Monitoring")
+    print(f"4. Hapus Laporan Mikhmon          8. Log Viewer MikroTik")
     os.system('echo "-----------------------------" | lolcat')
     print(f"9. Lihat ONU per Slot (Scan)      10. Konfigurasi ONU (ZTE/FH)")
+    print(f"11. Reset ONU                     12. Port & VLAN Config")
+    os.system('echo "-----------------------------" | lolcat')
     print(f"22. Update-tools                  0. Keluar")
     os.system('echo "======================================================" | lolcat')
 

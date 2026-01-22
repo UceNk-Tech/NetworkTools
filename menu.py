@@ -1,60 +1,37 @@
-def run_mt_api(menu_type):
-    try:
-        import routeros_api
-    except ImportError:
-        print(f"{RED}Error: Library 'routeros-api' tidak ditemukan!{RESET}")
-        return
-
-    creds = get_credentials("mikrotik")
-    
-    try:
-        connection = routeros_api.RouterOsApiPool(
-            creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True
-        )
-        api = connection.get_api()
-        
-        # --- LOGIKA MENU 3 (HAPUS LAPORAN) ---
-        if menu_type == '3':
+        elif menu_type == '3':
             print(f"{CYAN}Scanning Script Laporan Mikhmon...{RESET}")
+            # Akses ke System Script (Bukan User Hotspot)
             script_res = api.get_resource('/system/script')
-            # Mencari script yang berawalan 'log-'
+            
+            # Filter ketat: Hanya yang berawalan 'log-' (Format laporan Mikhmon)
             to_delete = [s for s in script_res.get() if s.get('name', '').startswith('log-')]
             
             if not to_delete:
-                print(f"{YELLOW}Tidak ditemukan script laporan (log-) untuk dihapus.{RESET}")
+                print(f"{YELLOW}Tidak ditemukan script laporan (log-) di System Script.{RESET}")
+                print(f"{GREEN}User dan Voucher aman, tidak ada yang perlu dihapus.{RESET}")
             else:
-                print(f"{WHITE}Ditemukan {len(to_delete)} script laporan:{RESET}")
+                print(f"{WHITE}Ditemukan {len(to_delete)} script laporan mikhmon:{RESET}")
                 for s in to_delete:
                     print(f" - {s.get('name')}")
                 
-                # Meminta konfirmasi Ucenk
-                confirm = input(f"\n{RED}Hapus semua script di atas? (y/n): {RESET}").lower()
+                # Konfirmasi manual oleh Ucenk
+                print(f"\n{RED}PERINGATAN: Ini hanya menghapus LOG LAPORAN di System Script.{RESET}")
+                confirm = input(f"{YELLOW}Hapus semua LOG ini? (y/n): {RESET}").lower()
+                
                 if confirm == 'y':
                     count = 0
                     for s in to_delete:
                         script_res.remove(id=s.get('id'))
                         count += 1
-                    # Kosongkan System Note
+                    
+                    # Kosongkan System Note (Tempat simpan totalan sementara Mikhmon)
                     try:
                         api.get_resource('/system/note').set(note="")
-                    except: pass
-                    print(f"{GREEN}Berhasil menghapus {count} script laporan.{RESET}")
+                        print(f"{GREEN}System Note dikosongkan.{RESET}")
+                    except:
+                        pass
+                        
+                    print(f"{GREEN}Selesai! {count} script laporan dihapus. User/Voucher tetap utuh.{RESET}")
                 else:
-                    print(f"{YELLOW}Penghapusan dibatalkan.{RESET}")
-        
-        # --- LOGIKA MENU LAINNYA ---
-        elif menu_type == '1':
-            res = api.get_resource('/interface').get()
-            for i in res: print(f"[{i.get('name')}] Running: {i.get('running')}")
-        elif menu_type == '2':
-            active = api.get_resource('/ip/hotspot/active').get()
-            print(f"\n{GREEN}Total Hotspot Aktif: {len(active)}{RESET}")
-            for u in active: print(f"User: {u.get('user'):<15} IP: {u.get('address'):<15}")
-        elif menu_type == '4':
-            alerts = api.get_resource('/ip/dhcp-server/alert').get()
-            print(alerts if alerts else f"{YELLOW}Aman. Tidak ada Rogue DHCP.{RESET}")
-
-        connection.disconnect()
-    except Exception as e:
-        print(f"{RED}Mikrotik API Error: {e}{RESET}")
-            
+                    print(f"{BLUE}Dibatalkan. Tidak ada data yang dihapus.{RESET}")
+                    

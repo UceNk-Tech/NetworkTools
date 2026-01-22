@@ -31,79 +31,10 @@ def get_credentials(target_type):
         save_vault(vault)
     return data
 
-# --- MENU 10: KONFIGURASI ONU (VERSI RINGKAS & CERDAS) ---
-def run_olt_config_onu():
-    creds = get_credentials("olt")
-    try:
-        tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
-        tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
-        tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
-        time.sleep(1)
-        
-        # 1. Tampilkan ONU yang belum diconfig agar Ucenk tinggal contek
-        print(f"\n{YELLOW}[*] Mencari ONU uncfg...{RESET}")
-        tn.write(b"show gpon onu uncfg\n")
-        time.sleep(2)
-        print(f"{WHITE}{tn.read_very_eager().decode()}{RESET}")
+# =====================================================
+# FUNGSI-FUNGSI (MIKROTIK & OLT)
+# =====================================================
 
-        print(f"{MAGENTA}==== REGISTRASI ONU BARU ===={RESET}")
-        
-        # 2. Input Koordinat (Format: Slot/PON/ID)
-        target = input(f"{CYAN}Masukkan Koordinat (Slot/PON/ID, misal 2/1/1): {RESET}").strip()
-        if not target or "/" not in target:
-            print(f"{RED}Format salah! Gunakan Slot/PON/ID{RESET}"); return
-        
-        s, p, oid = target.split("/")
-
-        print(f"\nPilih Mode:\n1. Hotspot\n2. PPPoE")
-        mode = "Hotspot" if input(f"{CYAN}Pilih (1/2): {RESET}").strip() == "1" else "PPPoE"
-
-        # 3. Input Data Esensial
-        sn = input("Masukkan SN (ZTEG...): ").strip()
-        vlan = input("VLAN ID: ").strip()
-        name = input("Nama Pelanggan: ").strip()
-        onu_type = input("ONU Type (default ALL): ").strip() or "ALL"
-
-        pp_user, pp_pass = ("", "")
-        if mode == "PPPoE":
-            pp_user = input("PPPoE Username: ").strip()
-            pp_pass = input("PPPoE Password: ").strip()
-
-        # 4. Susun Perintah Berdasarkan Logika ZTE OLT
-        cmds = [
-            "conf t",
-            f"interface gpon-olt_1/{s}/{p}",
-            f"onu {oid} type {onu_type} sn {sn}",
-            "exit",
-            f"interface gpon-onu_1/{s}/{p}:{oid}",
-            f"name {name}",
-            "tcont 1 profile server",
-            "gemport 1 tcont 1",
-            f"service-port 1 vport 1 user-vlan {vlan} vlan {vlan}",
-            "exit",
-            f"pon-onu-mng gpon-onu_1/{s}/{p}:{oid}",
-            f"service 1 gemport 1 vlan {vlan}"
-        ]
-        
-        if mode == "Hotspot":
-            cmds.append(f"vlan port wifi_0/1 mode gtag vlan {vlan}")
-            for i in range(1, 5): cmds.append(f"vlan port eth_0/{i} mode tag vlan {vlan}")
-        else: # PPPoE
-            cmds.append(f"wan-ip mode pppoe username {pp_user} password {pp_pass} vlan-profile pppoe host 1")
-
-        cmds.extend(["security-mgmt 212 state enable mode forward protocol web", "end", "write"])
-
-        print(f"{YELLOW}[*] Mengirim konfigurasi ke OLT...{RESET}")
-        for cmd in cmds:
-            tn.write(cmd.encode() + b"\n")
-            time.sleep(0.3)
-
-        print(f"{GREEN}[V] Registrasi ONU di 1/{s}/{p}:{oid} BERHASIL!{RESET}")
-        tn.close()
-    except Exception as e:
-        print(f"{RED}Error Config OLT: {e}{RESET}")
-
-# --- FUNGSI MIKROTIK ---
 def run_mt(menu_type):
     try:
         import routeros_api
@@ -119,9 +50,8 @@ def run_mt(menu_type):
             else:
                 for a in alerts: print(f"{RED}[ALERT] Interface: {a.get('interface')} - MAC: {a.get('mac-address')}{RESET}")
         conn.disconnect()
-    except Exception as e: print(f"{RED}Error Mikrotik: {e}{RESET}")
+    except Exception as e: print(f"{RED}Error: {e}{RESET}")
 
-# --- FUNGSI SCAN OLT ---
 def run_olt_telnet_onu():
     creds = get_credentials("olt")
     try:
@@ -136,13 +66,54 @@ def run_olt_telnet_onu():
             full_port = f"gpon-olt_1/{slot}/{pon_no}"
             print(f"{CYAN}[>] Scan {full_port}...{RESET}")
             tn.write(f"show pon onu information {full_port}\n".encode())
-            time.sleep(0.8)
+            time.sleep(0.5)
             out = tn.read_very_eager().decode()
             if "No related" not in out: print(f"{WHITE}{out}{RESET}")
         tn.close()
     except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
 
-# --- TAMPILAN HEADER (DIPERBAIKI) ---
+def run_olt_config_onu():
+    creds = get_credentials("olt")
+    try:
+        tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
+        tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
+        tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
+        time.sleep(1)
+        print(f"\n{YELLOW}[*] Mencari ONU uncfg...{RESET}")
+        tn.write(b"show gpon onu uncfg\n")
+        time.sleep(2)
+        print(f"{WHITE}{tn.read_very_eager().decode()}{RESET}")
+        print(f"{MAGENTA}==== REGISTRASI ONU BARU ===={RESET}")
+        target = input(f"{CYAN}Masukkan Koordinat (Slot/PON/ID, misal 2/1/1): {RESET}").strip()
+        if not target or "/" not in target: return
+        s, p, oid = target.split("/")
+        mode = "Hotspot" if input(f"Mode (1. Hotspot / 2. PPPoE): ").strip() == "1" else "PPPoE"
+        sn = input("SN ONU: ").strip()
+        vlan = input("VLAN ID: ").strip()
+        name = input("Nama: ").strip()
+        onu_type = input("Type (ALL): ").strip() or "ALL"
+        
+        cmds = ["conf t", f"interface gpon-olt_1/{s}/{p}", f"onu {oid} type {onu_type} sn {sn}", "exit",
+                f"interface gpon-onu_1/{s}/{p}:{oid}", f"name {name}", "tcont 1 profile server", "gemport 1 tcont 1",
+                f"service-port 1 vport 1 user-vlan {vlan} vlan {vlan}", "exit",
+                f"pon-onu-mng gpon-onu_1/{s}/{p}:{oid}", f"service 1 gemport 1 vlan {vlan}"]
+        
+        if mode == "Hotspot":
+            cmds.append(f"vlan port wifi_0/1 mode gtag vlan {vlan}")
+            for i in range(1, 5): cmds.append(f"vlan port eth_0/{i} mode tag vlan {vlan}")
+        else:
+            u, pw = input("User PPPoE: "), input("Pass PPPoE: ")
+            cmds.append(f"wan-ip mode pppoe username {u} password {pw} vlan-profile pppoe host 1")
+        
+        cmds.extend(["security-mgmt 212 state enable mode forward protocol web", "end", "write"])
+        for cmd in cmds: tn.write(cmd.encode() + b"\n"); time.sleep(0.3)
+        print(f"{GREEN}[V] Berhasil!{RESET}"); tn.close()
+    except Exception as e: print(f"{RED}Error: {e}{RESET}")
+
+# =====================================================
+# TAMPILAN DASHBOARD
+# =====================================================
+
 def show_sticky_header():
     os.system('clear')
     os.system('echo "======================================================" | lolcat')
@@ -151,16 +122,23 @@ def show_sticky_header():
     os.system('echo "======================================================" | lolcat')
     os.system('neofetch --ascii_distro ubuntu')
     
-    # Grid Menu agar rapi dan tampil semua
-    print(f"{WHITE}1. Jalankan Mikhmon Server        5. Bandwidth Usage Report (CSV)")
-    print(f"2. Total User Aktif Hotspot       6. Backup & Restore Config MT")
+    print(f"{YELLOW}--- MIKROTIK TOOLS ---{RESET}")
+    print(f"1. Jalankan Mikhmon Server        5. Bandwidth Usage Report")
+    print(f"2. Total User Aktif Hotspot       6. Backup & Restore Config")
     print(f"3. Cek DHCP Alert (Rogue)         7. SNMP Monitoring")
     print(f"4. Hapus Laporan Mikhmon          8. Log Viewer MikroTik")
-    os.system('echo "-----------------------------" | lolcat')
-    print(f"9. Lihat ONU per Slot (Scan)      10. Konfigurasi ONU (ZTE/FH)")
-    print(f"11. Reset ONU                     12. Port & VLAN Config")
-    os.system('echo "-----------------------------" | lolcat')
-    print(f"22. Update-tools                  0. Keluar")
+    
+    print(f"\n{YELLOW}--- OLT TOOLS ---{RESET}")
+    print(f"9. Lihat ONU per Slot (Scan)      13. Alarm & Event Viewer")
+    print(f"10. Konfigurasi ONU (ZTE/FH)      14. Backup & Restore OLT")
+    print(f"11. Reset ONU                     15. Traffic Report per PON")
+    print(f"12. Port & VLAN Config            16. Auto Audit Script")
+    
+    print(f"\n{YELLOW}--- NETWORK TOOLS ---{RESET}")
+    print(f"17. Speedtest CLI                 20. Ping & Traceroute")
+    print(f"18. Nmap Scan                     21. DNS Tools")
+    print(f"19. MAC Lookup                    22. Update-tools")
+    print(f"{MAGENTA}0. Keluar{RESET}")
     os.system('echo "======================================================" | lolcat')
 
 def main():
@@ -174,7 +152,6 @@ def main():
             os.system(f"mkdir -p {tmp} {sess}")
             with open(os.path.join(tmp, "custom.ini"), "w") as f: f.write(f"opcache.enable=0\nsession.save_path=\"{sess}\"\n")
             os.system("fuser -k 8080/tcp > /dev/null 2>&1")
-            print(f"{GREEN}Mikhmon: http://127.0.0.1:8080{RESET}")
             os.system(f'export PHP_INI_SCAN_DIR={tmp}; php -S 127.0.0.1:8080 -t {m_dir}')
         elif c in ['2', '3', '4']: run_mt(c)
         elif c == '9': run_olt_telnet_onu()

@@ -1,17 +1,15 @@
 #!/bin/bash
 # ==========================================
-# NetworkTools Installer (Ucenk-D-Tech) v2.0
+# NetworkTools Installer (Ucenk-D-Tech) v2.0 (Termux Safe)
 # ==========================================
 
 set -e
 
 # 1) Update & base packages
 pkg update -y && pkg upgrade -y
-pkg install -y git python zsh figlet curl inetutils neofetch nmap php \
-               traceroute dnsutils
+pkg install -y bash git python python-pip zsh figlet curl inetutils neofetch nmap php traceroute dnsutils
 
-# 2) Python packages
-pip install --upgrade pip
+# 2) Python packages (gunakan pip bawaan Termux, jangan upgrade pip)
 pip install routeros-api speedtest-cli lolcat paramiko pysnmp
 
 # 3) Oh My Zsh (unattended)
@@ -32,16 +30,28 @@ source $ZSH/oh-my-zsh.sh
 
 PROMPT='%F{green}[Ucenk %F{cyan}D-Tech%F{white}]%F{yellow} ~ $ %f'
 
+# --- TAMPILAN BANNER ---
 clear
+echo "======================================================" | lolcat
 figlet -f slant "Ucenk D-Tech" | lolcat
-echo " Author: Ucenk | Premium Network Management System" | lolcat
+echo "      Author: Ucenk  |  Premium Network Management System" | lolcat
+echo "======================================================" | lolcat
+echo " Welcome back, Ucenk D-Tech!" | lolcat
+echo "" | lolcat
+
+# Logo Ubuntu Paksa
 neofetch --ascii_distro ubuntu
 
+# --- INSTRUKSI UTAMA ---
+echo " Ketik 'mikhmon' untuk menjalankan server." | lolcat
+echo " Ketik 'telnet_IP OLT' untuk management OLT." | lolcat
 echo " Ketik 'menu' untuk membuka tools." | lolcat
 echo " Ketik 'update-tools' untuk menarik update terbaru." | lolcat
 
+# Alias utama
 alias menu='clear && python $HOME/NetworkTools/menu.py'
 alias update-tools='bash $HOME/NetworkTools/update.sh'
+alias mikhmon='php -S 0.0.0.0:8080 -t $HOME/mikhmon'
 EOF
 
 # 6) Default shell & hush login

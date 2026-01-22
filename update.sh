@@ -10,24 +10,36 @@ echo "    Sinkronisasi Tools & Perbaikan Environment..."
 echo "======================================================"
 
 # 1. Tarik update terbaru dari GitHub
+# Tetap mempertahankan vault_session.json karena sudah di .gitignore
 cd $REPO_DIR
+echo "[*] Menarik data terbaru dari GitHub..."
 git reset --hard
 git pull origin main
 
-# 2. Pastikan paket pendukung (sshpass, dll) terinstall
-# Ini solusi agar Error 'sshpass not found' tidak muncul lagi
+# 2. Pastikan paket sistem lengkap
+echo "[*] Memverifikasi paket sistem (sshpass, nmap, dll)..."
 pkg update -y
-pkg install sshpass nmap figlet -y
+pkg install sshpass nmap figlet php lolcat inetutils -y
 
-# 3. Pastikan Library Python aman
-pip install routeros-api speedtest-cli lolcat --break-system-packages || true
+# 3. Pastikan Library Python lengkap & terbaru
+# Ditambah requests & scapy untuk mendukung menu baru
+echo "[*] Memperbarui library Python..."
+pip install --upgrade pip
+pip install routeros-api speedtest-cli lolcat requests scapy pysnmp --break-system-packages || true
 
-# 4. Beri izin eksekusi ulang
+# 4. Keamanan: Pastikan .gitignore tetap ada agar data lokal tidak bocor
+cat > "$REPO_DIR/.gitignore" << EOF
+vault_session.json
+__pycache__/
+*.pyc
+.env
+EOF
+
+# 5. Beri izin eksekusi ulang
 chmod +x menu.py update.sh install.sh
 
-# 5. Jalankan ulang konfigurasi shell
-source ~/.zshrc
-
 echo "======================================================"
-echo "    UPDATE SELESAI! Semua fitur siap digunakan."
+echo "    UPDATE SELESAI!"
+echo "    Semua library telah disinkronkan."
+echo "    Silakan ketik 'menu' atau buka ulang Termux."
 echo "======================================================"

@@ -32,7 +32,7 @@ def get_credentials(target_type):
     return data
 
 # =====================================================
-# FUNGSI-FUNGSI (MIKROTIK & OLT)
+# FUNGSI MIKROTIK
 # =====================================================
 
 def run_mt(menu_type):
@@ -63,11 +63,15 @@ def run_mt(menu_type):
         conn.disconnect()
     except Exception as e: print(f"{RED}Error MT: {e}{RESET}")
 
+# =====================================================
+# FUNGSI OLT
+# =====================================================
+
 def run_olt_telnet_onu():
     creds = get_credentials("olt")
     try:
-        print(f"\n{CYAN}Contoh input: 1/1 (Scan 1 PON) atau 1/1/1 (Cek 1 ONU){RESET}")
-        target = input(f"{CYAN} Input nomor (Slot/PON/ID): {RESET}").strip()
+        print(f"\n{CYAN}Contoh: 1/1 (Lihat 1 PON) atau 1/1/1 (Lihat 1 ONU){RESET}")
+        target = input(f"{CYAN}Input nomor (Slot/PON/ID): {RESET}").strip()
         if not target: return
         
         tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
@@ -76,36 +80,33 @@ def run_olt_telnet_onu():
         time.sleep(1); tn.write(b"terminal length 0\n")
         tn.read_until(b"ZXAN#")
         
-        parts = target.split('/')
-        if len(parts) >= 3: # Spesifik 1 ONU
-            cmd = f"show pon onu information gpon-olt_1/{parts[0]}/{parts[1]}:{parts[2]}\n"
-            print(f"{YELLOW}[*] Memeriksa ONU {target}...{RESET}")
-            tn.write(cmd.encode())
-            time.sleep(1)
-            print(f"{WHITE}{tn.read_very_eager().decode()}{RESET}")
-        else: # Scan 1 PON (Slot/PON)
-            s, p = parts[0], parts[1]
-            print(f"{YELLOW}[*] Menarik data ONU terdaftar di 1/{s}/{p}...{RESET}")
-            tn.write(f"show pon onu information gpon-olt_1/{s}/{p}\n".encode())
-            time.sleep(1.5)
-            print(f"{WHITE}{tn.read_very_eager().decode()}{RESET}")
-            
+        # Perbaikan Logika: Langsung teruskan input user ke perintah show
+        # Jika user input 1/1/1 -> show pon onu information gpon-olt_1/1/1
+        print(f"{YELLOW}[*] Menjalankan: show pon onu information gpon-olt_1/{target}{RESET}")
+        cmd = f"show pon onu information gpon-olt_1/{target}\n"
+        
+        tn.write(cmd.encode())
+        time.sleep(1.5)
+        
+        out = tn.read_very_eager().decode()
+        print(f"\n{WHITE}{out}{RESET}")
         tn.close()
     except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
 
 def run_olt_config_onu():
+    # Fungsi Config ONU tetap (Versi uncfg otomatis)
     creds = get_credentials("olt")
     try:
         tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
         tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
         tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
-        time.sleep(1)
+        time.sleep(1); tn.write(b"terminal length 0\n")
         print(f"\n{YELLOW}[*] Mencari ONU uncfg...{RESET}")
         tn.write(b"show gpon onu uncfg\n")
         time.sleep(2)
         print(f"{WHITE}{tn.read_very_eager().decode()}{RESET}")
         print(f"{MAGENTA}==== REGISTRASI ONU BARU ===={RESET}")
-        target = input(f"{CYAN}Masukkan Koordinat (Slot/PON/ID, misal 2/1/1): {RESET}").strip()
+        target = input(f"{CYAN}Masukkan Koordinat (Slot/PON/ID): {RESET}").strip()
         if not target or "/" not in target: return
         s, p, oid = target.split("/")
         mode = "Hotspot" if input(f"Mode (1. Hotspot / 2. PPPoE): ").strip() == "1" else "PPPoE"
@@ -132,7 +133,7 @@ def run_olt_config_onu():
     except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
 
 # =====================================================
-# TAMPILAN DASHBOARD
+# UI DASHBOARD
 # =====================================================
 
 def show_sticky_header():
@@ -150,7 +151,7 @@ def show_sticky_header():
     print(f"4. Hapus Laporan Mikhmon          8. Log Viewer MikroTik")
     
     print(f"\n{YELLOW}--- OLT TOOLS ---{RESET}")
-    print(f"9. Lihat ONU per Slot (Scan)      13. Alarm & Event Viewer")
+    print(f"9. Lihat ONU Terdaftar (Slot/PON) 13. Alarm & Event Viewer")
     print(f"10. Konfigurasi ONU (ZTE/FH)      14. Backup & Restore OLT")
     print(f"11. Reset ONU                     15. Traffic Report per PON")
     print(f"12. Port & VLAN Config            16. Auto Audit Script")

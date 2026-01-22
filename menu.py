@@ -41,7 +41,6 @@ def run_mt(menu_type):
         creds = get_credentials("mikrotik")
         conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True)
         api = conn.get_api()
-        
         if menu_type == '2':
             active = api.get_resource('/ip/hotspot/active').get()
             print(f"\n{GREEN}>>> TOTAL USER AKTIF: {len(active)} USER{RESET}")
@@ -51,7 +50,6 @@ def run_mt(menu_type):
             else:
                 for a in alerts: print(f"{RED}[ALERT] Interface: {a.get('interface')} - MAC: {a.get('mac-address')}{RESET}")
         elif menu_type == '4':
-            # Revisi Menu 4: Menghapus Script yang mengandung nama mikhmon
             print(f"{YELLOW}[*] Menghapus Laporan/Script Mikhmon...{RESET}")
             scripts = api.get_resource('/system/script')
             all_scripts = scripts.get()
@@ -61,16 +59,15 @@ def run_mt(menu_type):
                     scripts.remove(id=s.get('id'))
                     count += 1
             print(f"{GREEN}[V] Berhasil menghapus {count} script mikhmon.{RESET}")
-        
         conn.disconnect()
     except Exception as e: print(f"{RED}Error: {e}{RESET}")
 
 def run_olt_telnet_onu():
     creds = get_credentials("olt")
     try:
-        # Revisi Menu 9: Input bebas (Slot/PON/ID) dan kirim murni ke OLT
-        print(f"\n{CYAN}Contoh: 1/1/1 (untuk cek 1 ONU){RESET}")
-        target = input(f"{CYAN} Masukkan nomor: {RESET}").strip()
+        # REVISI FINAL: Input murni tanpa penambahan angka otomatis
+        print(f"\n{CYAN}Masukkan nomor Slot/PON/ID (Contoh: 1/1/1){RESET}")
+        target = input(f"{CYAN} Input nomor: {RESET}").strip()
         if not target: return
         
         tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
@@ -79,11 +76,11 @@ def run_olt_telnet_onu():
         time.sleep(1); tn.write(b"terminal length 0\n")
         tn.read_until(b"ZXAN#")
         
-        # Mengirim perintah murni sesuai input Ucenk
-        cmd = f"show pon onu information gpon-olt_1/{target}\n"
-        print(f"{YELLOW}[*] Mengirim: {cmd.strip()}{RESET}")
+        # Perintah ditempel persis seperti input Ucenk
+        command = f"show pon onu information gpon-olt_1/{target}\n"
+        print(f"{YELLOW}[*] Mengirim: {command.strip()}{RESET}")
         
-        tn.write(cmd.encode('ascii'))
+        tn.write(command.encode('ascii'))
         time.sleep(1.5)
         
         out = tn.read_very_eager().decode('ascii', errors='ignore')
@@ -97,16 +94,17 @@ def run_olt_config_onu():
         tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
         tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
         tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
-        time.sleep(1); tn.write(b"terminal length 0\n")
+        time.sleep(1)
+        tn.write(b"terminal length 0\n")
         tn.read_until(b"ZXAN#")
-
+        
         print(f"\n{YELLOW}[*] Mencari ONU uncfg...{RESET}")
         tn.write(b"show gpon onu uncfg\n")
         time.sleep(2)
         print(f"{WHITE}{tn.read_very_eager().decode()}{RESET}")
         
         print(f"{MAGENTA}==== REGISTRASI ONU BARU ===={RESET}")
-        target = input(f"{CYAN}Masukkan Koordinat (Slot/PON/ID, misal 2/1/1): {RESET}").strip()
+        target = input(f"{CYAN}Masukkan Koordinat (Slot/PON/ID): {RESET}").strip()
         if not target or "/" not in target: return
         s, p, oid = target.split("/")
         

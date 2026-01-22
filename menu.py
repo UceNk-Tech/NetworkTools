@@ -32,7 +32,7 @@ def get_credentials(target_type):
     return data
 
 # =====================================================
-# FUNGSI MIKROTIK
+# FUNGSI-FUNGSI (MIKROTIK & OLT)
 # =====================================================
 
 def run_mt(menu_type):
@@ -51,6 +51,7 @@ def run_mt(menu_type):
             else:
                 for a in alerts: print(f"{RED}[ALERT] Interface: {a.get('interface')} - MAC: {a.get('mac-address')}{RESET}")
         elif menu_type == '4':
+            # Revisi Menu 4: Menghapus Script yang mengandung nama mikhmon
             print(f"{YELLOW}[*] Menghapus Laporan/Script Mikhmon...{RESET}")
             scripts = api.get_resource('/system/script')
             all_scripts = scripts.get()
@@ -60,32 +61,29 @@ def run_mt(menu_type):
                     scripts.remove(id=s.get('id'))
                     count += 1
             print(f"{GREEN}[V] Berhasil menghapus {count} script mikhmon.{RESET}")
+        
         conn.disconnect()
-    except Exception as e: print(f"{RED}Error MT: {e}{RESET}")
-
-# =====================================================
-# FUNGSI OLT
-# =====================================================
+    except Exception as e: print(f"{RED}Error: {e}{RESET}")
 
 def run_olt_telnet_onu():
     creds = get_credentials("olt")
     try:
-        print(f"\n{CYAN}Masukkan Slot/PON atau Slot/PON/ID (Contoh: 1/1 atau 1/1/1){RESET}")
-        target = input(f"{CYAN} Input nomor: {RESET}").strip()
+        # Revisi Menu 9: Input bebas (Slot/PON/ID) dan kirim murni ke OLT
+        print(f"\n{CYAN}Contoh: 1/1/1 (untuk cek 1 ONU){RESET}")
+        target = input(f"{CYAN} Masukkan nomor: {RESET}").strip()
         if not target: return
         
         tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
         tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
         tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
-        time.sleep(1)
-        tn.write(b"terminal length 0\n")
+        time.sleep(1); tn.write(b"terminal length 0\n")
         tn.read_until(b"ZXAN#")
         
-        # Alice pastikan perintahnya bersih dan persis sesuai input Ucenk
-        command = f"show pon onu information gpon-olt_1/{target}\n"
-        print(f"{YELLOW}[*] Mengirim: {command.strip()}{RESET}")
+        # Mengirim perintah murni sesuai input Ucenk
+        cmd = f"show pon onu information gpon-olt_1/{target}\n"
+        print(f"{YELLOW}[*] Mengirim: {cmd.strip()}{RESET}")
         
-        tn.write(command.encode('ascii'))
+        tn.write(cmd.encode('ascii'))
         time.sleep(1.5)
         
         out = tn.read_very_eager().decode('ascii', errors='ignore')
@@ -99,17 +97,16 @@ def run_olt_config_onu():
         tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
         tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
         tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
-        time.sleep(1)
-        tn.write(b"terminal length 0\n")
+        time.sleep(1); tn.write(b"terminal length 0\n")
         tn.read_until(b"ZXAN#")
-        
+
         print(f"\n{YELLOW}[*] Mencari ONU uncfg...{RESET}")
         tn.write(b"show gpon onu uncfg\n")
         time.sleep(2)
         print(f"{WHITE}{tn.read_very_eager().decode()}{RESET}")
         
         print(f"{MAGENTA}==== REGISTRASI ONU BARU ===={RESET}")
-        target = input(f"{CYAN}Masukkan Koordinat (Slot/PON/ID): {RESET}").strip()
+        target = input(f"{CYAN}Masukkan Koordinat (Slot/PON/ID, misal 2/1/1): {RESET}").strip()
         if not target or "/" not in target: return
         s, p, oid = target.split("/")
         
@@ -119,41 +116,25 @@ def run_olt_config_onu():
         name = input("Nama: ").strip()
         onu_type = input("Type (ALL): ").strip() or "ALL"
         
-        cmds = [
-            "conf t",
-            f"interface gpon-olt_1/{s}/{p}",
-            f"onu {oid} type {onu_type} sn {sn}",
-            "exit",
-            f"interface gpon-onu_1/{s}/{p}:{oid}",
-            f"name {name}",
-            "tcont 1 profile server",
-            "gemport 1 tcont 1",
-            f"service-port 1 vport 1 user-vlan {vlan} vlan {vlan}",
-            "exit",
-            f"pon-onu-mng gpon-onu_1/{s}/{p}:{oid}",
-            f"service 1 gemport 1 vlan {vlan}"
-        ]
+        cmds = ["conf t", f"interface gpon-olt_1/{s}/{p}", f"onu {oid} type {onu_type} sn {sn}", "exit",
+                f"interface gpon-onu_1/{s}/{p}:{oid}", f"name {name}", "tcont 1 profile server", "gemport 1 tcont 1",
+                f"service-port 1 vport 1 user-vlan {vlan} vlan {vlan}", "exit",
+                f"pon-onu-mng gpon-onu_1/{s}/{p}:{oid}", f"service 1 gemport 1 vlan {vlan}"]
         
         if mode == "Hotspot":
             cmds.append(f"vlan port wifi_0/1 mode gtag vlan {vlan}")
             for i in range(1, 5): cmds.append(f"vlan port eth_0/{i} mode tag vlan {vlan}")
         else:
-            u = input("User PPPoE: ").strip()
-            pw = input("Pass PPPoE: ").strip()
+            u, pw = input("User PPPoE: ").strip(), input("Pass PPPoE: ").strip()
             cmds.append(f"wan-ip mode pppoe username {u} password {pw} vlan-profile pppoe host 1")
         
         cmds.extend(["security-mgmt 212 state enable mode forward protocol web", "end", "write"])
-        
-        for cmd in cmds:
-            tn.write(cmd.encode() + b"\n")
-            time.sleep(0.3)
-            
-        print(f"{GREEN}[V] Berhasil!{RESET}")
-        tn.close()
-    except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
+        for cmd in cmds: tn.write(cmd.encode() + b"\n"); time.sleep(0.3)
+        print(f"{GREEN}[V] Berhasil!{RESET}"); tn.close()
+    except Exception as e: print(f"{RED}Error: {e}{RESET}")
 
 # =====================================================
-# UI DASHBOARD
+# TAMPILAN DASHBOARD
 # =====================================================
 
 def show_sticky_header():

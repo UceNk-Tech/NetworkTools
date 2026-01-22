@@ -60,30 +60,36 @@ def run_mt(menu_type):
                     scripts.remove(id=s.get('id'))
                     count += 1
             print(f"{GREEN}[V] Berhasil menghapus {count} script mikhmon.{RESET}")
-            
         conn.disconnect()
-    except Exception as e: print(f"{RED}Error Mikrotik: {e}{RESET}")
+    except Exception as e: print(f"{RED}Error MT: {e}{RESET}")
 
 def run_olt_telnet_onu():
     creds = get_credentials("olt")
     try:
-        slot = input(f"{CYAN} Masukkan Nomor Slot (Tengah): {RESET}").strip()
-        if not slot: return
+        print(f"\n{CYAN}Contoh input: 1/1 (Scan 1 PON) atau 1/1/1 (Cek 1 ONU){RESET}")
+        target = input(f"{CYAN} Input nomor (Slot/PON/ID): {RESET}").strip()
+        if not target: return
+        
         tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
         tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
         tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
-        time.sleep(1)
-        
-        tn.write(b"terminal length 0\n")
+        time.sleep(1); tn.write(b"terminal length 0\n")
         tn.read_until(b"ZXAN#")
         
-        print(f"{YELLOW}[*] Menampilkan daftar ONU terdaftar di Slot {slot}...{RESET}")
-        # Menampilkan hasil scan sekaligus untuk seluruh port di slot tersebut
-        tn.write(f"show pon onu information gpon-olt_1/{slot}/1-16\n".encode())
-        time.sleep(2)
-        
-        out = tn.read_very_eager().decode()
-        print(f"\n{WHITE}{out}{RESET}")
+        parts = target.split('/')
+        if len(parts) >= 3: # Spesifik 1 ONU
+            cmd = f"show pon onu information gpon-olt_1/{parts[0]}/{parts[1]}:{parts[2]}\n"
+            print(f"{YELLOW}[*] Memeriksa ONU {target}...{RESET}")
+            tn.write(cmd.encode())
+            time.sleep(1)
+            print(f"{WHITE}{tn.read_very_eager().decode()}{RESET}")
+        else: # Scan 1 PON (Slot/PON)
+            s, p = parts[0], parts[1]
+            print(f"{YELLOW}[*] Menarik data ONU terdaftar di 1/{s}/{p}...{RESET}")
+            tn.write(f"show pon onu information gpon-olt_1/{s}/{p}\n".encode())
+            time.sleep(1.5)
+            print(f"{WHITE}{tn.read_very_eager().decode()}{RESET}")
+            
         tn.close()
     except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
 
@@ -144,7 +150,7 @@ def show_sticky_header():
     print(f"4. Hapus Laporan Mikhmon          8. Log Viewer MikroTik")
     
     print(f"\n{YELLOW}--- OLT TOOLS ---{RESET}")
-    print(f"9. Lihat ONU per Slot (Daftar)    13. Alarm & Event Viewer")
+    print(f"9. Lihat ONU per Slot (Scan)      13. Alarm & Event Viewer")
     print(f"10. Konfigurasi ONU (ZTE/FH)      14. Backup & Restore OLT")
     print(f"11. Reset ONU                     15. Traffic Report per PON")
     print(f"12. Port & VLAN Config            16. Auto Audit Script")

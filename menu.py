@@ -25,22 +25,16 @@ def save_vault(data):
 def get_credentials(target_type):
     vault = load_vault()
     data = vault.get(target_type, {})
-    
-    # Jika data kosong, minta input ke Ucenk
     if not data or not data.get('ip'):
         header()
-        print(f"\n{YELLOW}[!] Setup Login {target_type.upper()} (Hanya disimpan di Lokal){RESET}")
+        print(f"\n{YELLOW}[!] Setup Login {target_type.upper()} (Tersimpan Lokal){RESET}")
         data = {}
         data['ip'] = input(f" Masukkan IP {target_type}: ").strip()
         data['user'] = input(f" Masukkan Username: ").strip()
         import getpass
         data['pass'] = getpass.getpass(f" Masukkan Password: ").strip()
-        
-        # Simpan ke vault_session.json agar tidak tanya lagi nanti
         vault[target_type] = data
         save_vault(vault)
-        print(f"{GREEN}[+] Data tersimpan di local Termux.{RESET}")
-        time.sleep(1)
     return data
 
 def header():
@@ -50,7 +44,7 @@ def header():
     print(f"{WHITE}      (Mikrotik: API 8728 | OLT: Telnet 23)          {RESET}")
     print(f"{MAGENTA}======================================================{RESET}")
 
-# ---------- ENGINE MIKROTIK (API 8728) ----------
+# ---------- ENGINE MIKROTIK (FIXED API POOL) ----------
 
 def run_mt_api(menu_type):
     try:
@@ -59,16 +53,16 @@ def run_mt_api(menu_type):
         print(f"{RED}Error: Library 'routeros-api' tidak ditemukan!{RESET}")
         return
 
-    # Minta kredensial dulu sebelum konek
     creds = get_credentials("mikrotik")
     
     try:
-        # Gunakan pemanggilan paling kompatibel untuk library routeros-api
-        connection = routeros_api.RouterOsApi(
+        # MENGGUNAKAN RouterOsApiPool (Cara paling kompatibel)
+        connection = routeros_api.RouterOsApiPool(
             creds['ip'], 
-            user=creds['user'], 
+            username=creds['user'], 
             password=creds['pass'], 
-            port=8728
+            port=8728,
+            plaintext_login=True # Menambah kompatibilitas dengan RouterOS lama/baru
         )
         api = connection.get_api()
         
@@ -92,15 +86,11 @@ def run_mt_api(menu_type):
                     u_res.remove(id=u.get('id'))
                     count += 1
             print(f"{GREEN}Berhasil menghapus {count} voucher expired.{RESET}")
-            
-        elif menu_type == '4':
-            alerts = api.get_resource('/ip/dhcp-server/alert').get()
-            print(alerts if alerts else f"{YELLOW}Tidak ada DHCP Alert.{RESET}")
 
         connection.disconnect()
     except Exception as e:
         print(f"{RED}Mikrotik API Error: {e}{RESET}")
-        print(f"{YELLOW}Saran: Pastikan API Port 8728 di Winbox Aktif.{RESET}")
+        print(f"{YELLOW}Tips: Jika 'Login failed', cek password atau izinkan IP di Winbox API.{RESET}")
 
 # ---------- ENGINE OLT (TELNET PORT 23) ----------
 
@@ -134,7 +124,7 @@ def main():
         print(f" 3. Mikrotik: Hapus Voucher     4. Mikrotik: DHCP Alert")
         print("-" * 54)
         print(f" 15. OLT: List ONU Aktif        16. OLT: Optical Power")
-        print(f" 88. Fix Permission Mikhmon     99. Reset Sesi (Ganti IP/Logout)")
+        print(f" 88. Fix Permission Mikhmon     99. Logout (Reset Data)")
         print(f"  0. Keluar")
         
         c = input(f"\n{WHITE}Pilih Menu: {RESET}").strip()
@@ -143,19 +133,17 @@ def main():
             run_mt_api(c)
             input(f"\n{YELLOW}Tekan Enter...{RESET}")
         elif c == '15':
-            slot = input("Masukkan Nomor Slot (Contoh 2): ")
+            slot = input("Nomor Slot: ")
             if slot: print(run_olt_telnet([f"show pon onu information gpon-olt_1/{slot}/1"]))
             input(f"\n{YELLOW}Tekan Enter...{RESET}")
-        elif c == '88':
-            os.system("chmod -R 755 $HOME/mikhmon")
-            print(f"{GREEN}Permission Mikhmon diperbaiki!{RESET}"); time.sleep(1)
         elif c == '99':
             if os.path.exists(VAULT_FILE):
                 os.remove(VAULT_FILE)
-                print(f"{RED}Sesi Logout! Silakan pilih menu lagi untuk input IP baru.{RESET}")
+                print(f"{RED}Data dihapus! Silakan pilih menu lagi untuk input baru.{RESET}")
             time.sleep(1)
         elif c == '0':
             break
 
 if __name__ == "__main__":
     main()
+        

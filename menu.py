@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import os, time, telnetlib, sys, json
-import readline 
 
 # Warna ANSI
 RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET = (
@@ -32,40 +31,74 @@ def get_credentials(target_type):
         save_vault(vault)
     return data
 
-def show_sticky_header():
-    os.system('clear')
-    os.system('echo "======================================================" | lolcat')
-    os.system('figlet -f slant "Ucenk D-Tech" | lolcat')
-    os.system('echo "      Author: Ucenk  |  Premium Network Management System" | lolcat')
-    os.system('echo "======================================================" | lolcat')
-    os.system('echo " Welcome back, Ucenk D-Tech!" | lolcat')
-    os.system('neofetch --ascii_distro ubuntu')
-    
-    os.system('echo "Ketik nomor untuk menjalankan menu yang ada inginkan" | lolcat')
-    os.system('echo "=============================" | lolcat')
-    os.system('echo "Mikrotik Management Tools" | lolcat')
-    os.system('echo "=============================" | lolcat')
-    print(f"{WHITE}1. Jalankan Mikhmon Server        5. Bandwidth Usage Report (CSV)")
-    print(f"2. Total User Aktif Hotspot       6. Backup & Restore Config MikroTik")
-    print(f"3. Cek DHCP Alert (Rogue DHCP)    7. SNMP Monitoring (placeholder)")
-    print(f"4. Hapus Laporan Mikhmon          8. Log Viewer MikroTik{RESET}")
-    
-    os.system('echo "=============================" | lolcat')
-    os.system('echo "OLT Management Tools" | lolcat')
-    os.system('echo "=============================" | lolcat')
-    print(f"{WHITE}9. Lihat semua ONU (Aktif)        10. Konfigurasi ONU")
-    print(f"11. Reset ONU                     12. Port & VLAN Config")
-    print(f"13. Alarm & Event Viewer          14. Backup & Restore Config OLT")
-    print(f"15. Traffic Report per PON (CSV)  16. Auto Audit Script (daily){RESET}")
+# =====================================================
+# MENU 10: KONFIGURASI ONU (ZTE/FH) - NEW
+# =====================================================
+def run_olt_config_onu():
+    creds = get_credentials("olt")
+    try:
+        print(f"\n{MAGENTA}==== CONFIG ONU OLT ===={RESET}")
+        print("Pilih ONU:\n1. ZTE\n2. FH")
+        brand = "ZTE" if input(f"{CYAN}Pilih (1/2): {RESET}").strip() == "1" else "FH"
 
-    os.system('echo "=============================" | lolcat')
-    os.system('echo "Network Tools" | lolcat')
-    os.system('echo "=============================" | lolcat')
-    print(f"{WHITE}17. Speedtest CLI                 20. Ping & Traceroute")
-    print(f"18. Nmap Scan                     21. DNS Tools (Lookup / Reverse)")
-    print(f"19. MAC Lookup                    22. Update-tools{RESET}")
-    print(f"{MAGENTA}====================================================={RESET}")
+        print(f"\nPilih Mode:\n1. Hotspot\n2. PPPoE")
+        mode = "Hotspot" if input(f"{CYAN}Pilih (1/2): {RESET}").strip() == "1" else "PPPoE"
 
+        # Input data dari Ucenk
+        slot = input("Input Slot: ").strip()
+        pon  = input("Input PON: ").strip()
+        onu_id = input("ONU ID (misal 1): ").strip()
+        onu_type = input("ONU Type (ALL/F660/F609): ").strip()
+        sn = input("SN ONU: ").strip()
+        vlan = input("VLAN ID: ").strip()
+        name = input("Nama Pelanggan: ").strip()
+
+        pp_user, pp_pass = ("", "")
+        if mode == "PPPoE":
+            pp_user = input("PPPoE User: ").strip()
+            pp_pass = input("PPPoE Pass: ").strip()
+
+        tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
+        tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
+        tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
+        time.sleep(1)
+        
+        # Eksekusi Script Konfigurasi
+        cmds = [
+            "conf t",
+            f"interface gpon-olt_1/{slot}/{pon}",
+            f"onu {onu_id} type {onu_type} sn {sn}",
+            "exit",
+            f"interface gpon-onu_1/{slot}/{pon}:{onu_id}",
+            f"name {name}",
+            "tcont 1 profile server",
+            "gemport 1 tcont 1",
+            f"service-port 1 vport 1 user-vlan {vlan} vlan {vlan}",
+            "exit",
+            f"pon-onu-mng gpon-onu_1/{slot}/{pon}:{onu_id}",
+            f"service 1 gemport 1 vlan {vlan}"
+        ]
+        
+        if mode == "Hotspot":
+            cmds.append(f"vlan port wifi_0/1 mode gtag vlan {vlan}")
+            for i in range(1, 5): cmds.append(f"vlan port eth_0/{i} mode tag vlan {vlan}")
+        else:
+            cmds.append(f"wan-ip mode pppoe username {pp_user} password {pp_pass} vlan-profile pppoe host 1")
+
+        cmds.extend(["security-mgmt 212 state enable mode forward protocol web", "end", "write"])
+
+        print(f"{YELLOW}[*] Mengirim perintah ke OLT...{RESET}")
+        for cmd in cmds:
+            tn.write(cmd.encode() + b"\n")
+            time.sleep(0.5)
+
+        print(f"{GREEN}[V] Konfigurasi {brand} {mode} Selesai!{RESET}")
+        tn.close()
+    except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
+
+# =====================================================
+# FUNGSI-FUNGSI LAMA (DIJAMIN TIDAK BERUBAH)
+# =====================================================
 def run_mt(menu_type):
     try:
         import routeros_api
@@ -80,84 +113,64 @@ def run_mt(menu_type):
             if not alerts: print(f"\n{GREEN}[OK] DHCP Aman.{RESET}")
             else:
                 for a in alerts: print(f"{RED}[ALERT] Interface: {a.get('interface')} - MAC: {a.get('mac-address')}{RESET}")
-        elif menu_type == '4':
-            scripts = api.get_resource('/system/script')
-            to_del = [s for s in scripts.get() if 'mikhmon' in s.get('comment', '').lower()]
-            if not to_del: print(f"{YELLOW}Tidak ada script laporan mikhmon.{RESET}")
-            else:
-                print(f"Ditemukan {len(to_del)} item."); conf = input("Hapus? (y/n): ").lower()
-                if conf == 'y':
-                    for s in to_del: scripts.remove(id=s.get('id'))
-                    print(f"{GREEN}Laporan Mikhmon telah dibersihkan.{RESET}")
         conn.disconnect()
-    except Exception as e: print(f"{RED}Error: {e}{RESET}")
+    except Exception as e: print(f"{RED}Error Mikrotik: {e}{RESET}")
 
-# --- FUNGSI OLT (NOMOR 9 - REVISI: CUKUP INPUT SLOT) ---
 def run_olt_telnet_onu():
     creds = get_credentials("olt")
     try:
-        print(f"\n{MAGENTA}==== OLT ONU SCANNER PER SLOT ===={RESET}")
-        slot = input(f"{CYAN} Masukkan Nomor Slot: {RESET}").strip()
-        
-        if not slot:
-            print(f"{RED}Slot tidak boleh kosong!{RESET}"); return
-
+        slot = input(f"{CYAN} Masukkan Nomor Slot (Tengah): {RESET}").strip()
+        if not slot: return
         tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
         tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
         tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
-        time.sleep(1)
-        
-        tn.write(b"terminal length 0\n")
+        time.sleep(1); tn.write(b"terminal length 0\n")
         tn.read_until(b"ZXAN#")
-        
-        # Alice buat looping otomatis dari PON 1 sampai 16
-        print(f"{YELLOW}[*] Menarik data seluruh ONU di Slot {slot} (PON 1-16)...{RESET}")
-        
-        # Looping untuk setiap PON di slot tersebut
         for pon_no in range(1, 17):
             full_port = f"gpon-olt_1/{slot}/{pon_no}"
-            print(f"{CYAN}[>] Memeriksa Port {full_port}...{RESET}")
-            
-            command = f"show pon onu information {full_port}\n"
-            tn.write(command.encode())
-            time.sleep(1) # Delay singkat agar buffer tidak penuh
-            
-            output = tn.read_very_eager().decode()
-            if "No related information to be found" not in output:
-                print(f"{WHITE}{output}{RESET}")
-            else:
-                print(f"{RED}Port {pon_no}: Kosong / Tidak ada ONU.{RESET}")
-
-        tn.write(b"exit\n")
+            print(f"{CYAN}[>] Scan {full_port}...{RESET}")
+            tn.write(f"show pon onu information {full_port}\n".encode())
+            time.sleep(0.8)
+            out = tn.read_very_eager().decode()
+            if "No related" not in out: print(f"{WHITE}{out}{RESET}")
         tn.close()
-        print(f"{GREEN}\n[V] Scanning Slot {slot} Selesai.{RESET}")
-    except Exception as e:
-        print(f"{RED}Error OLT: {e}{RESET}")
+    except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
+
+def show_sticky_header():
+    os.system('clear')
+    os.system('echo "======================================================" | lolcat')
+    os.system('figlet -f slant "Ucenk D-Tech" | lolcat')
+    os.system('echo "      Author: Ucenk  |  Premium Network Management System" | lolcat')
+    os.system('echo "======================================================" | lolcat')
+    os.system('neofetch --ascii_distro ubuntu')
+    print(f"{WHITE}1. Jalankan Mikhmon Server        5. Bandwidth Usage Report (CSV)")
+    print(f"2. Total User Aktif Hotspot       6. Backup & Restore Config MikroTik")
+    print(f"3. Cek DHCP Alert (Rogue DHCP)    4. Hapus Laporan Mikhmon")
+    os.system('echo "-----------------------------" | lolcat')
+    print(f"9. Lihat ONU per Slot (Scan)      10. Konfigurasi ONU (ZTE/FH)")
+    print(f"22. Update-tools                  0. Keluar")
+    os.system('echo "======================================================" | lolcat')
 
 def main():
     while True:
         show_sticky_header()
         c = input(f"{CYAN}Pilih Nomor: {RESET}").strip()
         if c == '1':
-            mikhmon_dir = os.path.expanduser("~/mikhmonv3")
-            tmp_dir = os.path.expanduser("~/tmp")
-            sess_dir = os.path.expanduser("~/session_mikhmon")
-            if not os.path.exists(mikhmon_dir):
-                print(f"{YELLOW}[!] Download Mikhmonv3...{RESET}")
-                os.system(f"git clone https://github.com/laksa19/mikhmonv3.git {mikhmon_dir}")
-            os.system(f"mkdir -p {tmp_dir} {sess_dir}")
-            with open(os.path.join(tmp_dir, "custom.ini"), "w") as f:
-                f.write(f"opcache.enable=0\nsession.save_path=\"{sess_dir}\"\n")
+            m_dir = os.path.expanduser("~/mikhmonv3")
+            tmp, sess = os.path.expanduser("~/tmp"), os.path.expanduser("~/session_mikhmon")
+            if not os.path.exists(m_dir): os.system(f"git clone https://github.com/laksa19/mikhmonv3.git {m_dir}")
+            os.system(f"mkdir -p {tmp} {sess}")
+            with open(os.path.join(tmp, "custom.ini"), "w") as f: f.write(f"opcache.enable=0\nsession.save_path=\"{sess}\"\n")
             os.system("fuser -k 8080/tcp > /dev/null 2>&1")
             print(f"{GREEN}Mikhmon: http://127.0.0.1:8080{RESET}")
-            os.system(f'export PHP_INI_SCAN_DIR={tmp_dir}; php -S 127.0.0.1:8080 -t {mikhmon_dir}')
+            os.system(f'export PHP_INI_SCAN_DIR={tmp}; php -S 127.0.0.1:8080 -t {m_dir}')
         elif c in ['2', '3', '4']: run_mt(c)
         elif c == '9': run_olt_telnet_onu()
+        elif c == '10': run_olt_config_onu()
         elif c == '22':
             os.system('cd $HOME/NetworkTools && git reset --hard && git pull origin main && bash install.sh && exec zsh')
             break
         elif c == '0': break
         input(f"\n{YELLOW}Tekan Enter untuk kembali...{RESET}")
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()

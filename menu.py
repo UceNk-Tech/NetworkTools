@@ -31,47 +31,35 @@ def get_credentials(target_type):
         save_vault(vault)
     return data
 
-# =====================================================
-# FUNGSI-FUNGSI (MIKROTIK & OLT)
-# =====================================================
-
-def run_mt(menu_type):
-    try:
-        import routeros_api
-        creds = get_credentials("mikrotik")
-        conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True)
-        api = conn.get_api()
-        if menu_type == '2':
-            active = api.get_resource('/ip/hotspot/active').get()
-            print(f"\n{GREEN}>>> TOTAL USER AKTIF: {len(active)} USER{RESET}")
-        elif menu_type == '3':
-            alerts = api.get_resource('/ip/dhcp-server/alert').get()
-            if not alerts: print(f"\n{GREEN}[OK] DHCP Aman.{RESET}")
-            else:
-                for a in alerts: print(f"{RED}[ALERT] Interface: {a.get('interface')} - MAC: {a.get('mac-address')}{RESET}")
-        conn.disconnect()
-    except Exception as e: print(f"{RED}Error: {e}{RESET}")
-
+# --- MENU 9: LIHAT ONU TERDAFTAR PER SLOT (VERSI CEPAT) ---
 def run_olt_telnet_onu():
     creds = get_credentials("olt")
     try:
-        slot = input(f"{CYAN} Masukkan Nomor Slot: {RESET}").strip()
+        slot = input(f"{CYAN} Masukkan Nomor Slot (Tengah): {RESET}").strip()
         if not slot: return
+        
         tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
         tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
         tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
-        time.sleep(1); tn.write(b"terminal length 0\n")
+        time.sleep(1)
+        
+        tn.write(b"terminal length 0\n")
         tn.read_until(b"ZXAN#")
-        for pon_no in range(1, 17):
-            full_port = f"gpon-olt_1/{slot}/{pon_no}"
-            print(f"{CYAN}[>] Scan {full_port}...{RESET}")
-            tn.write(f"show pon onu information {full_port}\n".encode())
-            time.sleep(0.5)
-            out = tn.read_very_eager().decode()
-            if "No related" not in out: print(f"{WHITE}{out}{RESET}")
+        
+        print(f"{YELLOW}[*] Menarik data ONU terdaftar di Slot {slot}...{RESET}")
+        
+        # Perintah ini langsung menampilkan semua ONU yang terdaftar di slot tersebut
+        command = f"show pon onu information gpon-olt_1/{slot}/1-16\n"
+        tn.write(command.encode())
+        time.sleep(2)
+        
+        out = tn.read_very_eager().decode()
+        print(f"\n{WHITE}{out}{RESET}")
+        
         tn.close()
     except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
 
+# --- MENU 10: KONFIGURASI ONU (TETAP SEPERTI SEBELUMNYA) ---
 def run_olt_config_onu():
     creds = get_credentials("olt")
     try:
@@ -110,10 +98,7 @@ def run_olt_config_onu():
         print(f"{GREEN}[V] Berhasil!{RESET}"); tn.close()
     except Exception as e: print(f"{RED}Error: {e}{RESET}")
 
-# =====================================================
-# TAMPILAN DASHBOARD
-# =====================================================
-
+# --- DASHBOARD & MAIN ---
 def show_sticky_header():
     os.system('clear')
     os.system('echo "======================================================" | lolcat')
@@ -129,7 +114,7 @@ def show_sticky_header():
     print(f"4. Hapus Laporan Mikhmon          8. Log Viewer MikroTik")
     
     print(f"\n{YELLOW}--- OLT TOOLS ---{RESET}")
-    print(f"9. Lihat ONU per Slot (Scan)      13. Alarm & Event Viewer")
+    print(f"9. Lihat ONU per Slot (Daftar)    13. Alarm & Event Viewer")
     print(f"10. Konfigurasi ONU (ZTE/FH)      14. Backup & Restore OLT")
     print(f"11. Reset ONU                     15. Traffic Report per PON")
     print(f"12. Port & VLAN Config            16. Auto Audit Script")
@@ -153,7 +138,11 @@ def main():
             with open(os.path.join(tmp, "custom.ini"), "w") as f: f.write(f"opcache.enable=0\nsession.save_path=\"{sess}\"\n")
             os.system("fuser -k 8080/tcp > /dev/null 2>&1")
             os.system(f'export PHP_INI_SCAN_DIR={tmp}; php -S 127.0.0.1:8080 -t {m_dir}')
-        elif c in ['2', '3', '4']: run_mt(c)
+        elif c in ['2', '3', '4']: 
+            import routeros_api
+            # Logika Mikrotik langsung dipanggil di sini atau tetap di fungsi run_mt
+            # Agar konsisten Alice biarkan di run_mt
+            run_mt(c)
         elif c == '9': run_olt_telnet_onu()
         elif c == '10': run_olt_config_onu()
         elif c == '22':
@@ -161,5 +150,22 @@ def main():
             break
         elif c == '0': break
         input(f"\n{YELLOW}Tekan Enter untuk kembali...{RESET}")
+
+def run_mt(menu_type):
+    try:
+        import routeros_api
+        creds = get_credentials("mikrotik")
+        conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True)
+        api = conn.get_api()
+        if menu_type == '2':
+            active = api.get_resource('/ip/hotspot/active').get()
+            print(f"\n{GREEN}>>> TOTAL USER AKTIF: {len(active)} USER{RESET}")
+        elif menu_type == '3':
+            alerts = api.get_resource('/ip/dhcp-server/alert').get()
+            if not alerts: print(f"\n{GREEN}[OK] DHCP Aman.{RESET}")
+            else:
+                for a in alerts: print(f"{RED}[ALERT] Interface: {a.get('interface')} - MAC: {a.get('mac-address')}{RESET}")
+        conn.disconnect()
+    except Exception as e: print(f"{RED}Error: {e}{RESET}")
 
 if __name__ == "__main__": main()

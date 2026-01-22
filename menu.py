@@ -33,7 +33,6 @@ def get_credentials(target_type):
     return data
 
 def show_header():
-    # Menjalankan lolcat dari python agar tidak error
     os.system('echo "Ketik nomor untuk menjalankan menu yang ada inginkan" | lolcat')
     os.system('echo "=============================" | lolcat')
     os.system('echo "Mikrotik Management Tools" | lolcat')
@@ -41,7 +40,7 @@ def show_header():
     print(f"{WHITE}1. Jalankan Mikhmon Server        5. Bandwidth Usage Report (CSV)")
     print(f"2. Total User Aktif Hotspot       6. Backup & Restore Config MikroTik")
     print(f"3. Cek DHCP Alert (Rogue DHCP)    7. SNMP Monitoring (placeholder)")
-    print(f"4. Hapus Voucher Expired          8. Log Viewer MikroTik{RESET}")
+    print(f"4. Hapus Laporan Mikhmon          8. Log Viewer MikroTik{RESET}")
     
     os.system('echo "=============================" | lolcat')
     os.system('echo "OLT Management Tools" | lolcat')

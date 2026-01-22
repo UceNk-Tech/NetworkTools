@@ -174,8 +174,6 @@ def show_sticky_header():
     os.system('echo "======================================================" | lolcat')
     os.system('neofetch --ascii_distro ubuntu')
     
-os.system('echo "Ketik nomor menu untuk menjalankan tools" | lolcat')
-os.system('echo "======================================================" | lolcat')
 
     print(f"{YELLOW}--- MIKROTIK TOOLS ---{RESET}")
     print(f"1. Jalankan Mikhmon Server        5. Bandwidth Usage Report")

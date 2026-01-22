@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import os, time, telnetlib, sys, json
-import readline  # Dukungan History Panah Atas
+import readline  # Support history panah atas
 
 # Warna ANSI
 RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET = (
@@ -24,7 +24,7 @@ def get_credentials(target_type):
     vault = load_vault()
     data = vault.get(target_type, {})
     if not data or not data.get('ip'):
-        print(f"\n{YELLOW}[!] Setup Login {target_type.upper()} (Tersimpan Lokal){RESET}")
+        print(f"\n{YELLOW}[!] Setup Login {target_type.upper()} (Private Local){RESET}")
         data = {'ip': input(f" Masukkan IP {target_type}: ").strip(), 'user': input(f" Masukkan Username: ").strip()}
         import getpass
         data['pass'] = getpass.getpass(f" Masukkan Password: ").strip()
@@ -58,28 +58,24 @@ def show_header():
     print(f"19. MAC Lookup                    22. Update-tools{RESET}")
     print(f"{MAGENTA}====================================================={RESET}")
 
-# --- FUNGSI MIKROTIK (Menu 2, 3, 4) ---
 def run_mt(menu_type):
     try:
         import routeros_api
         creds = get_credentials("mikrotik")
         conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True)
         api = conn.get_api()
-        
         if menu_type == '2':
             active = api.get_resource('/ip/hotspot/active').get()
             print(f"\n{GREEN}>>> TOTAL USER AKTIF: {len(active)} USER{RESET}")
         elif menu_type == '3':
             alerts = api.get_resource('/ip/dhcp-server/alert').get()
-            if not alerts:
-                print(f"\n{GREEN}[OK] DHCP Aman, tidak ada Rogue DHCP detected.{RESET}")
+            if not alerts: print(f"\n{GREEN}[OK] DHCP Aman, tidak ada Rogue DHCP detected.{RESET}")
             else:
                 for a in alerts: print(f"{RED}[ALERT] Interface: {a.get('interface')} - MAC: {a.get('mac-address')}{RESET}")
         elif menu_type == '4':
             scripts = api.get_resource('/system/script')
             to_del = [s for s in scripts.get() if 'mikhmon' in s.get('comment', '').lower()]
-            if not to_del:
-                print(f"{YELLOW}Tidak ada script laporan mikhmon.{RESET}")
+            if not to_del: print(f"{YELLOW}Tidak ada script laporan mikhmon.{RESET}")
             else:
                 print(f"Ditemukan {len(to_del)} item."); conf = input("Hapus? (y/n): ").lower()
                 if conf == 'y':
@@ -88,7 +84,6 @@ def run_mt(menu_type):
         conn.disconnect()
     except Exception as e: print(f"{RED}Error Mikrotik: {e}{RESET}")
 
-# --- FUNGSI OLT (Menu 9) ---
 def run_olt_telnet(cmds):
     creds = get_credentials("olt")
     try:
@@ -108,32 +103,21 @@ def main():
     while True:
         show_header()
         c = input(f"{CYAN}Pilih Nomor: {RESET}").strip()
-        
         if c == '1':
-            # Perbaikan: Cek folder mikhmon dulu
-            mikhmon_path = os.path.expanduser("~/mikhmon")
-            if not os.path.exists(mikhmon_path):
-                print(f"{YELLOW}[*] Folder mikhmon tidak ditemukan, mencoba membuat folder...{RESET}")
-                os.makedirs(mikhmon_path, exist_ok=True)
-            
-            print(f"{GREEN}Menjalankan Mikhmon Server di http://0.0.0.0:8080 ...{RESET}")
-            os.system(f'chmod -R 755 {mikhmon_path} && php -S 0.0.0.0:8080 -t {mikhmon_path}')
-            
-        elif c in ['2', '3', '4']:
-            run_mt(c)
-            
+            p = os.path.expanduser("~/mikhmon")
+            if not os.path.exists(p): os.makedirs(p, exist_ok=True)
+            print(f"{GREEN}Menjalankan Mikhmon Server di port 8080...{RESET}")
+            os.system(f'chmod -R 755 {p} && php -S 0.0.0.0:8080 -t {p}')
+        elif c in ['2', '3', '4']: run_mt(c)
         elif c == '9':
-            # Integrasi Kode ONU Aktif (Dulu Nomor 15)
-            print(f"{YELLOW}Mencari ONU Aktif di OLT...{RESET}")
-            # Ganti sesuai perintah OLT kamu, contoh: show pon onu information
-            result = run_olt_telnet(["show pon onu information"])
-            print(f"\n{WHITE}{result}{RESET}")
-            
+            print(f"{YELLOW}Mencari ONU Aktif...{RESET}")
+            res = run_olt_telnet(["show pon onu information"])
+            print(f"\n{WHITE}{res}{RESET}")
         elif c == '22':
-            os.system('cd $HOME/NetworkTools && git pull && bash install.sh')
+            print(f"{YELLOW}[*] Force Update dari GitHub...{RESET}")
+            os.system('cd $HOME/NetworkTools && git reset --hard && git pull origin main && bash install.sh')
             break
         elif c == '0': break
-        
         input(f"\n{YELLOW}Tekan Enter untuk kembali...{RESET}")
         os.system('clear')
 

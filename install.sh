@@ -11,16 +11,14 @@ echo "======================================================"
 echo "    Memulai Instalasi & Integrasi Auto-complete..."
 echo "======================================================"
 
-# 1. Update & Install Paket Sistem (Tanpa lolcat dulu di pkg)
+# 1. Update & Install Paket Sistem
 pkg update -y && pkg upgrade -y
 pkg install -y zsh git python figlet curl php nmap neofetch termux-api
 
-# 2. Install Library Python & lolcat (Pasti Berhasil)
-echo "[*] Memperbarui Library Python & Installing lolcat..."
-pip install --upgrade pip
-pip install routeros-api speedtest-cli requests scapy --break-system-packages || true
-# Install lolcat versi python sebagai alternatif pkg
-pip install lolcat --break-system-packages || true
+# 2. Install Library Python & lolcat (Tanpa Upgrade Pip)
+echo "[*] Memasang Library Python & lolcat..."
+# Langsung install library tanpa upgrade pip agar tidak error di Termux
+pip install routeros-api speedtest-cli requests scapy lolcat --break-system-packages || true
 
 # 3. Integrasi Oh My Zsh & Plugins (Auto-complete)
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
@@ -42,7 +40,9 @@ PROMPT='%F{green}[Ucenk %F{cyan}D-Tech%F{white}]%F{yellow} ~ $ %f'
 
 clear
 neofetch
-[ -f "$HOME/NetworkTools/menu.py" ] && python $HOME/NetworkTools/menu.py
+if [ -f "$HOME/NetworkTools/menu.py" ]; then
+    python $HOME/NetworkTools/menu.py
+fi
 
 alias menu='python $HOME/NetworkTools/menu.py'
 alias update-tools='cd $HOME/NetworkTools && git pull && bash install.sh'

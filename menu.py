@@ -174,7 +174,8 @@ def show_sticky_header():
     os.system('echo "======================================================" | lolcat')
     os.system('neofetch --ascii_distro ubuntu')
     
-echo " Silahkan pilih tools di bawah dengan ketik nomor"| lolcat
+os.system('echo "Ketik nomor menu untuk menjalankan tools" | lolcat')
+os.system('echo "======================================================" | lolcat')
     print(f"{YELLOW}--- MIKROTIK TOOLS ---{RESET}")
     print(f"1. Jalankan Mikhmon Server        5. Bandwidth Usage Report")
     print(f"2. Total User Aktif Hotspot       6. Backup & Restore Config")

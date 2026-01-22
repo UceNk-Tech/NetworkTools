@@ -3,16 +3,16 @@
 # Update Script untuk NetworkTools
 # ==========================================
 
-cd ~/NetworkTools || exit
+set -e
+cd "$HOME/NetworkTools"
 
 echo "======================================================"
-echo "   Update NetworkTools dari GitHub..."
+echo "   Menarik update dari GitHub (branch: main)..."
 echo "======================================================"
 
-# Tarik update terbaru dari branch main
 git pull origin main
 
-# Jalankan ulang installer untuk apply perubahan
+echo "Menjalankan ulang installer untuk apply perubahan..."
 bash install.sh
 
 echo "======================================================"

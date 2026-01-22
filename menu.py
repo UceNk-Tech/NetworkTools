@@ -72,45 +72,21 @@ def run_olt_telnet_onu():
     try:
         # Input murni dari Ucenk
         target = input(f"{CYAN} Input nomor (Slot/PON/ID): {RESET}").strip()
-        if not target: return
-        
-        tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
-        tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
-        tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
-        time.sleep(1)
-        tn.write(b"terminal length 0\n")
-        tn.read_until(b"ZXAN#")
-        
-        # PERBAIKAN DISINI: Langsung kirim gpon-olt_1/ + target
-        # Jika target = 1/1/1 maka hasil = gpon-olt_1/1/1
-        command = f"show pon onu information gpon-olt_1/{target}\n"
-        
-        print(f"{YELLOW}[*] Mengirim: {command.strip()}{RESET}")
-        
-        tn.write(command.encode('ascii'))
-        time.sleep(1.5)
-        
-        out = tn.read_very_eager().decode('ascii', errors='ignore')
-        print(f"\n{WHITE}{out}{RESET}")
-        tn.close()
-    except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
-
-def run_olt_telnet_onu():
-    creds = get_credentials("olt")
-    try:
-        target = input(f"{CYAN} Input nomor (Slot/PON/ID): {RESET}").strip()
         if not target:
             return
 
         tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
-        tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
-        tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
+        tn.read_until(b"Username:")
+        tn.write(creds['user'].encode() + b"\n")
+        tn.read_until(b"Password:")
+        tn.write(creds['pass'].encode() + b"\n")
         time.sleep(1)
         tn.write(b"terminal length 0\n")
         tn.read_until(b"ZXAN#")
 
-        # FIX: tambahkan "/" agar tidak jadi 11/1/1
-        command = f"show pon onu information gpon-olt_1/{target}\n"
+        # FIX: gunakan prefix gpon-olt_ lalu tempel input mentah
+        # Input: 1/1/1 → Output: gpon-olt_1/1/1
+        command = f"show pon onu information gpon-olt_{target}\n"
 
         print(f"{YELLOW}[*] Mengirim: {command.strip()}{RESET}")
 

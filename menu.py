@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
 import os, time, telnetlib, sys, json
 
-# Warna ANSI untuk UI
+# Warna ANSI
 RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET = (
     "\033[31m", "\033[32m", "\033[33m", "\033[34m", 
     "\033[35m", "\033[36m", "\033[37m", "\033[0m"
 )
 
-# File rahasia di local Termux
 VAULT_FILE = os.path.join(os.path.dirname(__file__), "vault_session.json")
 
 def load_vault():
     if os.path.exists(VAULT_FILE):
-        with open(VAULT_FILE, 'r') as f:
-            try: return json.load(f)
-            except: return {"olt": {}, "mikrotik": {}}
+        try:
+            with open(VAULT_FILE, 'r') as f:
+                return json.load(f)
+        except:
+            return {"olt": {}, "mikrotik": {}}
     return {"olt": {}, "mikrotik": {}}
 
 def save_vault(data):
@@ -26,7 +27,7 @@ def get_credentials(target_type):
     data = vault.get(target_type, {})
     if not data or not data.get('ip'):
         header()
-        print(f"\n{YELLOW}[!] Setup {target_type.upper()} (Tersimpan di Local Termux){RESET}")
+        print(f"\n{YELLOW}[!] Setup {target_type.upper()} (Tersimpan Local di Termux){RESET}")
         data = {}
         data['ip'] = input(f" Masukkan IP {target_type}: ").strip()
         data['user'] = input(f" Masukkan Username: ").strip()
@@ -43,43 +44,40 @@ def header():
     print(f"{WHITE}      (Mikrotik: API 8728 | OLT: Telnet 23)          {RESET}")
     print(f"{MAGENTA}======================================================{RESET}")
 
-# ---------- ENGINE MIKROTIK (API PORT 8728) ----------
+# ---------- ENGINE MIKROTIK (API 8728) ----------
 
 def run_mt_api(menu_type):
     try:
         import routeros_api
     except ImportError:
-        print(f"{RED}Error: Library 'routeros-api' tidak ditemukan!{RESET}")
+        print(f"{RED}Error: Library 'routeros-api' belum ada.{RESET}")
+        print("Jalankan: pip install routeros-api --break-system-packages")
         return
 
     creds = get_credentials("mikrotik")
     try:
-        # Menggunakan class RouterOsApi (Versi Terbaru)
-        connection = routeros_api.RouterOsApi(
+        # Panggil class Connection secara eksplisit
+        connection = routeros_api.RouterOsApiConnection(
             creds['ip'], user=creds['user'], password=creds['pass'], port=8728
         )
         api = connection.get_api()
         
         if menu_type == '1':
             print(f"{CYAN}Monitor Traffic Interface...{RESET}")
-            resource = api.get_resource('/interface')
-            for i in resource.get():
-                print(f"[{i.get('name')}] Type: {i.get('type')} | L2MTU: {i.get('l2mtu')} | Running: {i.get('running')}")
+            res = api.get_resource('/interface').get()
+            for i in res:
+                print(f"[{i.get('name')}] Type: {i.get('type')} | Running: {i.get('running')}")
                 
         elif menu_type == '2':
             active = api.get_resource('/ip/hotspot/active').get()
             print(f"\n{GREEN}Total Hotspot Aktif: {len(active)}{RESET}")
-            print(f"{'USER':<15} {'ADDRESS':<15} {'UPTIME':<10}")
-            print("-" * 45)
             for u in active:
-                print(f"{u.get('user'):<15} {u.get('address'):<15} {u.get('uptime'):<10}")
+                print(f"User: {u.get('user'):<15} IP: {u.get('address'):<15} Uptime: {u.get('uptime')}")
         
         elif menu_type == '3':
             u_res = api.get_resource('/ip/hotspot/user')
-            all_u = u_res.get()
             count = 0
-            for u in all_u:
-                # Cek jika comment mengandung 'vc-' dan uptime sudah mencapai limit
+            for u in u_res.get():
                 if "vc-" in u.get('comment', '') and u.get('limit-uptime') == u.get('uptime'):
                     u_res.remove(id=u.get('id'))
                     count += 1
@@ -87,13 +85,11 @@ def run_mt_api(menu_type):
             
         elif menu_type == '4':
             alerts = api.get_resource('/ip/dhcp-server/alert').get()
-            if not alerts: print(f"{YELLOW}Tidak ada DHCP Alert.{RESET}")
-            else: print(alerts)
+            print(alerts if alerts else f"{YELLOW}Tidak ada DHCP Alert.{RESET}")
 
         connection.disconnect()
     except Exception as e:
         print(f"{RED}Mikrotik API Error: {e}{RESET}")
-        print(f"{YELLOW}Saran: Cek IP/User/Pass atau status Service API (8728) di Mikrotik.{RESET}")
 
 # ---------- ENGINE OLT (TELNET PORT 23) ----------
 
@@ -105,8 +101,6 @@ def run_olt_telnet(cmds):
         tn.write(creds['user'].encode('ascii') + b"\n")
         tn.read_until(b"Password:", timeout=5)
         tn.write(creds['pass'].encode('ascii') + b"\n")
-        
-        # Masuk ke mode terminal luas
         tn.write(b"terminal length 0\n")
         tn.read_until(b"ZXAN#")
         
@@ -118,47 +112,44 @@ def run_olt_telnet(cmds):
         tn.write(b"exit\n")
         return output
     except Exception as e:
-        return f"{RED}OLT Telnet Error: {e}{RESET}\n{YELLOW}Pastikan Telnet Port 23 aktif di OLT.{RESET}"
+        return f"{RED}OLT Error: {e}{RESET}"
 
-# ---------- MAIN INTERFACE ----------
+# ---------- MAIN MENU ----------
 
 def main():
     while True:
         header()
-        print(f"{GREEN} 1. Monitor Traffic Interface   {CYAN} 2. User Aktif Hotspot")
-        print(f"{YELLOW} 3. Hapus Voucher Expired       {RED} 4. Cek DHCP Alert")
-        print(f"{MAGENTA}------------------------------------------------------")
-        print(f"{MAGENTA} 15. OLT: List ONU per Slot     {BLUE} 16. OLT: Optical Power")
-        print(f"{WHITE} 88. Fix Permission Mikhmon     {RED} 99. Logout (Reset Data Local)")
-        print(f"{RED}  0. Keluar")
+        print(f" 1. Mikrotik: Monitor Traffic   2. Mikrotik: User Hotspot")
+        print(f" 3. Mikrotik: Hapus Voucher     4. Mikrotik: DHCP Alert")
+        print("-" * 54)
+        print(f" 15. OLT: List ONU Aktif        16. OLT: Optical Power")
+        print(f" 88. Fix Permission Mikhmon     99. Reset Sesi (Logout)")
+        print(f"  0. Keluar")
         
         c = input(f"\n{WHITE}Pilih Menu: {RESET}").strip()
 
         if c in ['1', '2', '3', '4']:
             run_mt_api(c)
-            input(f"\n{YELLOW}Tekan Enter untuk kembali...{RESET}")
+            input(f"\n{YELLOW}Tekan Enter...{RESET}")
         elif c == '15':
             slot = input("Masukkan Nomor Slot (Contoh 2): ")
-            if slot:
-                print(run_olt_telnet([f"show pon onu information gpon-olt_1/{slot}/1"]))
-            input(f"\n{YELLOW}Tekan Enter untuk kembali...{RESET}")
+            if slot: print(run_olt_telnet([f"show pon onu information gpon-olt_1/{slot}/1"]))
+            input(f"\n{YELLOW}Tekan Enter...{RESET}")
         elif c == '16':
             slot = input("Slot: "); onu = input("ONU ID: ")
-            if slot and onu:
-                print(run_olt_telnet([f"show pon onu rx-power gpon-onu_1/{slot}/1:{onu}"]))
-            input(f"\n{YELLOW}Tekan Enter untuk kembali...{RESET}")
+            if slot and onu: print(run_olt_telnet([f"show pon onu rx-power gpon-onu_1/{slot}/1:{onu}"]))
+            input(f"\n{YELLOW}Tekan Enter...{RESET}")
         elif c == '88':
             os.system("chmod -R 755 $HOME/mikhmon")
-            print(f"{GREEN}Izin folder Mikhmon diperbaiki.{RESET}")
-            time.sleep(1)
+            print(f"{GREEN}Permission Fixed!{RESET}"); time.sleep(1)
         elif c == '99':
             if os.path.exists(VAULT_FILE):
                 os.remove(VAULT_FILE)
-                print(f"{RED}Sesi dihapus. Anda akan diminta login ulang di menu berikutnya.{RESET}")
+                print(f"{RED}Data dihapus!{RESET}")
             time.sleep(1)
         elif c == '0':
-            print(f"{CYAN}Terima kasih, Ucenk!{RESET}")
             break
 
 if __name__ == "__main__":
     main()
+    

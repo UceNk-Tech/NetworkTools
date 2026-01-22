@@ -5,29 +5,29 @@
 
 REPO_DIR="$HOME/NetworkTools"
 
-echo "======================================================"
-echo "    Sinkronisasi Tools & Perbaikan Environment..."
-echo "======================================================"
+echo "======================================================" | lolcat
+echo "    Sinkronisasi Tools & Perbaikan Environment..." | lolcat
+echo "======================================================" | lolcat
 
 # 1. Tarik update terbaru dari GitHub
-# Tetap mempertahankan vault_session.json karena sudah di .gitignore
+# Menggunakan reset --hard untuk menghindari error merge/conflict
 cd $REPO_DIR
-echo "[*] Menarik data terbaru dari GitHub..."
+echo "[*] Membersihkan perubahan lokal & menarik update..." | lolcat
 git reset --hard
 git pull origin main
 
-# 2. Pastikan paket sistem lengkap
-echo "[*] Memverifikasi paket sistem (sshpass, nmap, dll)..."
+# 2. Verifikasi Paket Sistem
+echo "[*] Memverifikasi paket sistem (sshpass, nmap, php, dll)..." | lolcat
 pkg update -y
-pkg install sshpass nmap figlet php lolcat inetutils -y
+pkg install sshpass nmap figlet php lolcat inetutils neofetch -y || pip install lolcat --break-system-packages
 
-# 3. Pastikan Library Python lengkap & terbaru
-# Ditambah requests & scapy untuk mendukung menu baru
-echo "[*] Memperbarui library Python..."
-pip install --upgrade pip
-pip install routeros-api speedtest-cli lolcat requests scapy pysnmp --break-system-packages || true
+# 3. Verifikasi Library Python
+# Catatan: pip upgrade dihapus karena dilarang di Termux (mencegah error)
+echo "[*] Memperbarui library Python yang dibutuhkan..." | lolcat
+pip install routeros-api speedtest-cli requests scapy pysnmp --break-system-packages || true
 
-# 4. Keamanan: Pastikan .gitignore tetap ada agar data lokal tidak bocor
+# 4. Keamanan Data Lokal
+# Memastikan vault_session.json (kredensial Ucenk) tidak ter-push ke publik
 cat > "$REPO_DIR/.gitignore" << EOF
 vault_session.json
 __pycache__/
@@ -35,11 +35,11 @@ __pycache__/
 .env
 EOF
 
-# 5. Beri izin eksekusi ulang
+# 5. Izin Eksekusi & Finalisasi
 chmod +x menu.py update.sh install.sh
 
-echo "======================================================"
-echo "    UPDATE SELESAI!"
-echo "    Semua library telah disinkronkan."
-echo "    Silakan ketik 'menu' atau buka ulang Termux."
-echo "======================================================"
+echo "======================================================" | lolcat
+echo "    UPDATE SELESAI!" | lolcat
+echo "    Semua fitur dan tampilan telah disinkronkan." | lolcat
+echo "    Ketik 'menu' atau buka ulang Termux." | lolcat
+echo "======================================================" | lolcat

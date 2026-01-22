@@ -46,7 +46,7 @@ def run_mt(menu_type):
             active = api.get_resource('/ip/hotspot/active').get()
             print(f"\n{GREEN}>>> TOTAL USER AKTIF: {len(active)} USER{RESET}")
         elif menu_type == '3':
-            alerts = api.get_resource('/ip/dhcp-server/alert').get()
+            alerts = api.get_resource('/ip/dhspot-server/alert').get()
             if not alerts: print(f"\n{GREEN}[OK] DHCP Aman.{RESET}")
             else:
                 for a in alerts: print(f"{RED}[ALERT] Interface: {a.get('interface')} - MAC: {a.get('mac-address')}{RESET}")
@@ -55,66 +55,112 @@ def run_mt(menu_type):
             script_resource = api.get_resource('/system/script')
             all_scripts = script_resource.get()
             
-            # Filter script yang mengandung nama 'mikhmon'
-            targets = [s for s in all_scripts if "mikhmon" in s.get('name', '').lower()]
+            targets = []
+            for s in all_scripts:
+                name = s.get('name', '').lower()
+                comment = s.get('comment', '').lower()
+                if "mikhmon" in name or "mikhmon" in comment:
+                    targets.append(s)
             
             if not targets:
-                print(f"{GREEN}[!] Tidak ditemukan script laporan mikhmon.{RESET}")
+                print(f"{RED}[!] Tidak ditemukan script laporan mikhmon.{RESET}")
             else:
-                print(f"\n{CYAN}Daftar script ditemukan:{RESET}")
-                for i, s in enumerate(targets, 1):
-                    print(f"{i}. Name: {WHITE}{s.get('name')}{RESET} | Run Count: {s.get('run-count')}")
+                print(f"\n{CYAN}Ditemukan {len(targets)} script laporan:{RESET}")
+                for i, s in enumerate(targets[:10], 1):
+                    print(f" {i}. {WHITE}{s.get('name')}{RESET}")
+                if len(targets) > 10: print(f" ... dan {len(targets)-10} script lainnya.")
                 
-                print(f"\n{RED}PERINGATAN: Tindakan ini tidak dapat dibatalkan.{RESET}")
-                confirm = input(f"{YELLOW}Hapus semua script di atas? (y/n): {RESET}").lower()
-                
+                confirm = input(f"\n{RED}Hapus TOTAL {len(targets)} script ini? (y/n): {RESET}").lower()
                 if confirm == 'y':
                     count = 0
                     for s in targets:
                         script_resource.remove(id=s.get('id'))
                         count += 1
-                    print(f"{GREEN}[V] Berhasil menghapus {count} script mikhmon.{RESET}")
+                    print(f"{GREEN}[V] Berhasil menghapus {count} script.{RESET}")
                 else:
-                    print(f"{BLUE}[i] Penghapusan dibatalkan.{RESET}")
-                    
+                    print(f"{BLUE}[i] Batal menghapus.{RESET}")
         conn.disconnect()
     except Exception as e: print(f"{RED}Error MT: {e}{RESET}")
 
 # =====================================================
-# FUNGSI OLT (FIXED TOTAL: NO LOOP, NO EXTRA SLASH)
+# FUNGSI OLT
 # =====================================================
 
 def run_olt_telnet_onu():
     creds = get_credentials("olt")
     try:
-        # Input murni dari Ucenk
+        # KODE FINAL UCENK: Input 1/1/1 tetap dikirim 1/1/1
         target = input(f"{CYAN} Input nomor (Slot/PON/ID): {RESET}").strip()
-        if not target:
-            return
+        if not target: return
 
         tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
-        tn.read_until(b"Username:")
-        tn.write(creds['user'].encode() + b"\n")
-        tn.read_until(b"Password:")
-        tn.write(creds['pass'].encode() + b"\n")
-        time.sleep(1)
-        tn.write(b"terminal length 0\n")
+        tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
+        tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
+        time.sleep(1); tn.write(b"terminal length 0\n")
         tn.read_until(b"ZXAN#")
 
-        # FIX: gunakan prefix gpon-olt_ lalu tempel input mentah
-        # Input: 1/1/1 → Output: gpon-olt_1/1/1
         command = f"show pon onu information gpon-olt_{target}\n"
-
         print(f"{YELLOW}[*] Mengirim: {command.strip()}{RESET}")
-
         tn.write(command.encode('ascii'))
         time.sleep(1.5)
-
-        out = tn.read_very_eager().decode('ascii', errors='ignore')
-        print(f"\n{WHITE}{out}{RESET}")
+        print(f"\n{WHITE}{tn.read_very_eager().decode('ascii', errors='ignore')}{RESET}")
         tn.close()
-    except Exception as e:
-        print(f"{RED}Error OLT: {e}{RESET}")
+    except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
+
+def run_olt_config_onu():
+    creds = get_credentials("olt")
+    try:
+        tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
+        tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
+        tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
+        time.sleep(1); tn.write(b"terminal length 0\n")
+        tn.read_until(b"ZXAN#")
+        
+        print(f"\n{YELLOW}[*] Mencari ONU uncfg...{RESET}")
+        tn.write(b"show gpon onu uncfg\n")
+        time.sleep(2)
+        print(f"{WHITE}{tn.read_very_eager().decode()}{RESET}")
+        
+        print(f"{MAGENTA}==== REGISTRASI ONU BARU ===={RESET}")
+        target = input(f"{CYAN}Masukkan Koordinat (Slot/PON/ID, misal 1/1/1): {RESET}").strip()
+        if not target or "/" not in target: return
+        s, p, oid = target.split("/")
+        
+        mode = "Hotspot" if input(f"Mode (1. Hotspot / 2. PPPoE): ").strip() == "1" else "PPPoE"
+        sn = input("SN ONU: ").strip()
+        vlan = input("VLAN ID: ").strip()
+        name = input("Nama: ").strip()
+        onu_type = input("Type (ALL): ").strip() or "ALL"
+        
+        cmds = [
+            "conf t", 
+            f"interface gpon-olt_1/{s}/{p}", 
+            f"onu {oid} type {onu_type} sn {sn}", 
+            "exit",
+            f"interface gpon-onu_1/{s}/{p}:{oid}", 
+            f"name {name}", 
+            "tcont 1 profile server", 
+            "gemport 1 tcont 1",
+            f"service-port 1 vport 1 user-vlan {vlan} vlan {vlan}", 
+            "exit",
+            f"pon-onu-mng gpon-onu_1/{s}/{p}:{oid}", 
+            f"service 1 gemport 1 vlan {vlan}"
+        ]
+        
+        if mode == "Hotspot":
+            cmds.append(f"vlan port wifi_0/1 mode gtag vlan {vlan}")
+            for i in range(1, 5): cmds.append(f"vlan port eth_0/{i} mode tag vlan {vlan}")
+        else:
+            u, pw = input("User PPPoE: ").strip(), input("Pass PPPoE: ").strip()
+            cmds.append(f"wan-ip mode pppoe username {u} password {pw} vlan-profile pppoe host 1")
+        
+        cmds.extend(["security-mgmt 212 state enable mode forward protocol web", "end", "write"])
+        for cmd in cmds: 
+            tn.write(cmd.encode() + b"\n")
+            time.sleep(0.3)
+            
+        print(f"{GREEN}[V] Berhasil dikonfigurasi!{RESET}"); tn.close()
+    except Exception as e: print(f"{RED}Error: {e}{RESET}")
 
 # =====================================================
 # UI DASHBOARD
@@ -161,9 +207,7 @@ def main():
             os.system(f'export PHP_INI_SCAN_DIR={tmp}; php -S 127.0.0.1:8080 -t {m_dir}')
         elif c in ['2', '3', '4']: run_mt(c)
         elif c == '9': run_olt_telnet_onu()
-        elif c == '10': # Alice asumsikan run_olt_config_onu belum dibuat atau ada di file lain, 
-                        # namun tetap Alice biarkan sesuai alur menu Ucenk.
-            print(f"{YELLOW}[i] Fitur Konfigurasi ONU sedang diproses...{RESET}")
+        elif c == '10': run_olt_config_onu()
         elif c == '22':
             os.system('cd $HOME/NetworkTools && git reset --hard && git pull origin main && bash install.sh && exec zsh')
             break

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import readline 
 import os, time, telnetlib, sys, json
 
 # Warna ANSI

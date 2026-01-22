@@ -31,66 +31,77 @@ def get_credentials(target_type):
         save_vault(vault)
     return data
 
-# --- MENU 10: KONFIGURASI ONU ---
+# --- MENU 10: KONFIGURASI ONU (VERSI RINGKAS & CERDAS) ---
 def run_olt_config_onu():
     creds = get_credentials("olt")
     try:
-        print(f"\n{MAGENTA}==== CONFIG ONU OLT ===={RESET}")
-        print("Pilih ONU:\n1. ZTE\n2. FH")
-        brand = "ZTE" if input(f"{CYAN}Pilih (1/2): {RESET}").strip() == "1" else "FH"
-
-        print(f"\nPilih Mode:\n1. Hotspot\n2. PPPoE")
-        mode = "Hotspot" if input(f"{CYAN}Pilih (1/2): {RESET}").strip() == "1" else "PPPoE"
-
-        slot = input("Input Slot: ").strip()
-        pon  = input("Input PON: ").strip()
-        onu_id = input("ONU ID: ").strip()
-        onu_type = input("ONU Type: ").strip()
-        sn = input("SN ONU: ").strip()
-        vlan = input("VLAN ID: ").strip()
-        name = input("Nama Pelanggan: ").strip()
-
-        pp_user, pp_pass = ("", "")
-        if mode == "PPPoE":
-            pp_user = input("PPPoE User: ").strip()
-            pp_pass = input("PPPoE Pass: ").strip()
-
         tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
         tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
         tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
         time.sleep(1)
         
+        # 1. Tampilkan ONU yang belum diconfig agar Ucenk tinggal contek
+        print(f"\n{YELLOW}[*] Mencari ONU uncfg...{RESET}")
+        tn.write(b"show gpon onu uncfg\n")
+        time.sleep(2)
+        print(f"{WHITE}{tn.read_very_eager().decode()}{RESET}")
+
+        print(f"{MAGENTA}==== REGISTRASI ONU BARU ===={RESET}")
+        
+        # 2. Input Koordinat (Format: Slot/PON/ID)
+        target = input(f"{CYAN}Masukkan Koordinat (Slot/PON/ID, misal 2/1/1): {RESET}").strip()
+        if not target or "/" not in target:
+            print(f"{RED}Format salah! Gunakan Slot/PON/ID{RESET}"); return
+        
+        s, p, oid = target.split("/")
+
+        print(f"\nPilih Mode:\n1. Hotspot\n2. PPPoE")
+        mode = "Hotspot" if input(f"{CYAN}Pilih (1/2): {RESET}").strip() == "1" else "PPPoE"
+
+        # 3. Input Data Esensial
+        sn = input("Masukkan SN (ZTEG...): ").strip()
+        vlan = input("VLAN ID: ").strip()
+        name = input("Nama Pelanggan: ").strip()
+        onu_type = input("ONU Type (default ALL): ").strip() or "ALL"
+
+        pp_user, pp_pass = ("", "")
+        if mode == "PPPoE":
+            pp_user = input("PPPoE Username: ").strip()
+            pp_pass = input("PPPoE Password: ").strip()
+
+        # 4. Susun Perintah Berdasarkan Logika ZTE OLT
         cmds = [
             "conf t",
-            f"interface gpon-olt_1/{slot}/{pon}",
-            f"onu {onu_id} type {onu_type} sn {sn}",
+            f"interface gpon-olt_1/{s}/{p}",
+            f"onu {oid} type {onu_type} sn {sn}",
             "exit",
-            f"interface gpon-onu_1/{slot}/{pon}:{onu_id}",
+            f"interface gpon-onu_1/{s}/{p}:{oid}",
             f"name {name}",
             "tcont 1 profile server",
             "gemport 1 tcont 1",
             f"service-port 1 vport 1 user-vlan {vlan} vlan {vlan}",
             "exit",
-            f"pon-onu-mng gpon-onu_1/{slot}/{pon}:{onu_id}",
+            f"pon-onu-mng gpon-onu_1/{s}/{p}:{oid}",
             f"service 1 gemport 1 vlan {vlan}"
         ]
         
         if mode == "Hotspot":
             cmds.append(f"vlan port wifi_0/1 mode gtag vlan {vlan}")
             for i in range(1, 5): cmds.append(f"vlan port eth_0/{i} mode tag vlan {vlan}")
-        else:
+        else: # PPPoE
             cmds.append(f"wan-ip mode pppoe username {pp_user} password {pp_pass} vlan-profile pppoe host 1")
 
         cmds.extend(["security-mgmt 212 state enable mode forward protocol web", "end", "write"])
 
-        print(f"{YELLOW}[*] Mengirim perintah...{RESET}")
+        print(f"{YELLOW}[*] Mengirim konfigurasi ke OLT...{RESET}")
         for cmd in cmds:
             tn.write(cmd.encode() + b"\n")
-            time.sleep(0.5)
+            time.sleep(0.3)
 
-        print(f"{GREEN}[V] Selesai!{RESET}")
+        print(f"{GREEN}[V] Registrasi ONU di 1/{s}/{p}:{oid} BERHASIL!{RESET}")
         tn.close()
-    except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
+    except Exception as e:
+        print(f"{RED}Error Config OLT: {e}{RESET}")
 
 # --- FUNGSI MIKROTIK ---
 def run_mt(menu_type):

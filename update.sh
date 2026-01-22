@@ -1,32 +1,33 @@
 #!/bin/bash
 # ==========================================
-# Update Script untuk NetworkTools (Ucenk D-Tech)
+# Auto-Repair & Update Script (Ucenk D-Tech)
 # ==========================================
 
-set -e
-cd "$HOME/NetworkTools"
+REPO_DIR="$HOME/NetworkTools"
 
-echo "======================================================" | lolcat
-echo "    Menarik update dari GitHub (branch: main)..." | lolcat
-echo "======================================================" | lolcat
+echo "======================================================"
+echo "    Sinkronisasi Tools & Perbaikan Environment..."
+echo "======================================================"
 
-# Reset perubahan lokal agar tidak konflik saat pull
+# 1. Tarik update terbaru dari GitHub
+cd $REPO_DIR
 git reset --hard
 git pull origin main
 
-# Pastikan file bisa dieksekusi
-chmod +x install.sh update.sh menu.py
-
-echo "Menjalankan ulang konfigurasi environment..." | lolcat
-
-# --- PERBAIKAN DI SINI ---
-# Kita update pkg, tapi JANGAN upgrade pip secara manual
+# 2. Pastikan paket pendukung (sshpass, dll) terinstall
+# Ini solusi agar Error 'sshpass not found' tidak muncul lagi
 pkg update -y
+pkg install sshpass nmap figlet -y
 
-# Ganti upgrade pip dengan instalasi library pendukung yang diperlukan saja
-# Menggunakan flag --break-system-packages agar diizinkan Termux
-pip install routeros-api speedtest-cli lolcat pysnmp --break-system-packages || true
+# 3. Pastikan Library Python aman
+pip install routeros-api speedtest-cli lolcat --break-system-packages || true
 
-echo "======================================================" | lolcat
-echo "    Update selesai! Ketik 'menu' untuk memulai." | lolcat
-echo "======================================================" | lolcat
+# 4. Beri izin eksekusi ulang
+chmod +x menu.py update.sh install.sh
+
+# 5. Jalankan ulang konfigurasi shell
+source ~/.zshrc
+
+echo "======================================================"
+echo "    UPDATE SELESAI! Semua fitur siap digunakan."
+echo "======================================================"

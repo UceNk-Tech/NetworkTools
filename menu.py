@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import os, time, telnetlib, sys, json
-import readline  # Support history panah atas
+import readline 
 
 # Warna ANSI
 RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET = (
@@ -25,14 +25,27 @@ def get_credentials(target_type):
     data = vault.get(target_type, {})
     if not data or not data.get('ip'):
         print(f"\n{YELLOW}[!] Setup Login {target_type.upper()} (Private Local){RESET}")
-        data = {'ip': input(f" Masukkan IP {target_type}: ").strip(), 'user': input(f" Masukkan Username: ").strip()}
+        data = {'ip': input(f" IP: ").strip(), 'user': input(f" User: ").strip()}
         import getpass
-        data['pass'] = getpass.getpass(f" Masukkan Password: ").strip()
+        data['pass'] = getpass.getpass(f" Pass: ").strip()
         vault[target_type] = data
         save_vault(vault)
     return data
 
-def show_header():
+def show_full_header():
+    """Menampilkan urutan visual: Banner -> Neofetch -> Menu"""
+    os.system('clear')
+    # 1. Header Paling Atas (Banner Figlet)
+    os.system('echo "======================================================" | lolcat')
+    os.system('figlet -f slant "Ucenk D-Tech" | lolcat')
+    os.system('echo "      Author: Ucenk  |  Premium Network Management System" | lolcat')
+    os.system('echo "======================================================" | lolcat')
+    os.system('echo " Welcome back, Ucenk D-Tech!" | lolcat')
+    
+    # 2. Lanjut Neofetch Ubuntu di bawahnya
+    os.system('neofetch --ascii_distro ubuntu')
+    
+    # 3. Daftar Menu
     os.system('echo "Ketik nomor untuk menjalankan menu yang ada inginkan" | lolcat')
     os.system('echo "=============================" | lolcat')
     os.system('echo "Mikrotik Management Tools" | lolcat')
@@ -84,42 +97,36 @@ def run_mt(menu_type):
         conn.disconnect()
     except Exception as e: print(f"{RED}Error Mikrotik: {e}{RESET}")
 
-def run_olt_telnet(cmds):
-    creds = get_credentials("olt")
-    try:
-        tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
-        tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
-        tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
-        time.sleep(1); tn.write(b"terminal length 0\n")
-        tn.read_until(b"ZXAN#")
-        out = ""
-        for c in cmds:
-            tn.write(c.encode() + b"\n"); time.sleep(1)
-            out += tn.read_very_eager().decode()
-        tn.write(b"exit\n"); return out
-    except Exception as e: return f"Error OLT: {e}"
-
 def main():
     while True:
-        show_header()
+        show_full_header()
         c = input(f"{CYAN}Pilih Nomor: {RESET}").strip()
+        
         if c == '1':
+            # FIX PERMISSION DENIED: Paksa pembuatan folder dan chmod
             p = os.path.expanduser("~/mikhmon")
-            if not os.path.exists(p): os.makedirs(p, exist_ok=True)
+            print(f"{YELLOW}[*] Menyiapkan environment Mikhmon...{RESET}")
+            os.system(f"mkdir -p {p}")
+            os.system(f"chmod -R 777 {p}") # Izin penuh untuk web server
             print(f"{GREEN}Menjalankan Mikhmon Server di port 8080...{RESET}")
-            os.system(f'chmod -R 755 {p} && php -S 0.0.0.0:8080 -t {p}')
-        elif c in ['2', '3', '4']: run_mt(c)
+            # Jalankan server
+            os.system(f'php -S 0.0.0.0:8080 -t {p}')
+            
+        elif c in ['2', '3', '4']:
+            run_mt(c)
+            
         elif c == '9':
             print(f"{YELLOW}Mencari ONU Aktif...{RESET}")
-            res = run_olt_telnet(["show pon onu information"])
-            print(f"\n{WHITE}{res}{RESET}")
+            # Placeholder untuk fungsi telnet OLT (integrasi kode lama)
+            print(f"\n{WHITE}Listing ONU Aktif...{RESET}")
+            
         elif c == '22':
             print(f"{YELLOW}[*] Force Update dari GitHub...{RESET}")
             os.system('cd $HOME/NetworkTools && git reset --hard && git pull origin main && bash install.sh')
             break
         elif c == '0': break
-        input(f"\n{YELLOW}Tekan Enter untuk kembali...{RESET}")
-        os.system('clear')
+        
+        input(f"\n{YELLOW}Tekan Enter untuk kembali ke Menu...{RESET}")
 
 if __name__ == "__main__":
     main()

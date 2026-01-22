@@ -1,41 +1,30 @@
 #!/bin/bash
 # ==========================================
-# NetworkTools Installer (Ucenk-D-Tech) v2.0 — Termux Safe & Build-Ready
+# NetworkTools Installer (Ucenk-D-Tech) v2.2
 # ==========================================
 
 set -e
 
-# 0) Pastikan environment Termux & Direktori
-export PREFIX="/data/data/com.termux/files/usr"
-mkdir -p "$HOME/NetworkTools"
-
-# 1) Update & base packages
+# 0) Setup Storage & Repo
+termux-setup-storage -y || true
 pkg update -y && pkg upgrade -y
-# Tambahkan tur-repo untuk cryptography yang sudah jadi (mencegah error build rust)
+
+# 1) Install Toolchain & TUR (Solusi Fix Permission)
 pkg install -y tur-repo
-pkg install -y bash git python python-pip zsh figlet curl inetutils neofetch nmap php traceroute dnsutils clang rust pkg-config libffi openssl python-cryptography
+pkg install -y bash git python zsh figlet curl inetutils neofetch nmap php traceroute dnsutils clang rust pkg-config libffi openssl
 
-# 2) Python packages
-# Gunakan --break-system-packages jika di Python versi terbaru Termux
-pip install --upgrade pip
-pip install routeros-api speedtest-cli lolcat paramiko pysnmp --break-system-packages || pip install routeros-api speedtest-cli lolcat paramiko pysnmp
+# 2) Install Library Python via PKG (Mencegah Build Error)
+pkg install -y python-pip python-cryptography python-paramiko
 
-# 3) Oh My Zsh (unattended fix)
-if [ -d "$HOME/.oh-my-zsh" ]; then
-  rm -rf "$HOME/.oh-my-zsh"
-fi
-# Menggunakan env KEEP_ZSHRC agar tidak menimpa .zshrc yang kita buat nanti
+# 3) Install sisa modul via PIP (Bypass System Protection)
+pip install routeros-api speedtest-cli lolcat pysnmp --break-system-packages || pip install routeros-api speedtest-cli lolcat pysnmp
+
+# 4) Oh My Zsh (Unattended)
+if [ -d "$HOME/.oh-my-zsh" ]; then rm -rf "$HOME/.oh-my-zsh"; fi
 export KEEP_ZSHRC=yes
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 
-# 4) Zsh plugins
-ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
-mkdir -p "$ZSH_CUSTOM/plugins"
-if [ ! -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]; then
-  git clone https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
-fi
-
-# 5) Prompt, banner, neofetch (Tampilan dipertahankan)
+# 5) Konfigurasi .zshrc (BANNER TIDAK DIUBAH)
 cat > "$HOME/.zshrc" << 'EOF'
 export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="robbyrussell"
@@ -68,10 +57,7 @@ alias update-tools='bash $HOME/NetworkTools/update.sh'
 alias mikhmon='php -S 0.0.0.0:8080 -t $HOME/mikhmon'
 EOF
 
-# 6) Default shell & hush login
 chsh -s zsh || true
-touch "$HOME/.hushlogin"
-
-echo "======================================================"
-echo "Install selesai. Restart Termux, lalu ketik 'menu'."
+echo -e "\n======================================================"
+echo "Install Selesai Ucenk! Restart Termux lalu ketik: menu"
 echo "======================================================"

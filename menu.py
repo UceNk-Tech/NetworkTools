@@ -32,7 +32,7 @@ def get_credentials(target_type):
     return data
 
 # =====================================================
-# FUNGSI-FUNGSI (MIKROTIK & OLT)
+# FUNGSI MIKROTIK
 # =====================================================
 
 def run_mt(menu_type):
@@ -41,6 +41,7 @@ def run_mt(menu_type):
         creds = get_credentials("mikrotik")
         conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True)
         api = conn.get_api()
+        
         if menu_type == '2':
             active = api.get_resource('/ip/hotspot/active').get()
             print(f"\n{GREEN}>>> TOTAL USER AKTIF: {len(active)} USER{RESET}")
@@ -62,11 +63,15 @@ def run_mt(menu_type):
         conn.disconnect()
     except Exception as e: print(f"{RED}Error MT: {e}{RESET}")
 
+# =====================================================
+# FUNGSI OLT
+# =====================================================
+
 def run_olt_telnet_onu():
     creds = get_credentials("olt")
     try:
-        print(f"\n{CYAN}Contoh input: 1/1 atau 1/1/1{RESET}")
-        target = input(f"{CYAN} Input nomor (Slot/PON/ID): {RESET}").strip()
+        print(f"\n{CYAN}Masukkan Slot/PON atau Slot/PON/ID (Contoh: 1/1 atau 1/1/1){RESET}")
+        target = input(f"{CYAN} Input nomor: {RESET}").strip()
         if not target: return
         
         tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
@@ -76,13 +81,12 @@ def run_olt_telnet_onu():
         tn.write(b"terminal length 0\n")
         tn.read_until(b"ZXAN#")
         
-        # Bersihkan input dan susun perintah persis seperti manual
-        # show pon onu information gpon-olt_1/1/1
-        cmd = f"show pon onu information gpon-olt_1/{target}\n"
-        print(f"{YELLOW}[*] Mengirim: {cmd.strip()}{RESET}")
+        # Alice pastikan perintahnya bersih dan persis sesuai input Ucenk
+        command = f"show pon onu information gpon-olt_1/{target}\n"
+        print(f"{YELLOW}[*] Mengirim: {command.strip()}{RESET}")
         
-        tn.write(cmd.encode('ascii'))
-        time.sleep(2)
+        tn.write(command.encode('ascii'))
+        time.sleep(1.5)
         
         out = tn.read_very_eager().decode('ascii', errors='ignore')
         print(f"\n{WHITE}{out}{RESET}")
@@ -105,7 +109,7 @@ def run_olt_config_onu():
         print(f"{WHITE}{tn.read_very_eager().decode()}{RESET}")
         
         print(f"{MAGENTA}==== REGISTRASI ONU BARU ===={RESET}")
-        target = input(f"{CYAN}Masukkan Koordinat (Slot/PON/ID, misal 2/1/1): {RESET}").strip()
+        target = input(f"{CYAN}Masukkan Koordinat (Slot/PON/ID): {RESET}").strip()
         if not target or "/" not in target: return
         s, p, oid = target.split("/")
         
@@ -149,7 +153,7 @@ def run_olt_config_onu():
     except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
 
 # =====================================================
-# TAMPILAN DASHBOARD
+# UI DASHBOARD
 # =====================================================
 
 def show_sticky_header():

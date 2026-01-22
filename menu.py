@@ -92,30 +92,47 @@ def run_mt(menu_type):
         conn.disconnect()
     except Exception as e: print(f"{RED}Error: {e}{RESET}")
 
+# --- FUNGSI OLT (NOMOR 9 - REVISI: CUKUP INPUT SLOT) ---
 def run_olt_telnet_onu():
     creds = get_credentials("olt")
     try:
-        print(f"\n{MAGENTA}==== OLT ONU SCANNER ===={RESET}")
-        slot = input(f"{CYAN} Masukkan Nomor Slot (Tengah, contoh: 2): {RESET}").strip()
-        pon = input(f"{CYAN} Masukkan Nomor PON (Terakhir, contoh: 1): {RESET}").strip()
+        print(f"\n{MAGENTA}==== OLT ONU SCANNER PER SLOT ===={RESET}")
+        slot = input(f"{CYAN} Masukkan Nomor Slot (contoh: 2): {RESET}").strip()
         
-        if not slot or not pon:
-            print(f"{RED}Slot dan PON tidak boleh kosong!{RESET}"); return
+        if not slot:
+            print(f"{RED}Slot tidak boleh kosong!{RESET}"); return
 
-        full_port = f"gpon-olt_1/{slot}/{pon}"
         tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
         tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
         tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
         time.sleep(1)
+        
         tn.write(b"terminal length 0\n")
         tn.read_until(b"ZXAN#")
         
-        print(f"{YELLOW}[*] Menarik data ONU di {full_port}...{RESET}")
-        tn.write(f"show pon onu information {full_port}\n".encode())
-        time.sleep(2)
-        print(f"\n{WHITE}{tn.read_very_eager().decode()}{RESET}")
-        tn.write(b"exit\n"); tn.close()
-    except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
+        # Alice buat looping otomatis dari PON 1 sampai 16
+        print(f"{YELLOW}[*] Menarik data seluruh ONU di Slot {slot} (PON 1-16)...{RESET}")
+        
+        # Looping untuk setiap PON di slot tersebut
+        for pon_no in range(1, 17):
+            full_port = f"gpon-olt_1/{slot}/{pon_no}"
+            print(f"{CYAN}[>] Memeriksa Port {full_port}...{RESET}")
+            
+            command = f"show pon onu information {full_port}\n"
+            tn.write(command.encode())
+            time.sleep(1) # Delay singkat agar buffer tidak penuh
+            
+            output = tn.read_very_eager().decode()
+            if "No related information to be found" not in output:
+                print(f"{WHITE}{output}{RESET}")
+            else:
+                print(f"{RED}Port {pon_no}: Kosong / Tidak ada ONU.{RESET}")
+
+        tn.write(b"exit\n")
+        tn.close()
+        print(f"{GREEN}\n[V] Scanning Slot {slot} Selesai.{RESET}")
+    except Exception as e:
+        print(f"{RED}Error OLT: {e}{RESET}")
 
 def main():
     while True:

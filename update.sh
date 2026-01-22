@@ -7,14 +7,21 @@ set -e
 cd "$HOME/NetworkTools"
 
 echo "======================================================"
-echo "   Menarik update dari GitHub (branch: main)..."
+echo "    Menarik update dari GitHub (branch: main)..."
 echo "======================================================"
 
+# Reset perubahan lokal agar tidak konflik saat pull
+git reset --hard
 git pull origin main
 
-echo "Menjalankan ulang installer untuk apply perubahan..."
-bash install.sh
+# Pastikan file bisa dieksekusi
+chmod +x install.sh update.sh menu.py
+
+echo "Menjalankan ulang konfigurasi environment..."
+# Kita hanya jalankan bagian penting dari install tanpa hapus data
+pkg update -y
+pip install --upgrade pip --break-system-packages || pip install --upgrade pip
 
 echo "======================================================"
-echo "   Update selesai! Restart Termux lalu ketik 'menu'."
+echo "    Update selesai! Ketik 'menu' untuk memulai."
 echo "======================================================"

@@ -99,7 +99,7 @@ def run_olt_telnet_onu():
     creds = get_credentials("olt")
     try:
         target = input(f"{CYAN} Input nomor (Slot/PON/ID): {RESET}").strip()
-        if not target: 
+        if not target:
             return
 
         tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
@@ -109,8 +109,8 @@ def run_olt_telnet_onu():
         tn.write(b"terminal length 0\n")
         tn.read_until(b"ZXAN#")
 
-        # FIX: jangan pakai "/" tambahan
-        command = f"show pon onu information gpon-olt_1{target}\n"
+        # FIX: tambahkan "/" agar tidak jadi 11/1/1
+        command = f"show pon onu information gpon-olt_1/{target}\n"
 
         print(f"{YELLOW}[*] Mengirim: {command.strip()}{RESET}")
 
@@ -120,7 +120,7 @@ def run_olt_telnet_onu():
         out = tn.read_very_eager().decode('ascii', errors='ignore')
         print(f"\n{WHITE}{out}{RESET}")
         tn.close()
-    except Exception as e: 
+    except Exception as e:
         print(f"{RED}Error OLT: {e}{RESET}")
 
 # =====================================================

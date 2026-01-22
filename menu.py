@@ -97,7 +97,7 @@ def run_olt_telnet_onu():
     creds = get_credentials("olt")
     try:
         print(f"\n{MAGENTA}==== OLT ONU SCANNER PER SLOT ===={RESET}")
-        slot = input(f"{CYAN} Masukkan Nomor Slot (contoh: 2): {RESET}").strip()
+        slot = input(f"{CYAN} Masukkan Nomor Slot: {RESET}").strip()
         
         if not slot:
             print(f"{RED}Slot tidak boleh kosong!{RESET}"); return

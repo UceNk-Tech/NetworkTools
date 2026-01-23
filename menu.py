@@ -89,7 +89,6 @@ def run_mt(menu_type):
 def run_olt_telnet_onu():
     creds = get_credentials("olt")
     try:
-        # KODE FINAL UCENK: Input 1/1/1 tetap dikirim 1/1/1
         target = input(f"{CYAN} Input nomor (Slot/PON/ID): {RESET}").strip()
         if not target: return
 
@@ -160,29 +159,43 @@ def run_olt_config_onu():
             time.sleep(0.3)
             
         print(f"{GREEN}[V] Berhasil dikonfigurasi!{RESET}"); tn.close()
-    except Exception as e: print(f"{RED}Error: {e}{RESET}")
+    except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
 
 def run_olt_reset_onu():
     creds = get_credentials("olt")
     try:
-        target = input(f"{CYAN}Masukkan Koordinat ONU yang akan direset (Slot/PON/ID): {RESET}").strip()
-        if not target or "/" not in target: return
-        s, p, oid = target.split("/")
+        # 1. Masukkan Koordinat
+        coord = input(f"{CYAN}Masukkan Koordinat (Slot/PON, misal 1/1): {RESET}").strip()
+        if not coord or "/" not in coord: return
         
-        print(f"{RED}[!] PERINGATAN: ONU gpon-onu_1/{s}/{p}:{oid} akan direboot/reset.{RESET}")
-        confirm = input(f"{YELLOW}Lanjutkan? (y/n): {RESET}").lower()
-        if confirm != 'y': return
+        # 2. Input ID
+        oid = input(f"{CYAN}Masukkan ID ONU: {RESET}").strip()
+        if not oid: return
 
         tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
         tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
         tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
-        time.sleep(1); tn.read_until(b"ZXAN#")
+        time.sleep(1); tn.write(b"terminal length 0\n")
+        tn.read_until(b"ZXAN#")
+
+        # 3. Tampilkan ONU berdasarkan ID yang dipilih
+        print(f"\n{YELLOW}[*] Menampilkan detail ONU gpon-onu_1/{coord}:{oid}...{RESET}")
+        tn.write(f"show pon onu information gpon-onu_1/{coord}:{oid}\n".encode())
+        time.sleep(1.5)
+        print(f"{WHITE}{tn.read_very_eager().decode('ascii', errors='ignore')}{RESET}")
+
+        # 4. Pilih Hapus atau Batal & Peringatan
+        print(f"{RED}======================================================")
+        print(f" [!] PERINGATAN: ONU INI AKAN DIRESET/REBOOT")
+        print(f"======================================================{RESET}")
+        confirm = input(f"{YELLOW}Ketik 'y' untuk Reset atau 'n' untuk Batal: {RESET}").lower()
         
-        # Command reset ONU ZTE
-        command = f"pon-onu-mng gpon-onu_1/{s}/{p}:{oid}\nreboot\n"
-        tn.write(command.encode('ascii'))
-        time.sleep(1)
-        print(f"{GREEN}[V] Command reset terkirim ke gpon-onu_1/{s}/{p}:{oid}{RESET}")
+        if confirm == 'y':
+            tn.write(f"pon-onu-mng gpon-onu_1/{coord}:{oid}\nreboot\n".encode())
+            print(f"{GREEN}[V] Berhasil! Perintah reboot telah dikirim.{RESET}")
+        else:
+            print(f"{BLUE}[i] Operasi dibatalkan.{RESET}")
+        
         tn.close()
     except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
 

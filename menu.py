@@ -184,7 +184,7 @@ def run_olt_config_onu():
     except Exception as e: print(f"{RED}Error: {e}{RESET}")
 
 def reset_onu():
-    """FUNGSI BARU: MENU 11 RESET ONU"""
+    """FUNGSI MENU 11: RESET ONU"""
     creds = get_credentials("olt")
     try:
         print(f"\n{MAGENTA}==== RESET ONU (ZTE/FH) ===={RESET}")
@@ -209,21 +209,27 @@ def reset_onu():
         time.sleep(1); tn.write(b"terminal length 0\n")
         tn.read_until(b"ZXAN#")
         
-        print(f"{YELLOW}[*] Menghapus ONU {target}...{RESET}")
-        # Perintah: Masuk mode config, masuk port OLT, hapus ONU (no onu ID)
-        cmds = [
-            "conf t",
-            f"interface gpon-olt_1/{s}/{p}",
-            f"no onu {oid}",
-            "end"
-        ]
+        print(f"{YELLOW}[*] Mengirim perintah delete ke OLT...{RESET}")
+        # Perintah Reset/Hapus ONU
+        tn.write(b"conf t\n")
+        time.sleep(0.5)
+        tn.write(f"interface gpon-olt_1/{s}/{p}\n".encode('utf-8'))
+        time.sleep(0.5)
+        tn.write(f"no onu {oid}\n".encode('utf-8'))
+        time.sleep(1.5) # Tambah delay agar perintah benar-benar diproses
+        tn.write(b"end\n")
+        time.sleep(1.0)
         
-        for cmd in cmds: 
-            tn.write(cmd.encode('utf-8') + b"\n")
-            time.sleep(0.5)
-            
-        print(f"{GREEN}[V] ONU {target} berhasil dihapus/reset.{RESET}")
+        # Baca respon terakhir untuk memastikan tidak error
+        output = tn.read_very_eager().decode('utf-8', errors='ignore')
         tn.close()
+        
+        # Cek apakah ada pesan error di respon
+        if "Invalid" in output or "Error" in output or "%" in output:
+            print(f"{RED}[!] Gagal mereset ONU. Periksa koordinat.{RESET}")
+        else:
+            print(f"{GREEN}[V] ONU {target} berhasil dihapus/reset.{RESET}")
+
     except Exception as e: print(f"{RED}Error Reset OLT: {e}{RESET}")
 
 # =====================================================
@@ -288,33 +294,10 @@ def main():
         elif c == '11':
             reset_onu()
         elif c == '22':
-            print(f"{YELLOW}Updating tools (Menggunakan metode ZIP)...{RESET}")
-            
-            # 1. Backup Login User
-            if os.path.exists(VAULT_FILE):
-                os.system(f'cp {VAULT_FILE} {VAULT_FILE}.bak')
-                print(f"[i] Backup login user...")
-            
-            # 2. Download ZIP dari GitHub
-            print(f"[*] Mengunduh update terbaru...")
-            os.system('curl -L https://github.com/Ucenk-D-Tech/NetworkTools/archive/refs/heads/main.zip -o ~/update.zip')
-            
-            # 3. Ekstrak & Timpa File
-            print(f"[*] Mengupdate file...")
-            os.system('unzip -o ~/update.zip -d ~')
-            os.system('cp -rf ~/NetworkTools-main/* ~/NetworkTools/')
-            
-            # 4. Kembalikan Login User (Jangan sampai hilang)
-            if os.path.exists(f'{VAULT_FILE}.bak'):
-                os.system(f'mv {VAULT_FILE}.bak {VAULT_FILE}')
-                print(f"[i] Login user dikembalikan.")
-            
-            # 5. Bersihkan sisaan
-            os.system('rm -rf ~/NetworkTools-main ~/update.zip')
-            
-            print(f"{GREEN}[V] Update Selesai! File menu.py diperbarui.{RESET}")
-            print(f"{YELLOW}Keluar untuk memuat ulang menu...{RESET}")
-            break # Keluar script agar menu terupdate
+            # PERBAIKAN MENU 22: Panggil script bash update.sh langsung
+            print(f"{YELLOW}Memanggil script update...{RESET}")
+            os.system('bash update.sh')
+            print(f"{GREEN}Script update selesai dijalankan. Tekan Enter.{RESET}")
             
         elif c == '0':
             print(f"{GREEN}Terima kasih! (Ucenk D-Tech){RESET}")

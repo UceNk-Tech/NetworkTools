@@ -174,7 +174,7 @@ def run_olt_delete_onu():
         time.sleep(1); tn.write(b"terminal length 0\n")
         tn.read_until(b"ZXAN#")
 
-        # 2. Tampilkan semua ONU di port tersebut sesuai input kordinat
+        # 2. Tampilkan semua ONU di port tersebut
         print(f"\n{YELLOW}[*] Menampilkan semua ONU di gpon-olt_{coord}...{RESET}")
         tn.write(f"show pon onu information gpon-olt_{coord}\n".encode())
         time.sleep(2)
@@ -184,11 +184,18 @@ def run_olt_delete_onu():
         oid = input(f"{CYAN}Pilih ID ONU yang akan dihapus: {RESET}").strip()
         if not oid: return
 
-        # 4. Konfirmasi dan Eksekusi perintah "no onu"
+        # 4. REVISI: Tampilkan detail spesifik ONU sebelum hapus (Verifikasi SN)
+        print(f"\n{YELLOW}[*] Verifikasi Data ONU {oid}...{RESET}")
+        tn.write(f"show pon onu information gpon-olt_{coord}:{oid}\n".encode())
+        time.sleep(1.5)
+        print(f"{CYAN}DETAIL ONU TERPILIH:{RESET}")
+        print(f"{WHITE}{tn.read_very_eager().decode('ascii', errors='ignore')}{RESET}")
+
+        # 5. Konfirmasi Akhir
         print(f"\n{RED}======================================================")
-        print(f" [!] PERINGATAN: ONU {oid} di interface gpon-olt_{coord} AKAN DIHAPUS!")
+        print(f" [!] KONFIRMASI: Hapus ONU {oid} di port {coord}?")
         print(f"======================================================{RESET}")
-        confirm = input(f"{YELLOW}Ketik 'y' untuk HAPUS atau 'n' untuk BATAL: {RESET}").lower()
+        confirm = input(f"{YELLOW}Ketik 'y' untuk HAPUS SEKARANG atau 'n' untuk BATAL: {RESET}").lower()
         
         if confirm == 'y':
             cmds = [
@@ -201,9 +208,9 @@ def run_olt_delete_onu():
             for cmd in cmds:
                 tn.write(cmd.encode() + b"\n")
                 time.sleep(0.5)
-            print(f"{GREEN}[V] Berhasil: ONU {oid} telah dihapus.{RESET}")
+            print(f"{GREEN}[V] Sukses! ONU {oid} telah dihapus dari sistem.{RESET}")
         else:
-            print(f"{BLUE}[i] Operasi dibatalkan.{RESET}")
+            print(f"{BLUE}[i] Penghapusan dibatalkan.{RESET}")
         
         tn.close()
     except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")

@@ -164,12 +164,12 @@ def run_olt_config_onu():
 def run_olt_reset_onu():
     creds = get_credentials("olt")
     try:
-        # 1. Masukkan Koordinat
-        coord = input(f"{CYAN}Masukkan Koordinat (Slot/PON, misal 1/1): {RESET}").strip()
-        if not coord or "/" not in coord: return
+        # 1. Masukkan Koordinat (misal 1/1/1)
+        coord = input(f"{CYAN}Masukkan Koordinat (Slot/PON/Port, misal 1/1/1): {RESET}").strip()
+        if not coord: return
         
-        # 2. Input ID
-        oid = input(f"{CYAN}Masukkan ID ONU: {RESET}").strip()
+        # 2. Masukkan ID ONU (misal 1)
+        oid = input(f"{CYAN}Masukkan ID ONU (contoh: 1): {RESET}").strip()
         if not oid: return
 
         tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
@@ -178,21 +178,22 @@ def run_olt_reset_onu():
         time.sleep(1); tn.write(b"terminal length 0\n")
         tn.read_until(b"ZXAN#")
 
-        # 3. Tampilkan ONU berdasarkan ID yang dipilih
-        print(f"\n{YELLOW}[*] Menampilkan detail ONU gpon-onu_1/{coord}:{oid}...{RESET}")
-        tn.write(f"show pon onu information gpon-onu_1/{coord}:{oid}\n".encode())
+        # 3. Tampilkan detail ONU sesuai ID yang dipilih
+        full_path = f"gpon-onu_1/{coord}:{oid}"
+        print(f"\n{YELLOW}[*] Menampilkan detail ONU {full_path}...{RESET}")
+        tn.write(f"show pon onu information {full_path}\n".encode())
         time.sleep(1.5)
         print(f"{WHITE}{tn.read_very_eager().decode('ascii', errors='ignore')}{RESET}")
 
-        # 4. Pilih Hapus atau Batal & Peringatan
-        print(f"{RED}======================================================")
-        print(f" [!] PERINGATAN: ONU INI AKAN DIRESET/REBOOT")
+        # 4. Peringatan dan Konfirmasi Hapus/Batal
+        print(f"\n{RED}======================================================")
+        print(f" [!] PERINGATAN: ONU {full_path} AKAN DI-REBOOT!")
         print(f"======================================================{RESET}")
-        confirm = input(f"{YELLOW}Ketik 'y' untuk Reset atau 'n' untuk Batal: {RESET}").lower()
+        confirm = input(f"{YELLOW}Ketik 'y' untuk REBOOT atau 'n' untuk BATAL: {RESET}").lower()
         
         if confirm == 'y':
-            tn.write(f"pon-onu-mng gpon-onu_1/{coord}:{oid}\nreboot\n".encode())
-            print(f"{GREEN}[V] Berhasil! Perintah reboot telah dikirim.{RESET}")
+            tn.write(f"pon-onu-mng {full_path}\nreboot\n".encode())
+            print(f"{GREEN}[V] Perintah Reboot berhasil dikirim!{RESET}")
         else:
             print(f"{BLUE}[i] Operasi dibatalkan.{RESET}")
         

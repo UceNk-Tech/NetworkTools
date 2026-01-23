@@ -162,6 +162,30 @@ def run_olt_config_onu():
         print(f"{GREEN}[V] Berhasil dikonfigurasi!{RESET}"); tn.close()
     except Exception as e: print(f"{RED}Error: {e}{RESET}")
 
+def run_olt_reset_onu():
+    creds = get_credentials("olt")
+    try:
+        target = input(f"{CYAN}Masukkan Koordinat ONU yang akan direset (Slot/PON/ID): {RESET}").strip()
+        if not target or "/" not in target: return
+        s, p, oid = target.split("/")
+        
+        print(f"{RED}[!] PERINGATAN: ONU gpon-onu_1/{s}/{p}:{oid} akan direboot/reset.{RESET}")
+        confirm = input(f"{YELLOW}Lanjutkan? (y/n): {RESET}").lower()
+        if confirm != 'y': return
+
+        tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
+        tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
+        tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
+        time.sleep(1); tn.read_until(b"ZXAN#")
+        
+        # Command reset ONU ZTE
+        command = f"pon-onu-mng gpon-onu_1/{s}/{p}:{oid}\nreboot\n"
+        tn.write(command.encode('ascii'))
+        time.sleep(1)
+        print(f"{GREEN}[V] Command reset terkirim ke gpon-onu_1/{s}/{p}:{oid}{RESET}")
+        tn.close()
+    except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
+
 # =====================================================
 # UI DASHBOARD
 # =====================================================
@@ -174,7 +198,6 @@ def show_sticky_header():
     os.system('echo "======================================================" | lolcat')
     os.system('neofetch --ascii_distro ubuntu')
     
-
     print(f"{YELLOW}--- MIKROTIK TOOLS ---{RESET}")
     print(f"1. Jalankan Mikhmon Server        5. Bandwidth Usage Report")
     print(f"2. Total User Aktif Hotspot       6. Backup & Restore Config")
@@ -209,6 +232,7 @@ def main():
         elif c in ['2', '3', '4']: run_mt(c)
         elif c == '9': run_olt_telnet_onu()
         elif c == '10': run_olt_config_onu()
+        elif c == '11': run_olt_reset_onu()
         elif c == '22':
             os.system('cd $HOME/NetworkTools && git reset --hard && git pull origin main && bash install.sh && exec zsh')
             break

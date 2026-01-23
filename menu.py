@@ -16,6 +16,86 @@ RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET = (
 
 VAULT_FILE = os.path.join(os.path.dirname(__file__), "vault_session.json")
 
+# ==========================================
+# KODE UPDATE.SH YANG BENAR (EMBEDDED)
+# ==========================================
+# Script ini akan otomatis menulis file ini ke disk saat menu 22 dipilih
+CORRECT_UPDATE_SCRIPT = """#!/bin/bash
+set -e
+
+REPO_DIR="$HOME/NetworkTools"
+REPO_URL="https://github.com/Ucenk-D-Tech/NetworkTools"
+
+echo "======================================================" | lolcat 2>/dev/null || echo "======================================================"
+echo "    CHECKING UPDATES (UCENK D-TECH)..." 
+echo "======================================================" | lolcat 2>/dev/null || echo "======================================================"
+
+# 0. Backup Login User
+if [ -f "$REPO_DIR/vault_session.json" ]; then
+    echo "[*] Backup login user..."
+    cp "$REPO_DIR/vault_session.json" /tmp/vault_backup.json
+fi
+
+# 1. Cek Mode Update (Git atau Zip)
+if [ -d "$REPO_DIR/.git" ]; then
+    # MODE GIT
+    echo "[*] Mode Git: Pulling update..."
+    cd "$REPO_DIR"
+    git reset --hard HEAD
+    git clean -fd
+    git pull origin main
+else
+    # MODE ZIP (Fallback untuk Anda)
+    echo "[*] Mode Zip: Mengunduh update terbaru dari GitHub..."
+    
+    # Download ZIP
+    curl -L "$REPO_URL/archive/refs/heads/main.zip" -o /tmp/update_tools.zip
+    
+    # Ekstrak
+    echo "[*] Mengekstrak file..."
+    unzip -o /tmp/update_tools.zip -d /tmp
+    
+    # Timpa file lama
+    echo "[*] Menimpa file lama..."
+    cp -rf /tmp/NetworkTools-main/* "$REPO_DIR/"
+    
+    # Bersihkan
+    rm -rf /tmp/update_tools.zip /tmp/NetworkTools-main
+fi
+
+# 2. Kembalikan Login User
+if [ -f /tmp/vault_backup.json ]; then
+    echo "[*] Memulihkan login user..."
+    cp /tmp/vault_backup.json "$REPO_DIR/vault_session.json"
+    rm /tmp/vault_backup.json
+fi
+
+# 3. Update Paket Sistem
+echo "[*] Memverifikasi paket sistem..."
+pkg update -y
+pkg install -y git python php curl figlet neofetch nmap openssh psmisc || true
+
+echo "[*] Memperbarui library Python..."
+pip install --upgrade routeros-api speedtest-cli requests scapy pysnmp lolcat --break-system-packages || true
+
+# 4. Update Plugin ZSH
+ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
+if [ -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]; then
+    echo "[*] Memperbarui plugin ZSH..."
+    cd "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
+    git pull
+    cd - > /dev/null
+fi
+
+# 5. Izin Eksekusi
+echo "[*] Mengatur permission..."
+chmod +x "$REPO_DIR"/*.py "$REPO_DIR"/*.sh 2>/dev/null || true
+
+echo "======================================================" | lolcat 2>/dev/null || echo "======================================================"
+echo "    UPDATE SELESAI!" 
+echo "======================================================" | lolcat 2>/dev/null || echo "======================================================"
+"""
+
 def load_vault():
     if os.path.exists(VAULT_FILE):
         try:
@@ -197,7 +277,6 @@ def reset_onu():
             print(f"{RED}Format salah! Gunakan: Slot/PON/ID (cth: 1/1/1){RESET}")
             return
 
-        # Konfirmasi Keamanan
         confirm = input(f"{RED}[PERINGATAN] ONU {target} akan dihapus dari OLT. Lanjutkan? (y/n): {RESET}").lower()
         if confirm != 'y':
             print(f"{BLUE}[i] Batal menghapus.{RESET}")
@@ -210,21 +289,18 @@ def reset_onu():
         tn.read_until(b"ZXAN#")
         
         print(f"{YELLOW}[*] Mengirim perintah delete ke OLT...{RESET}")
-        # Perintah Reset/Hapus ONU
         tn.write(b"conf t\n")
         time.sleep(0.5)
         tn.write(f"interface gpon-olt_1/{s}/{p}\n".encode('utf-8'))
         time.sleep(0.5)
         tn.write(f"no onu {oid}\n".encode('utf-8'))
-        time.sleep(1.5) # Tambah delay agar perintah benar-benar diproses
+        time.sleep(1.5) 
         tn.write(b"end\n")
         time.sleep(1.0)
         
-        # Baca respon terakhir untuk memastikan tidak error
         output = tn.read_very_eager().decode('utf-8', errors='ignore')
         tn.close()
         
-        # Cek apakah ada pesan error di respon
         if "Invalid" in output or "Error" in output or "%" in output:
             print(f"{RED}[!] Gagal mereset ONU. Periksa koordinat.{RESET}")
         else:
@@ -242,7 +318,6 @@ def show_sticky_header():
     os.system('figlet -f slant "Ucenk D-Tech" | lolcat')
     os.system('echo "      Author: Ucenk  |  Premium Network Management System" | lolcat')
     os.system('echo "======================================================" | lolcat')
-    # Neofetch terkadang lama, opsional di-comment jika dirasa berat
     os.system('neofetch --ascii_distro ubuntu 2>/dev/null || echo "System Ready"')
     
     print(f"{YELLOW}--- MIKROTIK TOOLS ---{RESET}")
@@ -294,10 +369,16 @@ def main():
         elif c == '11':
             reset_onu()
         elif c == '22':
-            # PERBAIKAN MENU 22: Panggil script bash update.sh langsung
-            print(f"{YELLOW}Memanggil script update...{RESET}")
+            # REVISI PENTING: Menu 22 sekarang memperbaiki dirinya sendiri
+            print(f"{YELLOW}Perbaikan script update dijalankan...{RESET}")
+            
+            # 1. Timpa update.sh yang rusak dengan versi yang benar
+            with open("update.sh", "w") as f:
+                f.write(CORRECT_UPDATE_SCRIPT)
+            
+            # 2. Jalankan update.sh
             os.system('bash update.sh')
-            print(f"{GREEN}Script update selesai dijalankan. Tekan Enter.{RESET}")
+            print(f"{GREEN}Update Selesai. Tekan Enter.{RESET}")
             
         elif c == '0':
             print(f"{GREEN}Terima kasih! (Ucenk D-Tech){RESET}")

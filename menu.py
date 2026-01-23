@@ -161,54 +161,37 @@ def run_olt_config_onu():
         print(f"{GREEN}[V] Berhasil dikonfigurasi!{RESET}"); tn.close()
     except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
 
-def run_olt_delete_onu():
+def run_olt_reset_onu():
     creds = get_credentials("olt")
     try:
-        coord = input(f"{CYAN}Masukkan Koordinat (Slot/PON/Port, misal 1/1/1): {RESET}").strip()
-        if not coord: return
-
+        # 1. Minta Slot/PON dulu
+        coord = input(f"{CYAN}Masukkan Koordinat (Slot/PON, misal 1/1): {RESET}").strip()
+        if not coord or "/" not in coord: return
+        
         tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
         tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
         tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
         time.sleep(1); tn.write(b"terminal length 0\n")
         tn.read_until(b"ZXAN#")
 
-        print(f"\n{YELLOW}[*] Menampilkan semua ONU di gpon-olt_{coord}...{RESET}")
-        tn.write(f"show pon onu information gpon-olt_{coord}\n".encode())
+        # 2. Tampilkan daftar ONU di port tersebut
+        print(f"{YELLOW}[*] Menampilkan daftar ONU di gpon-olt_1/{coord}...{RESET}")
+        tn.write(f"show pon onu information gpon-olt_1/{coord}\n".encode())
         time.sleep(2)
         print(f"{WHITE}{tn.read_very_eager().decode('ascii', errors='ignore')}{RESET}")
 
-        oid = input(f"{CYAN}Pilih ID ONU yang akan dihapus: {RESET}").strip()
+        # 3. Minta ID dan konfirmasi
+        oid = input(f"{CYAN}Masukkan ID ONU yang akan direset: {RESET}").strip()
         if not oid: return
-
-        # PERBAIKAN: Menggunakan format 'onu ID' agar tidak error Invalid Parameter
-        print(f"\n{YELLOW}[*] Verifikasi Data ONU {oid}...{RESET}")
-        check_cmd = f"show pon onu information gpon-olt_{coord} onu {oid}\n"
-        tn.write(check_cmd.encode('ascii'))
-        time.sleep(1.5)
         
-        print(f"{CYAN}DETAIL ONU TERPILIH:{RESET}")
-        print(f"{WHITE}{tn.read_very_eager().decode('ascii', errors='ignore')}{RESET}")
-
-        print(f"\n{RED}======================================================")
-        print(f" [!] KONFIRMASI: Hapus ONU {oid} di port {coord}?")
-        print(f"======================================================{RESET}")
-        confirm = input(f"{YELLOW}Ketik 'y' untuk HAPUS SEKARANG atau 'n' untuk BATAL: {RESET}").lower()
+        print(f"{RED}[!] Konfirmasi: Reset ONU gpon-onu_1/{coord}:{oid}?{RESET}")
+        confirm = input(f"{YELLOW}Ketik 'y' untuk eksekusi, lainnya untuk batal: {RESET}").lower()
         
         if confirm == 'y':
-            cmds = [
-                "conf t",
-                f"interface gpon-olt_{coord}",
-                f"no onu {oid}",
-                "exit",
-                "write"
-            ]
-            for cmd in cmds:
-                tn.write(cmd.encode() + b"\n")
-                time.sleep(0.5)
-            print(f"{GREEN}[V] Sukses! ONU {oid} telah dihapus.{RESET}")
+            tn.write(f"pon-onu-mng gpon-onu_1/{coord}:{oid}\nreboot\n".encode())
+            print(f"{GREEN}[V] Command Reboot terkirim!{RESET}")
         else:
-            print(f"{BLUE}[i] Penghapusan dibatalkan.{RESET}")
+            print(f"{BLUE}[i] Batal direset.{RESET}")
         
         tn.close()
     except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
@@ -234,7 +217,7 @@ def show_sticky_header():
     print(f"\n{YELLOW}--- OLT TOOLS ---{RESET}")
     print(f"9. Lihat ONU Terdaftar            13. Alarm & Event Viewer")
     print(f"10. Konfigurasi ONU (ZTE/FH)      14. Backup & Restore OLT")
-    print(f"11. Delete ONU (Deregister)       15. Traffic Report per PON")
+    print(f"11. Reset ONU                     15. Traffic Report per PON")
     print(f"12. Port & VLAN Config            16. Auto Audit Script")
     
     print(f"\n{YELLOW}--- NETWORK TOOLS ---{RESET}")
@@ -259,7 +242,7 @@ def main():
         elif c in ['2', '3', '4']: run_mt(c)
         elif c == '9': run_olt_telnet_onu()
         elif c == '10': run_olt_config_onu()
-        elif c == '11': run_olt_delete_onu()
+        elif c == '11': run_olt_reset_onu()
         elif c == '22':
             os.system('cd $HOME/NetworkTools && git reset --hard && git pull origin main && bash install.sh && exec zsh')
             break

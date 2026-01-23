@@ -197,7 +197,6 @@ def reset_onu():
             print(f"{RED}Format salah! Gunakan: Slot/PON/ID (cth: 1/1/1){RESET}")
             return
 
-        # Konfirmasi Keamanan
         confirm = input(f"{RED}[PERINGATAN] ONU {target} akan dihapus dari OLT. Lanjutkan? (y/n): {RESET}").lower()
         if confirm != 'y':
             print(f"{BLUE}[i] Batal menghapus.{RESET}")
@@ -210,23 +209,20 @@ def reset_onu():
         tn.read_until(b"ZXAN#")
         
         print(f"{YELLOW}[*] Menghapus ONU {target}...{RESET}")
-        # Perintah Hapus ONU
         tn.write(b"conf t\n")
         time.sleep(0.5)
         tn.write(f"interface gpon-olt_1/{s}/{p}\n".encode('utf-8'))
         time.sleep(0.5)
         tn.write(f"no onu {oid}\n".encode('utf-8'))
-        time.sleep(1.5) # Tunggu proses
+        time.sleep(1.5) 
         tn.write(b"end\n")
         time.sleep(1.0)
         
-        # Baca Output untuk memastikan sukses
         output = tn.read_very_eager().decode('utf-8', errors='ignore')
-        tn.close() # Tutup koneksi setelah semua selesai
+        tn.close()
         
-        # Validasi Sederhana
         if "Invalid" in output or "Error" in output or "%" in output:
-            print(f"{RED}[!] Gagal mereset ONU. Periksa koordinat.{RESET}")
+            print(f"{RED}[!] Gagal mereset ONU.{RESET}")
         else:
             print(f"{GREEN}[V] ONU {target} berhasil dihapus/reset.{RESET}")
 
@@ -293,10 +289,16 @@ def main():
         elif c == '11':
             reset_onu()
         elif c == '22':
-            # PERBAIKAN FINAL MENU 22: Langsung panggil script bash yang sudah benar
-            print(f"{YELLOW}Mengaktifkan update script...{RESET}")
-            os.system('bash update.sh')
-            print(f"{GREEN}Update Selesai. Tekan Enter.{RESET}")
+            # PERBAIKAN: Menggunakan FULL PATH agar tidak error file not found
+            print(f"{YELLOW}Updating tools...{RESET}")
+            update_script_path = os.path.expanduser('~/NetworkTools/update.sh')
+            
+            if os.path.exists(update_script_path):
+                os.system('bash ' + update_script_path)
+            else:
+                print(f"{RED}[!] File update.sh tidak ditemukan di {update_script_path}{RESET}")
+            
+            print(f"{GREEN}Selesai. Tekan Enter.{RESET}")
             
         elif c == '0':
             print(f"{GREEN}Terima kasih! (Ucenk D-Tech){RESET}")

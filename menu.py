@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import os, time, sys, json, getpass
 
-# Cek library telnetlib (Deprecated di Py3.13 tapi standar di Termux)
+# Cek library telnetlib
 try:
     import telnetlib
 except ImportError:
@@ -288,9 +288,34 @@ def main():
         elif c == '11':
             reset_onu()
         elif c == '22':
-            print(f"{YELLOW}Updating tools...{RESET}")
-            os.system('cd $HOME/NetworkTools && git reset --hard && git pull origin main && bash install.sh && exec zsh')
-            break
+            print(f"{YELLOW}Updating tools (Menggunakan metode ZIP)...{RESET}")
+            
+            # 1. Backup Login User
+            if os.path.exists(VAULT_FILE):
+                os.system(f'cp {VAULT_FILE} {VAULT_FILE}.bak')
+                print(f"[i] Backup login user...")
+            
+            # 2. Download ZIP dari GitHub
+            print(f"[*] Mengunduh update terbaru...")
+            os.system('curl -L https://github.com/Ucenk-D-Tech/NetworkTools/archive/refs/heads/main.zip -o ~/update.zip')
+            
+            # 3. Ekstrak & Timpa File
+            print(f"[*] Mengupdate file...")
+            os.system('unzip -o ~/update.zip -d ~')
+            os.system('cp -rf ~/NetworkTools-main/* ~/NetworkTools/')
+            
+            # 4. Kembalikan Login User (Jangan sampai hilang)
+            if os.path.exists(f'{VAULT_FILE}.bak'):
+                os.system(f'mv {VAULT_FILE}.bak {VAULT_FILE}')
+                print(f"[i] Login user dikembalikan.")
+            
+            # 5. Bersihkan sisaan
+            os.system('rm -rf ~/NetworkTools-main ~/update.zip')
+            
+            print(f"{GREEN}[V] Update Selesai! File menu.py diperbarui.{RESET}")
+            print(f"{YELLOW}Keluar untuk memuat ulang menu...{RESET}")
+            break # Keluar script agar menu terupdate
+            
         elif c == '0':
             print(f"{GREEN}Terima kasih! (Ucenk D-Tech){RESET}")
             break

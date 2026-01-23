@@ -1,71 +1,82 @@
 #!/bin/bash
 # ==========================================
-# Auto-Repair & Update Script (Ucenk D-Tech)
+# Smart Update Script (Ucenk D-Tech)
+# Mendukung update via ZIP & Git
 # ==========================================
 
-set -e # Hentikan script jika ada error fatal
+set -e
 
 REPO_DIR="$HOME/NetworkTools"
-ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
+REPO_URL="https://github.com/Ucenk-D-Tech/NetworkTools"
 
-echo "======================================================" | lolcat
-echo "    Sinkronisasi Tools & Perbaikan Environment..." | lolcat
-echo "======================================================" | lolcat
+echo "======================================================" | lolcat 2>/dev/null || echo "======================================================"
+echo "    CHECKING UPDATES (UCENK D-TECH)..." 
+echo "======================================================" | lolcat 2>/dev/null || echo "======================================================"
 
-# 0. Pastikan lolcat terinstal (Diperlukan untuk output warna)
-if ! command -v lolcat &> /dev/null; then
-    echo "[*] Lolcat belum terinstal, memasang..." | lolcat
-    pkg install ruby -y
-    gem install lolcat
+# 0. Backup Login User (Penting!)
+if [ -f "$REPO_DIR/vault_session.json" ]; then
+    echo "[*] Backup login user..."
+    cp "$REPO_DIR/vault_session.json" /tmp/vault_backup.json
 fi
 
-# 1. Cek & Tarik update terbaru dari GitHub
+# 1. Cek apakah ini Installasi Git atau Zip?
 if [ -d "$REPO_DIR/.git" ]; then
+    # --- SCENARIO A: INSTALLASI GIT ---
+    echo "[*] Mode Git: Pulling update..."
     cd "$REPO_DIR"
-    echo "[*] Membersihkan perubahan lokal & menarik update..." | lolcat
     git reset --hard HEAD
     git clean -fd
     git pull origin main
 else
-    echo "[!] Folder $REPO_DIR bukan repository git atau belum ada." | lolcat
+    # --- SCENARIO B: INSTALLASI ZIP / MANUAL (Anda di sini) ---
+    echo "[*] Mode Zip: Mengunduh update terbaru dari GitHub..."
+    
+    # Download ZIP
+    curl -L "$REPO_URL/archive/refs/heads/main.zip" -o /tmp/update_tools.zip
+    
+    # Ekstrak
+    echo "[*] Mengekstrak file..."
+    unzip -o /tmp/update_tools.zip -d /tmp
+    
+    # Timpa file lama dengan file baru
+    echo "[*] Menimpa file lama..."
+    cp -rf /tmp/NetworkTools-main/* "$REPO_DIR/"
+    
+    # Bersihkan
+    rm -rf /tmp/update_tools.zip /tmp/NetworkTools-main
 fi
 
-# 2. Verifikasi Paket Sistem
-echo "[*] Memverifikasi paket sistem..." | lolcat
-pkg update -y
-# Install paket penting, abaikan jika sudah ada
-pkg install -y git python php curl figlet neofetch nmap openssh ruby psmisc || true
+# 2. Kembalikan Login User (Jaga-jaga kalau update menghapus vault)
+if [ -f /tmp/vault_backup.json ]; then
+    echo "[*] Memulihkan login user..."
+    cp /tmp/vault_backup.json "$REPO_DIR/vault_session.json"
+    rm /tmp/vault_backup.json
+fi
 
-# 3. Update Plugin ZSH (zsh-autosuggestions)
+# 3. Update Paket Sistem & Libs
+echo "[*] Memverifikasi paket sistem..."
+pkg update -y
+pkg install -y git python php curl figlet neofetch nmap openssh psmisc || true
+
+echo "[*] Memperbarui library Python..."
+# Kita gunakan Python Lolcat, jangan install Ruby
+pip install --upgrade routeros-api speedtest-cli requests scapy pysnmp lolcat --break-system-packages || true
+
+# 4. Update Plugin ZSH
+ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
 if [ -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]; then
-    echo "[*] Memperbarui plugin zsh-autosuggestions..." | lolcat
+    echo "[*] Memperbarui plugin ZSH..."
     cd "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
     git pull
     cd - > /dev/null
 fi
 
-# 4. Verifikasi Library Python
-echo "[*] Memperbarui library Python yang dibutuhkan..." | lolcat
-# routeros-api (pakai strip) adalah nama pip, importnya routeros_api (underscore)
-pip install --upgrade routeros-api speedtest-cli requests scapy pysnmp --break-system-packages || true
+# 5. Izin Eksekusi
+echo "[*] Mengatur permission..."
+chmod +x "$REPO_DIR"/*.py "$REPO_DIR"/*.sh 2>/dev/null || true
 
-# 5. Keamanan Data Lokal (.gitignore)
-# Memastikan vault_session.json tidak ikut ter-push/ter-reset
-cat > "$REPO_DIR/.gitignore" << EOF
-vault_session.json
-__pycache__/
-*.pyc
-.env
-.DS_Store
-EOF
-
-# 6. Izin Eksekusi & Finalisasi
-if [ -d "$REPO_DIR" ]; then
-    chmod +x "$REPO_DIR"/*.py "$REPO_DIR"/*.sh 2>/dev/null || true
-fi
-
-echo "======================================================" | lolcat
-echo "    UPDATE SELESAI!" | lolcat
-echo "    Semua fitur dan tampilan telah disinkronkan." | lolcat
-echo "    Ketik 'menu' atau buka ulang Termux." | lolcat
-echo "======================================================" | lolcat
+echo "======================================================" | lolcat 2>/dev/null || echo "======================================================"
+echo "    UPDATE SELESAI!" 
+echo "    File diperbarui via mode ZIP." | lolcat 2>/dev/null || echo "    File diperbarui via mode ZIP."
+echo "    Ketik 'menu' atau buka ulang Termux."
+echo "======================================================" | lolcat 2>/dev/null || echo "======================================================"

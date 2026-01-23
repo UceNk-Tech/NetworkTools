@@ -89,6 +89,7 @@ def run_mt(menu_type):
 def run_olt_telnet_onu():
     creds = get_credentials("olt")
     try:
+        # KODE FINAL UCENK: Input 1/1/1 tetap dikirim 1/1/1
         target = input(f"{CYAN} Input nomor (Slot/PON/ID): {RESET}").strip()
         if not target: return
 
@@ -159,42 +160,7 @@ def run_olt_config_onu():
             time.sleep(0.3)
             
         print(f"{GREEN}[V] Berhasil dikonfigurasi!{RESET}"); tn.close()
-    except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
-
-def run_olt_reset_onu():
-    creds = get_credentials("olt")
-    try:
-        # 1. Minta Slot/PON dulu
-        coord = input(f"{CYAN}Masukkan Koordinat (Slot/PON, misal 1/1): {RESET}").strip()
-        if not coord or "/" not in coord: return
-        
-        tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
-        tn.read_until(b"Username:"); tn.write(creds['user'].encode() + b"\n")
-        tn.read_until(b"Password:"); tn.write(creds['pass'].encode() + b"\n")
-        time.sleep(1); tn.write(b"terminal length 0\n")
-        tn.read_until(b"ZXAN#")
-
-        # 2. Tampilkan daftar ONU di port tersebut
-        print(f"{YELLOW}[*] Menampilkan daftar ONU di gpon-olt_1/{coord}...{RESET}")
-        tn.write(f"show pon onu information gpon-olt_1/{coord}\n".encode())
-        time.sleep(2)
-        print(f"{WHITE}{tn.read_very_eager().decode('ascii', errors='ignore')}{RESET}")
-
-        # 3. Minta ID dan konfirmasi
-        oid = input(f"{CYAN}Masukkan ID ONU yang akan direset: {RESET}").strip()
-        if not oid: return
-        
-        print(f"{RED}[!] Konfirmasi: Reset ONU gpon-onu_1/{coord}:{oid}?{RESET}")
-        confirm = input(f"{YELLOW}Ketik 'y' untuk eksekusi, lainnya untuk batal: {RESET}").lower()
-        
-        if confirm == 'y':
-            tn.write(f"pon-onu-mng gpon-onu_1/{coord}:{oid}\nreboot\n".encode())
-            print(f"{GREEN}[V] Command Reboot terkirim!{RESET}")
-        else:
-            print(f"{BLUE}[i] Batal direset.{RESET}")
-        
-        tn.close()
-    except Exception as e: print(f"{RED}Error OLT: {e}{RESET}")
+    except Exception as e: print(f"{RED}Error: {e}{RESET}")
 
 # =====================================================
 # UI DASHBOARD
@@ -242,7 +208,6 @@ def main():
         elif c in ['2', '3', '4']: run_mt(c)
         elif c == '9': run_olt_telnet_onu()
         elif c == '10': run_olt_config_onu()
-        elif c == '11': run_olt_reset_onu()
         elif c == '22':
             os.system('cd $HOME/NetworkTools && git reset --hard && git pull origin main && bash install.sh && exec zsh')
             break

@@ -178,21 +178,25 @@ def run_olt_reset_onu():
         time.sleep(1); tn.write(b"terminal length 0\n")
         tn.read_until(b"ZXAN#")
 
-        # 3. Tampilkan detail ONU sesuai ID yang dipilih
-        full_path = f"gpon-onu_1/{coord}:{oid}"
-        print(f"\n{YELLOW}[*] Menampilkan detail ONU {full_path}...{RESET}")
-        tn.write(f"show pon onu information {full_path}\n".encode())
+        # 3. Tampilkan detail ONU sesuai ID (Hanya pakai gpon-olt_ + input user)
+        # Sesuai permintaan: gpon-olt_1/1/1:1
+        full_path_show = f"gpon-olt_{coord}:{oid}"
+        # Untuk mode config/mng biasanya pakai gpon-onu_
+        full_path_mng = f"gpon-onu_{coord}:{oid}"
+
+        print(f"\n{YELLOW}[*] Menampilkan detail ONU {full_path_show}...{RESET}")
+        tn.write(f"show pon onu information {full_path_show}\n".encode())
         time.sleep(1.5)
         print(f"{WHITE}{tn.read_very_eager().decode('ascii', errors='ignore')}{RESET}")
 
-        # 4. Peringatan dan Konfirmasi Hapus/Batal
+        # 4. Peringatan dan Konfirmasi
         print(f"\n{RED}======================================================")
-        print(f" [!] PERINGATAN: ONU {full_path} AKAN DI-REBOOT!")
+        print(f" [!] PERINGATAN: ONU {full_path_show} AKAN DI-REBOOT!")
         print(f"======================================================{RESET}")
         confirm = input(f"{YELLOW}Ketik 'y' untuk REBOOT atau 'n' untuk BATAL: {RESET}").lower()
         
         if confirm == 'y':
-            tn.write(f"pon-onu-mng {full_path}\nreboot\n".encode())
+            tn.write(f"pon-onu-mng {full_path_mng}\nreboot\n".encode())
             print(f"{GREEN}[V] Perintah Reboot berhasil dikirim!{RESET}")
         else:
             print(f"{BLUE}[i] Operasi dibatalkan.{RESET}")

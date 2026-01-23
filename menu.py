@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import os, time, sys, json, getpass
 
-# Cek library telnetlib (Deprecated di Py3.13 tapi masih standar di Termux)
+# Cek library telnetlib (Deprecated di Py3.13 tapi standar di Termux)
 try:
     import telnetlib
 except ImportError:
@@ -45,7 +45,6 @@ def run_mt(menu_type):
     try:
         import routeros_api
         creds = get_credentials("mikrotik")
-        # Connection timeout ditambah sedikit
         conn = routeros_api.RouterOsApiPool(
             creds['ip'], 
             username=creds['user'], 
@@ -184,6 +183,49 @@ def run_olt_config_onu():
         print(f"{GREEN}[V] Berhasil dikonfigurasi!{RESET}"); tn.close()
     except Exception as e: print(f"{RED}Error: {e}{RESET}")
 
+def reset_onu():
+    """FUNGSI BARU: MENU 11 RESET ONU"""
+    creds = get_credentials("olt")
+    try:
+        print(f"\n{MAGENTA}==== RESET ONU (ZTE/FH) ===={RESET}")
+        target = input(f"{CYAN}Masukkan Koordinat (Slot/PON/ID, misal 1/1/1): {RESET}").strip()
+        if not target or "/" not in target: return
+        
+        try:
+            s, p, oid = target.split("/")
+        except ValueError:
+            print(f"{RED}Format salah! Gunakan: Slot/PON/ID (cth: 1/1/1){RESET}")
+            return
+
+        # Konfirmasi Keamanan
+        confirm = input(f"{RED}[PERINGATAN] ONU {target} akan dihapus dari OLT. Lanjutkan? (y/n): {RESET}").lower()
+        if confirm != 'y':
+            print(f"{BLUE}[i] Batal menghapus.{RESET}")
+            return
+
+        tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
+        tn.read_until(b"Username:"); tn.write(creds['user'].encode('utf-8') + b"\n")
+        tn.read_until(b"Password:"); tn.write(creds['pass'].encode('utf-8') + b"\n")
+        time.sleep(1); tn.write(b"terminal length 0\n")
+        tn.read_until(b"ZXAN#")
+        
+        print(f"{YELLOW}[*] Menghapus ONU {target}...{RESET}")
+        # Perintah: Masuk mode config, masuk port OLT, hapus ONU (no onu ID)
+        cmds = [
+            "conf t",
+            f"interface gpon-olt_1/{s}/{p}",
+            f"no onu {oid}",
+            "end"
+        ]
+        
+        for cmd in cmds: 
+            tn.write(cmd.encode('utf-8') + b"\n")
+            time.sleep(0.5)
+            
+        print(f"{GREEN}[V] ONU {target} berhasil dihapus/reset.{RESET}")
+        tn.close()
+    except Exception as e: print(f"{RED}Error Reset OLT: {e}{RESET}")
+
 # =====================================================
 # UI DASHBOARD
 # =====================================================
@@ -206,7 +248,7 @@ def show_sticky_header():
     print(f"\n{YELLOW}--- OLT TOOLS ---{RESET}")
     print(f"9. Lihat ONU Terdaftar            13. Alarm & Event Viewer")
     print(f"10. Konfigurasi ONU (ZTE/FH)      14. Backup & Restore OLT")
-    print(f"11. Reset ONU                     15. Traffic Report per PON")
+    print(f"{RED}11. Reset ONU{RESET}                 15. Traffic Report per PON")
     print(f"12. Port & VLAN Config            16. Auto Audit Script")
     
     print(f"\n{YELLOW}--- NETWORK TOOLS ---{RESET}")
@@ -234,7 +276,6 @@ def main():
                 f.write(f"opcache.enable=0\nsession.save_path=\"{sess}\"\n")
             
             os.system("fuser -k 8080/tcp > /dev/null 2>&1")
-            # FIX: Format env var yang benar untuk os.system
             print(f"{YELLOW}Starting Mikhmon at http://127.0.0.1:8080{RESET}")
             os.system(f'PHP_INI_SCAN_DIR={tmp} php -S 127.0.0.1:8080 -t {m_dir}')
             
@@ -244,6 +285,8 @@ def main():
             run_olt_telnet_onu()
         elif c == '10': 
             run_olt_config_onu()
+        elif c == '11':
+            reset_onu()
         elif c == '22':
             print(f"{YELLOW}Updating tools...{RESET}")
             os.system('cd $HOME/NetworkTools && git reset --hard && git pull origin main && bash install.sh && exec zsh')
@@ -252,7 +295,6 @@ def main():
             print(f"{GREEN}Terima kasih! (Ucenk D-Tech){RESET}")
             break
         else:
-            # FIX: Handler untuk menu yang belum ada
             print(f"\n{RED}[!] Fitur nomor {c} belum tersedia atau masih dalam pengembangan.{RESET}")
         
         input(f"\n{YELLOW}Tekan Enter untuk kembali...{RESET}")

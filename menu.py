@@ -164,11 +164,11 @@ def run_olt_config_onu():
 def run_olt_reset_onu():
     creds = get_credentials("olt")
     try:
-        # 1. Input Koordinat (misal 1/1/1)
+        # 1. Masukkan Koordinat (misal 1/1/1) - TIDAK menampilkan scan
         coord = input(f"{CYAN}Masukkan Koordinat (Slot/PON/Port, misal 1/1/1): {RESET}").strip()
         if not coord: return
         
-        # 2. Input ID ONU (misal 1)
+        # 2. Masukkan ID ONU (misal 1)
         oid = input(f"{CYAN}Masukkan ID ONU (contoh: 1): {RESET}").strip()
         if not oid: return
 
@@ -178,21 +178,18 @@ def run_olt_reset_onu():
         time.sleep(1); tn.write(b"terminal length 0\n")
         tn.read_until(b"ZXAN#")
 
-        # 3. Tampilkan detail ONU sesuai ID (Gunakan format spasi agar OLT tidak error)
-        # show pon onu information gpon-olt_1/1/1 onu 1
-        show_cmd = f"show pon onu information gpon-olt_{coord} onu {oid}\n"
+        # 3. Tampilkan detail ONU spesifik (gpon-olt_1/1/1:1)
+        full_path_show = f"gpon-olt_{coord}:{oid}"
         
-        print(f"\n{YELLOW}[*] Menampilkan detail ONU ID {oid} di port {coord}...{RESET}")
-        tn.write(show_cmd.encode('ascii'))
+        print(f"\n{YELLOW}[*] Menampilkan detail ONU {full_path_show}...{RESET}")
+        tn.write(f"show pon onu information {full_path_show}\n".encode())
         time.sleep(1.5)
         print(f"{WHITE}{tn.read_very_eager().decode('ascii', errors='ignore')}{RESET}")
 
         # 4. Peringatan dan Konfirmasi
-        # Format management tetap pakai gpon-onu_1/1/1:1
         mng_path = f"gpon-onu_1/{coord}:{oid}"
-        
         print(f"\n{RED}======================================================")
-        print(f" [!] PERINGATAN: ONU {mng_path} AKAN DI-REBOOT!")
+        print(f" [!] PERINGATAN: ONU {full_path_show} AKAN DI-REBOOT!")
         print(f"======================================================{RESET}")
         confirm = input(f"{YELLOW}Ketik 'y' untuk REBOOT atau 'n' untuk BATAL: {RESET}").lower()
         

@@ -164,7 +164,6 @@ def run_olt_config_onu():
 def run_olt_delete_onu():
     creds = get_credentials("olt")
     try:
-        # 1. Masukkan Koordinat (misal 1/1/1)
         coord = input(f"{CYAN}Masukkan Koordinat (Slot/PON/Port, misal 1/1/1): {RESET}").strip()
         if not coord: return
 
@@ -174,24 +173,23 @@ def run_olt_delete_onu():
         time.sleep(1); tn.write(b"terminal length 0\n")
         tn.read_until(b"ZXAN#")
 
-        # 2. Tampilkan semua ONU di port tersebut
         print(f"\n{YELLOW}[*] Menampilkan semua ONU di gpon-olt_{coord}...{RESET}")
         tn.write(f"show pon onu information gpon-olt_{coord}\n".encode())
         time.sleep(2)
         print(f"{WHITE}{tn.read_very_eager().decode('ascii', errors='ignore')}{RESET}")
 
-        # 3. Pilih ONU ID
         oid = input(f"{CYAN}Pilih ID ONU yang akan dihapus: {RESET}").strip()
         if not oid: return
 
-        # 4. REVISI: Tampilkan detail spesifik ONU sebelum hapus (Verifikasi SN)
+        # PERBAIKAN: Menggunakan format 'onu ID' agar tidak error Invalid Parameter
         print(f"\n{YELLOW}[*] Verifikasi Data ONU {oid}...{RESET}")
-        tn.write(f"show pon onu information gpon-olt_{coord}:{oid}\n".encode())
+        check_cmd = f"show pon onu information gpon-olt_{coord} onu {oid}\n"
+        tn.write(check_cmd.encode('ascii'))
         time.sleep(1.5)
+        
         print(f"{CYAN}DETAIL ONU TERPILIH:{RESET}")
         print(f"{WHITE}{tn.read_very_eager().decode('ascii', errors='ignore')}{RESET}")
 
-        # 5. Konfirmasi Akhir
         print(f"\n{RED}======================================================")
         print(f" [!] KONFIRMASI: Hapus ONU {oid} di port {coord}?")
         print(f"======================================================{RESET}")
@@ -208,7 +206,7 @@ def run_olt_delete_onu():
             for cmd in cmds:
                 tn.write(cmd.encode() + b"\n")
                 time.sleep(0.5)
-            print(f"{GREEN}[V] Sukses! ONU {oid} telah dihapus dari sistem.{RESET}")
+            print(f"{GREEN}[V] Sukses! ONU {oid} telah dihapus.{RESET}")
         else:
             print(f"{BLUE}[i] Penghapusan dibatalkan.{RESET}")
         

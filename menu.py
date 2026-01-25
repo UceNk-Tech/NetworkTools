@@ -287,35 +287,50 @@ def delete_onu_fast():
             print(f"{GREEN}[✓] ONU {port}:{onu_id} Terhapus.{RESET}")
 
 def check_optical_power_fast():
-    """Menu 13: Cek Power Optik ONU Tertentu dengan tampilan Tabel Ringkas"""
+    """Menu 13: Cek Power Optik dengan Deteksi Offline/LOS"""
     creds = get_credentials("olt")
     if not creds: return
     brand = creds.get('brand', 'zte').lower()
     
-    print(f"\n{CYAN}=== CEK OPTICAL POWER ONU (QUICK VIEW) ==={RESET}")
+    print(f"\n{CYAN}=== CEK OPTICAL POWER ONU (SMART VIEW) ==={RESET}")
     port = input(f"{WHITE}Port (1/3/1): {RESET}").strip()
     onu_id = input(f"{WHITE}ONU ID: {RESET}").strip()
     
+    # Perintah untuk mendapatkan detail redaman
     if brand == 'zte':
         cmd = [f"show pon optical-power gpon-olt_{port} {onu_id}"]
     else:
         cmd = [f"show onu optical-power {port} {onu_id}"]
         
     output = telnet_olt_execute(creds, cmd)
-    if output:
-        print(f"\n{WHITE}HASIL CEK REDAMAN:{RESET}")
-        print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
-        lines = output.splitlines()
-        for line in lines:
-            # Tampilkan Header tabel dan Baris data ONU saja
-            if "onu" in line.lower() or "rx" in line.lower() or "---" in line:
-                if "interface" in line.lower() or "onu" in line.lower():
-                    print(f"{CYAN}{line}{RESET}")
-            if f"{port}:{onu_id}" in line:
-                print(f"{YELLOW}{line}{RESET}")
-        print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
+    
+    print(f"\n{WHITE}HASIL DIAGNOSA ONU {port}:{onu_id}:{RESET}")
+    print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
+    
+    if not output or "---" in output or "N/A" in output or "not exist" in output.lower():
+        print(f"{RED}[!] STATUS: ONU OFFLINE / LOS (Kabel Putus atau Power Mati){RESET}")
+        print(f"{YELLOW}[i] Saran: Cek fisik kabel FO atau adaptor di lokasi user.{RESET}")
     else:
-        print(f"{RED}[!] Gagal mengambil data redaman.{RESET}")
+        # Menampilkan data redaman jika ditemukan
+        lines = output.splitlines()
+        found_data = False
+        for line in lines:
+            # Cari baris yang mengandung data numerik (redaman)
+            if f"{port}:{onu_id}" in line or (line.strip().startswith(onu_id) and len(line.split()) > 3):
+                parts = line.split()
+                # Penataan sederhana ala tabel gambar yang kamu kirim
+                # Biasanya kolom OLT: [ID] [Status] [Rx Power] [Tx Power] dll
+                print(f"{GREEN}[✓] STATUS: ONU ONLINE / AUTHENTICATION SUCCESS{RESET}")
+                print(f"{WHITE}Detail Redaman:{RESET}")
+                print(f" - Rx Power (Input)  : {YELLOW}{parts[-2] if len(parts)>2 else 'N/A'} dBm{RESET}")
+                print(f" - Tx Power (Output) : {YELLOW}{parts[-1] if len(parts)>3 else 'N/A'} dBm{RESET}")
+                found_data = True
+        
+        if not found_data:
+            # Jika tidak sengaja lewat dari filter diatas, tampilkan output mentahnya saja
+            print(f"{CYAN}{output}{RESET}")
+            
+    print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 
 def show_menu():
     vault = load_vault()

@@ -499,14 +499,68 @@ def monitor_optical_power():
 
 def reset_onu():
     creds = get_credentials("olt")
-    if not creds: return
-    t = input("Slot/Port/ID (1/1/1): ")
-    try:
-        s, p, oid = t.split("/")
-        cmds = ["conf t", f"interface gpon-olt_1/{s}/{p}", f"no onu {oid}", "end"]
-        print(telnet_olt_execute(creds, cmds))
-    except:
-        print(f"{RED}Format salah!{RESET}")
+    if not creds: 
+        print(f"{RED}[!] Profile OLT belum diset.{RESET}")
+        return
+    
+    brand = creds.get('brand', 'zte').lower()
+    
+    print(f"\n{RED}=== RESET / HAPUS ONU ==={RESET}")
+    port = input(f"{WHITE}Masukkan Port (contoh 1/1/1): {RESET}").strip()
+    onu_id = input(f"{WHITE}Masukkan Nomor ONU (contoh 1): {RESET}").strip()
+    
+    target_full = f"{port}:{onu_id}"
+    
+    # --- STEP 1: AMBIL DETAIL ONU DULU SUPAYA TIDAK SALAH HAPUS ---
+    print(f"{CYAN}[*] Mengambil detail data ONU {target_full}...{RESET}")
+    
+    if brand == 'zte':
+        # Perintah untuk melihat detail ONU spesifik di ZTE
+        check_cmds = [
+            "terminal length 0",
+            "end",
+            f"show gpon onu detail-info gpon-onu_{port}:{onu_id}"
+        ]
+    else:
+        # Perintah untuk FiberHome (disesuaikan dengan standar FH)
+        check_cmds = ["terminal length 0", "end", f"show onu info port {port} ont {onu_id}"]
+
+    detail_output = telnet_olt_execute(creds, check_cmds)
+    
+    if detail_output and "Invalid" not in detail_output:
+        print(f"\n{MAGENTA}--------------------------------------------------{RESET}")
+        print(f"{WHITE}DETAIL ONU YANG AKAN DIHAPUS:{RESET}")
+        print(f"{YELLOW}{detail_output}{RESET}")
+        print(f"{MAGENTA}--------------------------------------------------{RESET}")
+        
+        # --- STEP 2: KONFIRMASI ---
+        confirm = input(f"{RED}Apakah Anda yakin ingin MENGHAPUS ONU {target_full} ini? (y/n): {RESET}").lower()
+        
+        if confirm == 'y':
+            print(f"{CYAN}[*] Menghapus ONU {target_full}...{RESET}")
+            if brand == 'zte':
+                del_cmds = [
+                    "conf t",
+                    f"interface gpon-olt_{port}",
+                    f"no onu {onu_id}",
+                    "end",
+                    "write"
+                ]
+            else:
+                del_cmds = [
+                    "conf t",
+                    f"interface gpon-olt_{port}",
+                    f"no onu {onu_id}",
+                    "end",
+                    "write"
+                ]
+            
+            result = telnet_olt_execute(creds, del_cmds)
+            print(f"{GREEN}[✓] ONU {target_full} berhasil dihapus dan konfigurasi disimpan!{RESET}")
+        else:
+            print(f"{YELLOW}[-] Penghapusan dibatalkan.{RESET}")
+    else:
+        print(f"{RED}[!] Data ONU {target_full} tidak ditemukan atau OLT tidak merespon.{RESET}")
 
 def show_menu():
     vault = load_vault()

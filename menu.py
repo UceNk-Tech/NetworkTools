@@ -1163,7 +1163,7 @@ def show_menu():
     print("12. Delete ONU                      17. Traffic Report per PON")
     print("13. Cek Status Power Optic          18. Auto Audit Script")
     print(f"\n{CYAN}--- NETWORK TOOLS ---{RESET}")
-    print("19. Speedtest                       22=3. WhatMyIP")
+    print("19. Speedtest                       23. WhatMyIP")
     print("20. Nmap Scan                       24. Ping & Traceroute")
     print("21. MAC Lookup                      25. DNS Tools")
     print("22. Port Scaner                     26. Update-Tools")

@@ -888,7 +888,7 @@ def traffic_report_pon(): # Menu 17 (OLT Tools)
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 
 
-def auto_audit_olt(): # Menu 18 (OLT Tools)
+def auto_audit_olt(): # Menu 18
     creds = get_credentials("olt")
     if not creds: 
         print(f"{YELLOW}[!] Profile OLT belum aktif.{RESET}")
@@ -897,59 +897,56 @@ def auto_audit_olt(): # Menu 18 (OLT Tools)
     brand = creds.get('brand', 'zte').lower()
     
     print(f"\n{CYAN}=== AUTO AUDIT OLT SYSTEM ==={RESET}")
-    print(f"{WHITE}[*] Memulai audit kesehatan jaringan...{RESET}")
+    print(f"{WHITE}[*] Mencoba login dan audit (Sabar ya, Ucenk...){RESET}")
     
     if brand == 'zte':
-        # Perintah audit cepat untuk ZTE
+        # Kita buat perintahnya lebih spesifik dan berurutan
+        # Tambahkan baris kosong di awal untuk memastikan prompt muncul
         cmds = [
+            "", 
             "terminal length 0",
-            "enable",
-            "show pon power attenuation gpon-olt_1/1/1", # Ganti sesuai port utama
-            "show gpon onu state gpon-olt_1/1/1",
+            "enable", 
+            "show gpon onu state gpon-olt_1/1/1", # Sesuaikan port PON-mu
             "show alarm current severity critical"
         ]
     else:
-        # Untuk Fiberhome
-        cmds = ["show card", "show port state", "show pon power attenuation"]
+        cmds = ["terminal length 0", "show card", "show port state"]
 
+    # Kita panggil telnet dengan sedikit penekanan pada output
     output = telnet_olt_execute(creds, cmds)
     
-    print(f"\n{WHITE}HASIL AUDIT OTOMATIS:{RESET}")
+    print(f"\n{WHITE}HASIL AUDIT:{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
-    if output:
+    if output and len(output.strip()) > 10: # Pastikan output bukan cuma prompt ZXAN#
         lines = output.splitlines()
+        found_data = False
         for line in lines:
             l_low = line.lower()
             
-            # Deteksi Sinyal Lemah (Audit Power)
-            if "dbm" in l_low:
-                try:
-                    # Mencari nilai numerik power, biasanya -27dBm ke atas itu buruk
-                    power_val = float(''.join(filter(lambda x: x in "0123456789.-", line.split()[-1])))
-                    if power_val < -27.0:
-                        print(f"{RED}[BAD SIGNAL] {line.strip()}{RESET}")
-                    else:
-                        print(f"{GREEN}[OK] {line.strip()}{RESET}")
-                except:
-                    print(f"{WHITE}{line.strip()}{RESET}")
+            # Abaikan baris perintah kita sendiri
+            if any(x in l_low for x in ["terminal length", "enable", "show gpon", "zxan#"]):
+                continue
             
-            # Deteksi ONU Offline
-            elif any(x in l_low for x in ["offline", "los", "dyinggasp"]):
-                print(f"{YELLOW}[OFFLINE/ALARM] {line.strip()}{RESET}")
-            
-            elif "working" in l_low or "online" in l_low:
-                print(f"{GREEN}[ONLINE] {line.strip()}{RESET}")
+            found_data = True
+            # Warnai Status ONU
+            if "working" in l_low or "online" in l_low:
+                print(f"{GREEN}[OK] {line.strip()}{RESET}")
+            elif any(x in l_low for x in ["offline", "los", "dyinggasp", "critical"]):
+                print(f"{YELLOW}[!] {line.strip()}{RESET}")
             else:
-                if line.strip() and "zxan" not in l_low:
-                    print(f"{WHITE}{line.strip()}{RESET}")
+                print(f"{WHITE}{line.strip()}{RESET}")
+        
+        if not found_data:
+            print(f"{YELLOW}[!] OLT Terkoneksi, tapi tidak ada data yang dihasilkan.{RESET}")
     else:
-        print(f"{YELLOW}[!] Audit gagal. Periksa koneksi ke OLT.{RESET}")
+        print(f"{RED}[!] Gagal mendapatkan respon data dari OLT.{RESET}")
+        print(f"{WHITE}[i] Cek apakah port 1/1/1 sudah benar atau user OLT punya hak akses 'enable'.{RESET}")
         
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 
 
-def nmap_scan_tool(): # Menu 19
+def nmap_scan_tool(): # Menu 20
     print(f"\n{CYAN}=== NMAP NETWORK SCANNER ==={RESET}")
     print(f"{WHITE}Contoh: 192.168.1.1 atau 192.168.1.0/24{RESET}")
     target = input(f"{YELLOW}Masukkan IP/Subnet Target: {RESET}").strip()
@@ -972,7 +969,7 @@ def nmap_scan_tool(): # Menu 19
     print(f"\n{MAGENTA}--------------------------------------------------{RESET}")
 
 
-def mac_lookup_tool(): # Menu 20 (Sesuai urutan baru)
+def mac_lookup_tool(): # Menu 21 (Sesuai urutan baru)
     print(f"\n{CYAN}=== MAC LOOKUP / VENDOR CHECK ==={RESET}")
     mac = input(f"{WHITE}Masukkan MAC Address (contoh AA:BB:CC): {RESET}").strip()
     
@@ -994,7 +991,7 @@ def mac_lookup_tool(): # Menu 20 (Sesuai urutan baru)
         print(f"\n{GREEN}[✓] HASIL (Online): {vendor}{RESET}")
     print(f"{MAGENTA}--------------------------------------------------{RESET}")
 
-def port_scanner_tool(): # Menu 21
+def port_scanner_tool(): # Menu 22
     print(f"\n{CYAN}=== PORT SCANNER (SPECIFIC TARGET) ==={RESET}")
     target = input(f"{WHITE}Masukkan IP Target: {RESET}").strip()
     
@@ -1024,7 +1021,7 @@ def port_scanner_tool(): # Menu 21
     print(f"\n{MAGENTA}--------------------------------------------------{RESET}")
 
 
-def what_my_ip(): # Menu 22
+def what_my_ip(): # Menu 23
     print(f"\n{CYAN}=== CEK INFORMASI IP PUBLIK ==={RESET}")
     print(f"{WHITE}[*] Mengambil data dari server...{RESET}")
     
@@ -1048,7 +1045,7 @@ def what_my_ip(): # Menu 22
     except Exception as e:
         print(f"{YELLOW}[!] Gagal mengambil informasi IP: {e}{RESET}")
 
-def ping_traceroute_tool(): # Menu 23
+def ping_traceroute_tool(): # Menu 24
     print(f"\n{CYAN}=== PING & TRACEROUTE TOOLS ==={RESET}")
     target = input(f"{WHITE}Masukkan Host/IP (contoh google.com atau 8.8.8.8): {RESET}").strip()
     
@@ -1077,7 +1074,7 @@ def ping_traceroute_tool(): # Menu 23
 
     print(f"\n{MAGENTA}--------------------------------------------------{RESET}")
 
-def dns_tools(): # Menu 24
+def dns_tools(): # Menu 25
     print(f"\n{CYAN}=== DNS LOOKUP TOOLS ==={RESET}")
     domain = input(f"{WHITE}Masukkan Domain (contoh google.com atau mikhmon.online): {RESET}").strip()
     
@@ -1111,33 +1108,31 @@ def dns_tools(): # Menu 24
     print(f"\n{MAGENTA}--------------------------------------------------{RESET}")
 
 
-def update_tools_auto(): # Menu 25
-    print(f"\n{CYAN}=== UPDATE & RESET TOOLS (AUTO GIT) ==={RESET}")
+def update_tools_auto(): # Menu 26
+    print(f"\n{CYAN}=== UPDATE & RESET TOOLS (FORCE SYNC) ==={RESET}")
+    print(f"{WHITE}[*] Membersihkan cache git lokal...{RESET}")
     
-    # Cek apakah ini folder git atau bukan
-    if not os.path.exists(".git"):
-        print(f"{RED}[!] Error: Folder ini bukan repositori Git.{RESET}")
-        print(f"{WHITE}[i] Kamu harus melakukan git clone ulang atau init di folder ini.{RESET}")
-        repo_url = input(f"{YELLOW}Masukkan URL GitHub kamu: {RESET}").strip()
-        if repo_url:
-            print(f"{CYAN}[*] Menginisialisasi repositori...{RESET}")
-            os.system("git init")
-            os.system(f"git remote add origin {repo_url}")
-            os.system("git fetch")
-            os.system("git reset --hard origin/main")
-        return
-
-    # Jika folder Git sudah benar, jalankan reset
-    confirm = input(f"{YELLOW}Lanjutkan Hard Reset ke origin/main? (y/n): {RESET}").lower()
-    if confirm == 'y':
-        print(f"\n{CYAN}[*] Sinkronisasi dengan GitHub...{RESET}")
-        # Urutan perintah agar bersih
+    try:
+        # 1. Ambil data terbaru dari server
         os.system("git fetch origin")
-        os.system("git checkout origin/main -- menu.py") # Update file menu.py saja
-        os.system("git reset --hard origin/main")
-        print(f"\n{GREEN}[✓] Sukses! Kode telah dipaksa mengikuti versi GitHub.{RESET}")
-    else:
-        print(f"{MAGENTA}[-] Update dibatalkan.{RESET}")
+        
+        # 2. Paksa reset ke origin/main (Ganti 'main' ke 'master' jika repo kamu pakai master)
+        print(f"{CYAN}[*] Menarik kode terbaru dari GitHub...{RESET}")
+        result = os.popen("git reset --hard origin/main 2>&1").read()
+        
+        if "HEAD is now at" in result:
+            print(f"\n{GREEN}[✓] BERHASIL! Kode sudah paling baru.{RESET}")
+            print(f"{WHITE}Pesan: {result.strip()}{RESET}")
+            print(f"{YELLOW}[!] Silakan keluar dan jalankan script lagi.{RESET}")
+        else:
+            # Jika gagal 'main', coba 'master'
+            os.system("git reset --hard origin/master")
+            print(f"{GREEN}[✓] Berhasil sync via master branch.{RESET}")
+
+    except Exception as e:
+        print(f"{RED}[!] Error: {e}{RESET}")
+    
+    print(f"{MAGENTA}--------------------------------------------------{RESET}")
 
 # --- MAIN INTERFACE ---
 def show_menu():

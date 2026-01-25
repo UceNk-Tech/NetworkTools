@@ -888,7 +888,7 @@ def traffic_report_pon(): # Menu 17 (OLT Tools)
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 
 
-def auto_audit_olt(): # Menu 18
+def auto_audit_olt(): # Menu 18 (OLT Tools)
     creds = get_credentials("olt")
     if not creds: 
         print(f"{YELLOW}[!] Profile OLT belum aktif.{RESET}")
@@ -897,54 +897,59 @@ def auto_audit_olt(): # Menu 18
     brand = creds.get('brand', 'zte').lower()
     
     print(f"\n{CYAN}=== AUTO AUDIT OLT SYSTEM ==={RESET}")
-    print(f"{WHITE}[*] Mencoba login dan audit (Sabar ya, Ucenk...){RESET}")
+    print(f"{WHITE}[*] Memulai audit kesehatan jaringan...{RESET}")
     
     if brand == 'zte':
-        # Kita buat perintahnya lebih spesifik dan berurutan
-        # Tambahkan baris kosong di awal untuk memastikan prompt muncul
+        # Perintah audit cepat untuk ZTE
         cmds = [
-            "", 
             "terminal length 0",
-            "enable", 
-            "show gpon onu state gpon-olt_1/1/1", # Sesuaikan port PON-mu
+            "enable",
+            "show pon power attenuation gpon-olt_1/1/1", # Ganti sesuai port utama
+            "show gpon onu state gpon-olt_1/1/1",
             "show alarm current severity critical"
         ]
     else:
-        cmds = ["terminal length 0", "show card", "show port state"]
+        # Untuk Fiberhome
+        cmds = ["show card", "show port state", "show pon power attenuation"]
 
-    # Kita panggil telnet dengan sedikit penekanan pada output
     output = telnet_olt_execute(creds, cmds)
     
-    print(f"\n{WHITE}HASIL AUDIT:{RESET}")
+    print(f"\n{WHITE}HASIL AUDIT OTOMATIS:{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
-    if output and len(output.strip()) > 10: # Pastikan output bukan cuma prompt ZXAN#
+    if output:
         lines = output.splitlines()
-        found_data = False
         for line in lines:
             l_low = line.lower()
             
-            # Abaikan baris perintah kita sendiri
-            if any(x in l_low for x in ["terminal length", "enable", "show gpon", "zxan#"]):
-                continue
+            # Deteksi Sinyal Lemah (Audit Power)
+            if "dbm" in l_low:
+                try:
+                    # Mencari nilai numerik power, biasanya -27dBm ke atas itu buruk
+                    power_val = float(''.join(filter(lambda x: x in "0123456789.-", line.split()[-1])))
+                    if power_val < -27.0:
+                        print(f"{RED}[BAD SIGNAL] {line.strip()}{RESET}")
+                    else:
+                        print(f"{GREEN}[OK] {line.strip()}{RESET}")
+                except:
+                    print(f"{WHITE}{line.strip()}{RESET}")
             
-            found_data = True
-            # Warnai Status ONU
-            if "working" in l_low or "online" in l_low:
-                print(f"{GREEN}[OK] {line.strip()}{RESET}")
-            elif any(x in l_low for x in ["offline", "los", "dyinggasp", "critical"]):
-                print(f"{YELLOW}[!] {line.strip()}{RESET}")
+            # Deteksi ONU Offline
+            elif any(x in l_low for x in ["offline", "los", "dyinggasp"]):
+                print(f"{YELLOW}[OFFLINE/ALARM] {line.strip()}{RESET}")
+            
+            elif "working" in l_low or "online" in l_low:
+                print(f"{GREEN}[ONLINE] {line.strip()}{RESET}")
             else:
-                print(f"{WHITE}{line.strip()}{RESET}")
-        
-        if not found_data:
-            print(f"{YELLOW}[!] OLT Terkoneksi, tapi tidak ada data yang dihasilkan.{RESET}")
+                if line.strip() and "zxan" not in l_low:
+                    print(f"{WHITE}{line.strip()}{RESET}")
     else:
-        print(f"{RED}[!] Gagal mendapatkan respon data dari OLT.{RESET}")
-        print(f"{WHITE}[i] Cek apakah port 1/1/1 sudah benar atau user OLT punya hak akses 'enable'.{RESET}")
+        print(f"{YELLOW}[!] Audit gagal. Periksa koneksi ke OLT.{RESET}")
         
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 
+
+#------SPEEDTEST------MENU 19
 
 def nmap_scan_tool(): # Menu 20
     print(f"\n{CYAN}=== NMAP NETWORK SCANNER ==={RESET}")
@@ -1185,7 +1190,7 @@ def main():
         elif c == '15': alarm_event_viewer()
         elif c == '16': backup_restore_olt()
         elif c == '17': traffic_report_pon()
-            
+        elif c == '18': auto_audit_olt()    
         elif c == '19': os.system("speedtest-cli")
         elif c == '20': nmap_scan_tool()
         elif c == '21': mac_lookup_tool()

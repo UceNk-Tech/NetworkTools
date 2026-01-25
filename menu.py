@@ -728,15 +728,16 @@ def alarm_event_viewer(): # Menu 15
     opt = input(f"\n{YELLOW}Pilih Opsi: {RESET}").strip()
     if opt == '0' or not opt: return
 
-    print(f"\n{CYAN}[*] Mengambil data alarm dari OLT...{RESET}")
+    print(f"\n{CYAN}[*] Mengambil data dari OLT...{RESET}")
     
     if brand == 'zte':
+        # Penyesuaian perintah ZTE agar lebih universal
         if opt == '1':
-            # Menampilkan alarm yang sedang terjadi sekarang
-            cmds = ["terminal length 0", "enable", "show alarm current"]
+            # Untuk alarm yang sedang aktif
+            cmds = ["terminal length 0", "show alarm current"]
         else:
-            # Menampilkan history kejadian terakhir
-            cmds = ["terminal length 0", "enable", "show alarm history"]
+            # Perintah history yang lebih umum di ZTE
+            cmds = ["terminal length 0", "show alarm history all"]
     else:
         # Untuk Fiberhome
         if opt == '1':
@@ -750,20 +751,27 @@ def alarm_event_viewer(): # Menu 15
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
     if output:
+        # Bersihkan output dari echo perintah
         lines = output.splitlines()
         for line in lines:
             l_low = line.lower()
-            # Filter baris echo perintah
-            if any(x in l_low for x in ["terminal length", "show alarm", "enable"]):
+            # Filter baris sampah/prompt
+            if any(x in l_low for x in ["terminal length", "show alarm", "zxan#", "zxan>"]):
                 continue
             
-            # Berikan highlight warna kuning untuk alarm berbahaya
+            # Deteksi error dari OLT
+            if "%error" in l_low:
+                print(f"{RED}[!] OLT Command Error: {line.strip()}{RESET}")
+                print(f"{WHITE}[i] Coba ganti perintah ke: 'show alarm history' tanpa 'all' jika manual.{RESET}")
+                continue
+
+            # Highlight status krusial
             if any(x in l_low for x in ["critical", "major", "los", "dyinggasp", "off-line"]):
                 print(f"{YELLOW}{line.strip()}{RESET}")
             else:
                 print(f"{WHITE}{line.strip()}{RESET}")
     else:
-        print(f"{YELLOW}[!] Tidak ada alarm terdeteksi atau OLT tidak merespon.{RESET}")
+        print(f"{YELLOW}[!] Tidak ada respon dari OLT.{RESET}")
         
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 

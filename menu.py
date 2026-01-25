@@ -444,30 +444,77 @@ def delete_onu(): # Menu 12
             telnet_olt_execute(creds, ["conf t", f"interface gpon-olt_{port}", f"no onu {onu_id}", "end", "write"])
             print(f"{GREEN}[✓] ONU {port}:{onu_id} Terhapus.{RESET}")
 
-def status_power(): # Menu 13
+def check_optical_power_fast():
+    """Menu 13: Cek Power Optik - Versi Anti-Gagal & Debug Mode"""
     creds = get_credentials("olt")
-    if not creds: return
+    if not creds: 
+        print(f"{RED}[!] Profile OLT belum aktif.{RESET}")
+        return
+    
     brand = creds.get('brand', 'zte').lower()
+    
     print(f"\n{CYAN}=== CEK OPTICAL POWER ONU (SMART VIEW) ==={RESET}")
+    print(f"{WHITE}Brand OLT Terdeteksi: {YELLOW}{brand.upper()}{RESET}")
     port = input(f"{WHITE}Port (contoh 1/1/1): {RESET}").strip()
     onu_id = input(f"{WHITE}ONU ID (contoh 1): {RESET}").strip()
-    if brand == 'fiberhome': cmds_to_try = [f"show onu optical-power {port} {onu_id}"]
-    else: cmds_to_try = [f"show pon optical-power gpon-onu_{port}:{onu_id}", f"show gpon onu detail-info gpon-onu_{port}:{onu_id}"]
-    print(f"{CYAN}[*] Sedang berkomunikasi dengan OLT...{RESET}")
+    
+    # Kumpulan skenario perintah yang akan dicoba
+    if brand == 'fiberhome':
+        cmds_to_try = [f"show onu optical-power {port} {onu_id}"]
+    else:
+        # Skenario ZTE: Masuk mode enable dulu, baru cek
+        cmds_to_try = [
+            f"show pon optical-power gpon-olt_{port} {onu_id}",
+            f"show pon optical-power gpon-onu_{port}:{onu_id}",
+            f"show gpon onu detail-info gpon-onu_{port}:{onu_id}"
+        ]
+        
     output = ""
+    
+    # Alice tambahkan 'enable' di awal untuk OLT ZTE
+    base_cmds = ["terminal length 0"]
+    if brand == 'zte':
+        base_cmds.append("enable") # Memastikan hak akses penuh
+        # Masukkan password enable jika OLT memintanya (opsional, tergantung config OLT)
+        if creds.get('pass'): base_cmds.append(creds['pass']) 
+    
+    print(f"{CYAN}[*] Sedang berkomunikasi dengan OLT...{RESET}")
+    
     for cmd in cmds_to_try:
-        raw = telnet_olt_execute(creds, ["terminal length 0", "enable", cmd] if brand == 'zte' else ["terminal length 0", cmd])
+        current_cmds = base_cmds + [cmd]
+        raw = telnet_olt_execute(creds, current_cmds)
+        
+        # Validasi: Jika output mengandung angka atau tabel, berarti sukses
         if raw and any(x in raw for x in ["dBm", "Power", "Voltage", "Temp"]):
-            output = raw; break
-        output = raw
+            output = raw
+            break
+        output = raw # Simpan untuk debug jika semua gagal
+            
     print(f"\n{WHITE}HASIL DIAGNOSA {brand.upper()} ONU {port}:{onu_id}:{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
+    
     if "dBm" in output:
         print(f"{GREEN}[✓] STATUS: ONU ONLINE / DATA DITERIMA{RESET}")
-        for line in output.splitlines():
-            if "dBm" in line or any(x in line.lower() for x in ["temp", "volt", "input", "output"]): print(f"{YELLOW}{line.strip()}{RESET}")
-    elif "offline" in output.lower() or "LOS" in output: print(f"{RED}[!] STATUS: ONU OFFLINE / LOS{RESET}")
-    else: print(f"{RED}[!] Perintah Ditolak atau Format Salah.{RESET}\n{CYAN}{output}{RESET}")
+        
+        # Cari baris yang spesifik milik ONU tersebut
+        lines = output.splitlines()
+        for line in lines:
+            if "dBm" in line and (onu_id in line or port in line):
+                print(f"{YELLOW}{line.strip()}{RESET}")
+            elif any(x in line.lower() for x in ["temp", "volt", "input", "output"]):
+                print(f"{CYAN}{line.strip()}{RESET}")
+    
+    elif "---" in output or "N/A" in output or "offline" in output.lower():
+        print(f"{RED}[!] STATUS: ONU OFFLINE / LOS{RESET}")
+        print(f"{YELLOW}[i] Deteksi: Sinyal laser tidak sampai ke ONU.{RESET}")
+    
+    else:
+        # MODE DEBUG: Jika tetap gagal, tampilkan apa yang dikatakan OLT
+        print(f"{RED}[!] Perintah Ditolak atau Format Salah.{RESET}")
+        print(f"{WHITE}Respon Terakhir OLT:{RESET}")
+        print(f"{CYAN}{output}{RESET}")
+        print(f"\n{YELLOW}[i] Tips: Coba masukkan port tanpa gpon-olt (misal: 1/1/1 saja){RESET}")
+            
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 
 def port_vlan(): # Menu 14
@@ -486,18 +533,18 @@ def show_menu():
     os.system('neofetch --ascii_distro hacker 2>/dev/null')
     
     print(f"\n{WHITE}Aktif Profile: {GREEN}{prof}{RESET}")
-    print(f"                                    {CYAN}--- MIKROTIK TOOLS ---{RESET}")
+    print(f"          {CYAN}--- MIKROTIK TOOLS ---{RESET}")
     print("1. Jalankan Mikhmon Server          5. Bandwidth Usage Report")
     print("2. Total User Aktif Hotspot          6. Backup & Restore MikroTik")
     print("3. Cek DHCP Alert (Rogue)            7. SNMP Monitoring")
     print("4. Hapus Laporan Mikhmon              8. Log Viewer MikroTik")
-    print(f"\n                                    {CYAN}--- OLT TOOLS ---{RESET}")
+    print(f"\n          {CYAN}--- OLT TOOLS ---{RESET}")
     print("9. Lihat ONU Terdaftar              14. Port & VLAN Config")
     print("10. Konfigurasi ONU (ZTE/FH)        15. Alarm & Event Viewer")
     print("11. Reset ONU                       16. Backup & Restore OLT")
     print("12. Delete ONU                      17. Traffic Report per PON")
     print("13. Cek Status Power Optic          18. Auto Audit Script")
-    print(f"\n                                    {CYAN}--- NETWORK TOOLS ---{RESET}")
+    print(f"\n       {CYAN}--- NETWORK TOOLS ---{RESET}")
     print("17. Speedtest CLI                    22. WhatMyIP")
     print("18. Nmap Scan                        23. Ping & Traceroute")
     print("19. MAC Lookup                       24. DNS Tools")

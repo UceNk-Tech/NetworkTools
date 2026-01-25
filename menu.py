@@ -1033,27 +1033,31 @@ def dns_tools(): # Menu 24
 
 def update_tools_auto(): # Menu 25
     print(f"\n{CYAN}=== UPDATE & RESET TOOLS (AUTO GIT) ==={RESET}")
-    print(f"{WHITE}[!] Peringatan: Semua perubahan lokal yang belum di-commit akan dihapus.{RESET}")
-    confirm = input(f"{YELLOW}Lanjutkan Update/Reset? (y/n): {RESET}").lower()
     
+    # Cek apakah ini folder git atau bukan
+    if not os.path.exists(".git"):
+        print(f"{RED}[!] Error: Folder ini bukan repositori Git.{RESET}")
+        print(f"{WHITE}[i] Kamu harus melakukan git clone ulang atau init di folder ini.{RESET}")
+        repo_url = input(f"{YELLOW}Masukkan URL GitHub kamu: {RESET}").strip()
+        if repo_url:
+            print(f"{CYAN}[*] Menginisialisasi repositori...{RESET}")
+            os.system("git init")
+            os.system(f"git remote add origin {repo_url}")
+            os.system("git fetch")
+            os.system("git reset --hard origin/main")
+        return
+
+    # Jika folder Git sudah benar, jalankan reset
+    confirm = input(f"{YELLOW}Lanjutkan Hard Reset ke origin/main? (y/n): {RESET}").lower()
     if confirm == 'y':
-        print(f"\n{CYAN}[*] Menghubungkan ke Repositori...{RESET}")
-        try:
-            # Mengambil data terbaru dari server tanpa merge dulu
-            os.system("git fetch --all")
-            # Memaksa posisi file lokal sama persis dengan yang ada di server (Main/Master)
-            print(f"{CYAN}[*] Melakukan Hard Reset...{RESET}")
-            # Kita coba reset ke origin/main atau origin/master secara otomatis
-            os.system("git reset --hard origin/$(git symbolic-ref --short HEAD)")
-            print(f"\n{GREEN}[✓] Sukses! Kode telah di-reset dan diperbarui ke versi terbaru.{RESET}")
-            print(f"{WHITE}[i] Silakan jalankan ulang script jika diperlukan.{RESET}")
-        except Exception as e:
-            print(f"{RED}[!] Gagal melakukan update: {e}{RESET}")
+        print(f"\n{CYAN}[*] Sinkronisasi dengan GitHub...{RESET}")
+        # Urutan perintah agar bersih
+        os.system("git fetch origin")
+        os.system("git checkout origin/main -- menu.py") # Update file menu.py saja
+        os.system("git reset --hard origin/main")
+        print(f"\n{GREEN}[✓] Sukses! Kode telah dipaksa mengikuti versi GitHub.{RESET}")
     else:
         print(f"{MAGENTA}[-] Update dibatalkan.{RESET}")
-    
-    print(f"{MAGENTA}--------------------------------------------------{RESET}")
-    
 
 # --- MAIN INTERFACE ---
 def show_menu():

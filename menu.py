@@ -437,10 +437,10 @@ def delete_onu(): # Menu 12
             print(f"{GREEN}[✓] ONU {port}:{onu_id} Terhapus.{RESET}")
 
 def check_optical_power_fast():
-    """Menu 13: Cek Power Optik - Online/Offline/Unregistered Support"""
+    """Menu 13: Cek Power Optik - Online/Offline/Unregistered Support (Yellow Alert Version)"""
     creds = get_credentials("olt")
     if not creds: 
-        print(f"{RED}[!] Profile OLT belum aktif.{RESET}")
+        print(f"{YELLOW}[!] Profile OLT belum aktif.{RESET}")
         return
     
     brand = creds.get('brand', 'zte').lower()
@@ -477,7 +477,7 @@ def check_optical_power_fast():
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
     if not output:
-        print(f"{RED}[!] Gagal mengambil data. Periksa koneksi ke OLT.{RESET}")
+        print(f"{YELLOW}[!] Gagal mengambil data. Periksa koneksi ke OLT.{RESET}")
         return
 
     # LOGIKA PARSING (Mencari status dan power)
@@ -489,9 +489,9 @@ def check_optical_power_fast():
         line_clean = line.strip()
         l_low = line_clean.lower()
         
-        # 1. Cek Status Offline/DyingGasp/LOS
+        # 1. Cek Status Offline/DyingGasp/LOS - Ganti Merah ke Kuning
         if any(x in l_low for x in ["offline", "dyinggasp", "los", "logging"]):
-            print(f"{RED}[!] STATUS ONU: OFFLINE ({line_clean}){RESET}")
+            print(f"{YELLOW}[!] STATUS ONU: OFFLINE ({line_clean}){RESET}")
             is_offline = True
             found_data = True
         
@@ -516,7 +516,8 @@ def check_optical_power_fast():
 
     if not found_data:
         if "Invalid" in output or "%" in output:
-            print(f"{RED}[!] Error: Perintah tidak dikenal atau ONU belum terdaftar.{RESET}")
+            # Ganti Merah ke Kuning
+            print(f"{YELLOW}[!] Error: Perintah tidak dikenal atau ONU belum terdaftar.{RESET}")
             print(f"{YELLOW}[i] Pastikan ONU sudah muncul di 'show gpon onu uncfg'.{RESET}")
         else:
             print(f"{WHITE}Respon OLT:{RESET}\n{output}")

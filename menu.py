@@ -287,48 +287,77 @@ def delete_onu_fast():
             print(f"{GREEN}[✓] ONU {port}:{onu_id} Terhapus.{RESET}")
 
 def check_optical_power_fast():
-    """Menu 13: Cek Power Optik dengan Deteksi Offline/LOS"""
+    """Menu 13: Cek Power Optik dengan Deteksi Brand (ZTE & FiberHome)"""
     creds = get_credentials("olt")
-    if not creds: return
+    if not creds: 
+        print(f"{RED}[!] Profile OLT belum aktif.{RESET}")
+        return
+    
     brand = creds.get('brand', 'zte').lower()
     
     print(f"\n{CYAN}=== CEK OPTICAL POWER ONU (SMART VIEW) ==={RESET}")
-    port = input(f"{WHITE}Port (1/3/1): {RESET}").strip()
-    onu_id = input(f"{WHITE}ONU ID: {RESET}").strip()
+    print(f"{WHITE}Brand OLT Terdeteksi: {YELLOW}{brand.upper()}{RESET}")
+    port = input(f"{WHITE}Port (contoh 1/1/1): {RESET}").strip()
+    onu_id = input(f"{WHITE}ONU ID (contoh 1): {RESET}").strip()
     
-    # Perintah untuk mendapatkan detail redaman
-    if brand == 'zte':
-        cmd = [f"show pon optical-power gpon-olt_{port} {onu_id}"]
+    # Menentukan Command berdasarkan Brand
+    if brand == 'fiberhome':
+        # Perintah FiberHome (Format: show onu optical-power <port> <id>)
+        cmds = [
+            "terminal length 0",
+            f"show onu optical-power {port} {onu_id}"
+        ]
     else:
-        cmd = [f"show onu optical-power {port} {onu_id}"]
+        # Perintah ZTE (Format: show pon optical-power gpon-onu_<port>:<id>)
+        cmds = [
+            "terminal length 0",
+            f"show pon optical-power gpon-onu_{port}:{onu_id}"
+        ]
         
-    output = telnet_olt_execute(creds, cmd)
+    output = telnet_olt_execute(creds, cmds)
     
-    print(f"\n{WHITE}HASIL DIAGNOSA ONU {port}:{onu_id}:{RESET}")
+    print(f"\n{WHITE}HASIL DIAGNOSA {brand.upper()} ONU {port}:{onu_id}:{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
-    if not output or "---" in output or "N/A" in output or "not exist" in output.lower():
+    # Cek Error atau Offline
+    if not output or "Invalid" in output or "%Error" in output or "not exist" in output.lower():
+        # Fallback ZTE jika gpon-onu_ gagal, coba gpon-olt_
+        if brand == 'zte':
+            retry = telnet_olt_execute(creds, [f"show pon optical-power gpon-olt_{port} {onu_id}"])
+            if retry and "---" not in retry:
+                print(f"{CYAN}{retry}{RESET}")
+                print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
+                return
+
         print(f"{RED}[!] STATUS: ONU OFFLINE / LOS (Kabel Putus atau Power Mati){RESET}")
         print(f"{YELLOW}[i] Saran: Cek fisik kabel FO atau adaptor di lokasi user.{RESET}")
+    
+    elif "---" in output or "N/A" in output:
+        print(f"{RED}[!] STATUS: DATA TIDAK TERBACA (Kemungkinan LOS atau ONU Mati){RESET}")
+    
     else:
-        # Menampilkan data redaman jika ditemukan
-        lines = output.splitlines()
-        found_data = False
-        for line in lines:
-            # Cari baris yang mengandung data numerik (redaman)
-            if f"{port}:{onu_id}" in line or (line.strip().startswith(onu_id) and len(line.split()) > 3):
-                parts = line.split()
-                # Penataan sederhana ala tabel gambar yang kamu kirim
-                # Biasanya kolom OLT: [ID] [Status] [Rx Power] [Tx Power] dll
-                print(f"{GREEN}[✓] STATUS: ONU ONLINE / AUTHENTICATION SUCCESS{RESET}")
-                print(f"{WHITE}Detail Redaman:{RESET}")
-                print(f" - Rx Power (Input)  : {YELLOW}{parts[-2] if len(parts)>2 else 'N/A'} dBm{RESET}")
-                print(f" - Tx Power (Output) : {YELLOW}{parts[-1] if len(parts)>3 else 'N/A'} dBm{RESET}")
-                found_data = True
+        print(f"{GREEN}[✓] STATUS: ONU ONLINE / AUTHENTICATION SUCCESS{RESET}")
         
-        if not found_data:
-            # Jika tidak sengaja lewat dari filter diatas, tampilkan output mentahnya saja
-            print(f"{CYAN}{output}{RESET}")
+        # Ekstraksi Data Universal (Regex)
+        # Mencari angka desimal yang diikuti atau didahului kata Rx/Input/Tx/Output
+        rx = re.search(r"(?:Rx|Input).*?([-]\d+\.\d+)", output, re.I)
+        tx = re.search(r"(?:Tx|Output).*?(\d+\.\d+)", output, re.I)
+        temp = re.search(r"(?:Temp|Temperature).*?(\d+\.?\d*)", output, re.I)
+        volt = re.search(r"(?:Volt|Voltage).*?(\d+\.?\d*)", output, re.I)
+
+        print(f"{WHITE}Detail Informasi Modul Optik:{RESET}")
+        print(f" - Input Power (Rx)  : {YELLOW}{rx.group(1) if rx else '---'} dBm{RESET}")
+        print(f" - Output Power (Tx) : {YELLOW}{tx.group(1) if tx else '---'} dBm{RESET}")
+        
+        if temp: print(f" - Operating Temp    : {YELLOW}{temp.group(1)} °C{RESET}")
+        if volt: print(f" - Supply Voltage    : {YELLOW}{volt.group(1)} V/uV{RESET}")
+
+        # Jika data spesifik tidak ketemu, tampilkan baris yang relevan saja
+        if not rx and not tx:
+            print(f"\n{WHITE}Data Mentah OLT:{RESET}")
+            for line in output.splitlines():
+                if any(x in line.lower() for x in ['power', 'dbm', 'temp', 'volt']):
+                    print(f" {CYAN}{line.strip()}{RESET}")
             
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 

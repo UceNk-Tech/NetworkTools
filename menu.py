@@ -888,6 +888,67 @@ def traffic_report_pon(): # Menu 17 (OLT Tools)
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 
 
+def auto_audit_olt(): # Menu 18 (OLT Tools)
+    creds = get_credentials("olt")
+    if not creds: 
+        print(f"{YELLOW}[!] Profile OLT belum aktif.{RESET}")
+        return
+    
+    brand = creds.get('brand', 'zte').lower()
+    
+    print(f"\n{CYAN}=== AUTO AUDIT OLT SYSTEM ==={RESET}")
+    print(f"{WHITE}[*] Memulai audit kesehatan jaringan...{RESET}")
+    
+    if brand == 'zte':
+        # Perintah audit cepat untuk ZTE
+        cmds = [
+            "terminal length 0",
+            "enable",
+            "show pon power attenuation gpon-olt_1/1/1", # Ganti sesuai port utama
+            "show gpon onu state gpon-olt_1/1/1",
+            "show alarm current severity critical"
+        ]
+    else:
+        # Untuk Fiberhome
+        cmds = ["show card", "show port state", "show pon power attenuation"]
+
+    output = telnet_olt_execute(creds, cmds)
+    
+    print(f"\n{WHITE}HASIL AUDIT OTOMATIS:{RESET}")
+    print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
+    
+    if output:
+        lines = output.splitlines()
+        for line in lines:
+            l_low = line.lower()
+            
+            # Deteksi Sinyal Lemah (Audit Power)
+            if "dbm" in l_low:
+                try:
+                    # Mencari nilai numerik power, biasanya -27dBm ke atas itu buruk
+                    power_val = float(''.join(filter(lambda x: x in "0123456789.-", line.split()[-1])))
+                    if power_val < -27.0:
+                        print(f"{RED}[BAD SIGNAL] {line.strip()}{RESET}")
+                    else:
+                        print(f"{GREEN}[OK] {line.strip()}{RESET}")
+                except:
+                    print(f"{WHITE}{line.strip()}{RESET}")
+            
+            # Deteksi ONU Offline
+            elif any(x in l_low for x in ["offline", "los", "dyinggasp"]):
+                print(f"{YELLOW}[OFFLINE/ALARM] {line.strip()}{RESET}")
+            
+            elif "working" in l_low or "online" in l_low:
+                print(f"{GREEN}[ONLINE] {line.strip()}{RESET}")
+            else:
+                if line.strip() and "zxan" not in l_low:
+                    print(f"{WHITE}{line.strip()}{RESET}")
+    else:
+        print(f"{YELLOW}[!] Audit gagal. Periksa koneksi ke OLT.{RESET}")
+        
+    print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
+
+
 def nmap_scan_tool(): # Menu 19
     print(f"\n{CYAN}=== NMAP NETWORK SCANNER ==={RESET}")
     print(f"{WHITE}Contoh: 192.168.1.1 atau 192.168.1.0/24{RESET}")
@@ -1102,10 +1163,10 @@ def show_menu():
     print("12. Delete ONU                      17. Traffic Report per PON")
     print("13. Cek Status Power Optic          18. Auto Audit Script")
     print(f"\n{CYAN}--- NETWORK TOOLS ---{RESET}")
-    print("18. Speedtest                       22. WhatMyIP")
-    print("19. Nmap Scan                       23. Ping & Traceroute")
-    print("20. MAC Lookup                      24. DNS Tools")
-    print("21. Port Scaner                     25. Update-Tools")
+    print("19. Speedtest                       22=3. WhatMyIP")
+    print("20. Nmap Scan                       24. Ping & Traceroute")
+    print("21. MAC Lookup                      25. DNS Tools")
+    print("22. Port Scaner                     26. Update-Tools")
     print(f"\n{YELLOW}99. Profile Setting{RESET}\n{MAGENTA}0. Exit{RESET}")
 
 def main():
@@ -1129,14 +1190,15 @@ def main():
         elif c == '15': alarm_event_viewer()
         elif c == '16': backup_restore_olt()
         elif c == '17': traffic_report_pon()
-        elif c == '18': os.system("speedtest-cli")
-        elif c == '19': nmap_scan_tool()
-        elif c == '19': mac_lookup_tool()
-        elif c == '21': port_scanner_tool()
-        elif c == '22': what_my_ip()
-        elif c == '23': ping_traceroute_tool()
-        elif c == '24': dns_tools()
-        elif c == '25': update_tools_auto()
+            
+        elif c == '19': os.system("speedtest-cli")
+        elif c == '20': nmap_scan_tool()
+        elif c == '21': mac_lookup_tool()
+        elif c == '22': port_scanner_tool()
+        elif c == '23': what_my_ip()
+        elif c == '24': ping_traceroute_tool()
+        elif c == '25': dns_tools()
+        elif c == '26': update_tools_auto()
         elif c == '99': manage_profiles()
         elif c == '0': sys.exit()
         input(f"\n{YELLOW}Tekan Enter...{RESET}")

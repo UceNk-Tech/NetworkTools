@@ -287,7 +287,7 @@ def delete_onu_fast():
             print(f"{GREEN}[✓] ONU {port}:{onu_id} Terhapus.{RESET}")
 
 def check_optical_power_fast():
-    """Menu 13: Cek Power Optik dengan Deteksi Brand (ZTE & FiberHome)"""
+    """Menu 13: Cek Power Optik dengan Deteksi Brand & Multi-Command Fix"""
     creds = get_credentials("olt")
     if not creds: 
         print(f"{RED}[!] Profile OLT belum aktif.{RESET}")
@@ -300,67 +300,70 @@ def check_optical_power_fast():
     port = input(f"{WHITE}Port (contoh 1/1/1): {RESET}").strip()
     onu_id = input(f"{WHITE}ONU ID (contoh 1): {RESET}").strip()
     
-    # Menentukan Command berdasarkan Brand
+    # Kumpulan perintah yang akan dicoba satu per satu jika gagal
     if brand == 'fiberhome':
-        # Perintah FiberHome (Format: show onu optical-power <port> <id>)
-        cmds = [
-            "terminal length 0",
-            f"show onu optical-power {port} {onu_id}"
-        ]
+        cmds_to_try = [f"show onu optical-power {port} {onu_id}"]
     else:
-        # Perintah ZTE (Format: show pon optical-power gpon-onu_<port>:<id>)
-        cmds = [
-            "terminal length 0",
-            f"show pon optical-power gpon-onu_{port}:{onu_id}"
+        # Variasi perintah ZTE untuk berbagai versi firmware
+        cmds_to_try = [
+            f"show pon optical-power gpon-onu_{port}:{onu_id}",
+            f"show pon optical-power gpon-olt_{port} {onu_id}"
         ]
         
-    output = telnet_olt_execute(creds, cmds)
+    output = ""
+    success_cmd = False
     
+    # Eksekusi percobaan perintah
+    for cmd in cmds_to_try:
+        raw = telnet_olt_execute(creds, ["terminal length 0", "end", cmd])
+        if raw and "%Error" not in raw and "Invalid" not in raw:
+            output = raw
+            success_cmd = True
+            break
+            
     print(f"\n{WHITE}HASIL DIAGNOSA {brand.upper()} ONU {port}:{onu_id}:{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
-    # Cek Error atau Offline
-    if not output or "Invalid" in output or "%Error" in output or "not exist" in output.lower():
-        # Fallback ZTE jika gpon-onu_ gagal, coba gpon-olt_
-        if brand == 'zte':
-            retry = telnet_olt_execute(creds, [f"show pon optical-power gpon-olt_{port} {onu_id}"])
-            if retry and "---" not in retry:
-                print(f"{CYAN}{retry}{RESET}")
-                print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
-                return
-
+    if not success_cmd or not output:
+        print(f"{RED}[!] Gagal mengeksekusi perintah. OLT menolak input.{RESET}")
+        print(f"{YELLOW}[i] Cek kembali format Port atau hak akses user.{RESET}")
+    
+    elif "---" in output or "N/A" in output or "offline" in output.lower():
         print(f"{RED}[!] STATUS: ONU OFFLINE / LOS (Kabel Putus atau Power Mati){RESET}")
         print(f"{YELLOW}[i] Saran: Cek fisik kabel FO atau adaptor di lokasi user.{RESET}")
-    
-    elif "---" in output or "N/A" in output:
-        print(f"{RED}[!] STATUS: DATA TIDAK TERBACA (Kemungkinan LOS atau ONU Mati){RESET}")
     
     else:
         print(f"{GREEN}[✓] STATUS: ONU ONLINE / AUTHENTICATION SUCCESS{RESET}")
         
-        # Ekstraksi Data Universal (Regex)
-        # Mencari angka desimal yang diikuti atau didahului kata Rx/Input/Tx/Output
-        rx = re.search(r"(?:Rx|Input).*?([-]\d+\.\d+)", output, re.I)
-        tx = re.search(r"(?:Tx|Output).*?(\d+\.\d+)", output, re.I)
+        # Ekstraksi Data menggunakan Regex yang lebih fleksibel
+        # Mencari angka desimal (positif/negatif) di dekat kata Rx/Input/Tx/Output
+        rx = re.search(r"(?:Rx|Input).*?([-]?\d+\.\d+)", output, re.I)
+        tx = re.search(r"(?:Tx|Output).*?([-]?\d+\.\d+)", output, re.I)
         temp = re.search(r"(?:Temp|Temperature).*?(\d+\.?\d*)", output, re.I)
         volt = re.search(r"(?:Volt|Voltage).*?(\d+\.?\d*)", output, re.I)
 
         print(f"{WHITE}Detail Informasi Modul Optik:{RESET}")
-        print(f" - Input Power (Rx)  : {YELLOW}{rx.group(1) if rx else '---'} dBm{RESET}")
-        print(f" - Output Power (Tx) : {YELLOW}{tx.group(1) if tx else '---'} dBm{RESET}")
+        
+        # Tampilkan Input Power (Rx)
+        val_rx = rx.group(1) if rx else "---"
+        color_rx = RED if (rx and float(val_rx) < -27) else YELLOW
+        print(f" - Input Power (Rx)  : {color_rx}{val_rx} dBm{RESET}")
+        
+        # Tampilkan Output Power (Tx)
+        val_tx = tx.group(1) if tx else "---"
+        print(f" - Output Power (Tx) : {YELLOW}{val_tx} dBm{RESET}")
         
         if temp: print(f" - Operating Temp    : {YELLOW}{temp.group(1)} °C{RESET}")
         if volt: print(f" - Supply Voltage    : {YELLOW}{volt.group(1)} V/uV{RESET}")
 
-        # Jika data spesifik tidak ketemu, tampilkan baris yang relevan saja
+        # Jika data spesifik tidak ketemu tapi ada output, tampilkan baris tabelnya
         if not rx and not tx:
-            print(f"\n{WHITE}Data Mentah OLT:{RESET}")
+            print(f"\n{WHITE}Data Tabel OLT:{RESET}")
             for line in output.splitlines():
-                if any(x in line.lower() for x in ['power', 'dbm', 'temp', 'volt']):
+                if any(x in line.lower() for x in ['dbm', 'power', port]):
                     print(f" {CYAN}{line.strip()}{RESET}")
             
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
-
 def show_menu():
     vault = load_vault()
     prof = vault.get("active_profile", "None")

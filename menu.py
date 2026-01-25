@@ -546,7 +546,7 @@ def show_menu():
     print("12. Delete ONU                      17. Traffic Report per PON")
     print("13. Cek Status Power Optic          18. Auto Audit Script")
     print(f"\n{CYAN}--- NETWORK TOOLS ---{RESET}")
-    print("17. Speedtest CLI                   22. WhatMyIP")
+    print("17. Speedtest                       22. WhatMyIP")
     print("18. Nmap Scan                       23. Ping & Traceroute")
     print("19. MAC Lookup                      24. DNS Tools")
     print("20. Port Scaner                     25. Update-Tools")

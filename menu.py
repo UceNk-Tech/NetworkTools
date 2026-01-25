@@ -528,7 +528,7 @@ def show_menu():
     os.system('clear')
     os.system('echo "=================================================================" | lolcat 2>/dev/null')
     os.system('figlet -f slant "Ucenk D-Tech" | lolcat 2>/dev/null')
-    os.system('echo "    Premium Network Management System - Author: Ucenk" | lolcat 2>/dev/null')
+    os.system('echo "        Premium Network Management System - Author: Ucenk" | lolcat 2>/dev/null')
     os.system('echo "=================================================================" | lolcat 2>/dev/null')
     os.system('neofetch --ascii_distro hacker 2>/dev/null')
     

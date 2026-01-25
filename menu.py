@@ -438,7 +438,7 @@ def delete_onu(): # Menu 12
             print(f"{GREEN}[✓] ONU {port}:{onu_id} Terhapus.{RESET}")
 
 def check_optical_power_fast():
-    """Menu 13: Cek Power Optik - Online/Offline/Unregistered Support (Yellow Alert Version)"""
+    """Menu 13: Cek Power Optik - Split Input & Pink Alert Version"""
     creds = get_credentials("olt")
     if not creds: 
         print(f"{YELLOW}[!] Profile OLT belum aktif.{RESET}")
@@ -447,53 +447,47 @@ def check_optical_power_fast():
     brand = creds.get('brand', 'zte').lower()
     
     print(f"\n{CYAN}=== CEK STATUS & POWER OPTIK ONU ==={RESET}")
-    # Alice minta input port & id sekaligus agar mudah
-    target = input(f"{WHITE}Masukkan Port:ID (contoh 1/1/1:1): {RESET}").strip()
+    # Input dipisah sesuai permintaan
+    port = input(f"{WHITE}Masukkan Port (contoh 1/1/1): {RESET}").strip()
+    onu_id = input(f"{WHITE}ONU ID: {RESET}").strip()
+    target = f"{port}:{onu_id}"
     
     if brand == 'fiberhome':
-        fh_target = target.replace(":", " ")
-        cmds = ["terminal length 0", f"show onu optical-power {fh_target}"]
+        cmds = ["terminal length 0", f"show onu optical-power {port} {onu_id}"]
     else:
-        # Kita pakai strategi 2 tahap untuk ZTE
-        if ":" in target:
-            port, onu_id = target.split(":")
-            cmds = [
-                "terminal length 0",
-                "enable",
-                # Perintah 1: Cek Status (Online/Offline)
-                f"show gpon onu state gpon-olt_{port} {onu_id}",
-                # Perintah 2: Cek Power (Jika Online)
-                f"show pon optical-power gpon-onu_{target}",
-                # Perintah 3: Cek Detail (Info cadangan jika offline)
-                f"show gpon onu detail-info gpon-onu_{target}"
-            ]
-        else:
-            # Jika user cuma input port, cek satu port penuh
-            cmds = ["terminal length 0", "enable", f"show pon optical-power gpon-olt_{target}"]
+        # Strategi ZTE V1.2/V2.1
+        cmds = [
+            "terminal length 0",
+            "enable",
+            f"show gpon onu state gpon-olt_{port} {onu_id}",
+            f"show pon optical-power gpon-onu_{target}",
+            f"show gpon onu detail-info gpon-onu_{target}"
+        ]
 
-    print(f"{CYAN}[*] Menghubungkan ke OLT...{RESET}")
+    print(f"\n{CYAN}[*] Menghubungkan ke OLT...{RESET}")
     output = telnet_olt_execute(creds, cmds)
     
-    print(f"\n{WHITE}HASIL DIAGNOSA UNTUK {target}:{RESET}")
+    print(f"\n{WHITE}HASIL DIAGNOSA UNTUK ONU {onu_id}:{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
     if not output:
-        print(f"{YELLOW}[!] Gagal mengambil data. Periksa koneksi ke OLT.{RESET}")
+        print(f"{MAGENTA}[!] Gagal mengambil data. Periksa koneksi ke OLT.{RESET}")
         return
 
-    # LOGIKA PARSING (Mencari status dan power)
     lines = output.splitlines()
-    is_offline = False
     found_data = False
 
     for line in lines:
         line_clean = line.strip()
         l_low = line_clean.lower()
         
-        # 1. Cek Status Offline/DyingGasp/LOS - Ganti Merah ke Kuning
+        # Filter baris yang tidak perlu ditampilkan (echo perintah)
+        if any(x in l_low for x in ["show ", "terminal length", "enable"]):
+            continue
+
+        # 1. Cek Status Offline/LOS - Ganti Merah jadi Pink (MAGENTA)
         if any(x in l_low for x in ["offline", "dyinggasp", "los", "logging"]):
-            print(f"{YELLOW}[!] STATUS ONU: OFFLINE ({line_clean}){RESET}")
-            is_offline = True
+            print(f"{MAGENTA}[!] STATUS ONU: OFFLINE ({line_clean}){RESET}")
             found_data = True
         
         # 2. Cek Status Working (Online)
@@ -502,23 +496,21 @@ def check_optical_power_fast():
             found_data = True
 
         # 3. Ambil data Power (dBm)
-        if "dbm" in l_low:
+        elif "dbm" in l_low:
             if "not online" in l_low or "n/a" in l_low:
                 print(f"{YELLOW}>>> POWER OPTIK: Tidak Terdeteksi (ONU sedang mati){RESET}")
             else:
                 print(f"{GREEN}>>> {line_clean}{RESET}")
             found_data = True
         
-        # 4. Ambil Info Tambahan (Suhu/Voltase)
-        elif any(x in l_low for x in ["temp", "volt", "current"]):
-            if "show" not in l_low:
-                print(f"{CYAN}    {line_clean}{RESET}")
-                found_data = True
+        # 4. Ambil Info Tambahan (Current channel, Authpass Time, dll)
+        elif any(x in l_low for x in ["channel", "multicast", "authpass", "time", "cause", "phase"]):
+            print(f"    {line_clean}")
+            found_data = True
 
     if not found_data:
         if "Invalid" in output or "%" in output:
-            # Ganti Merah ke Kuning
-            print(f"{YELLOW}[!] Error: Perintah tidak dikenal atau ONU belum terdaftar.{RESET}")
+            print(f"{MAGENTA}[!] Error: Perintah tidak dikenal atau ONU belum terdaftar.{RESET}")
             print(f"{YELLOW}[i] Pastikan ONU sudah muncul di 'show gpon onu uncfg'.{RESET}")
         else:
             print(f"{WHITE}Respon OLT:{RESET}\n{output}")

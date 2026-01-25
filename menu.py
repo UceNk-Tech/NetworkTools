@@ -445,7 +445,7 @@ def delete_onu(): # Menu 12
             print(f"{GREEN}[✓] ONU {port}:{onu_id} Terhapus.{RESET}")
 
 def check_optical_power_fast():
-    """Menu 13: Cek Power Optik - Versi Anti-Gagal & Debug Mode"""
+    """Menu 13: Cek Power Optik - Versi Akurat & Stabil"""
     creds = get_credentials("olt")
     if not creds: 
         print(f"{RED}[!] Profile OLT belum aktif.{RESET}")
@@ -454,66 +454,59 @@ def check_optical_power_fast():
     brand = creds.get('brand', 'zte').lower()
     
     print(f"\n{CYAN}=== CEK OPTICAL POWER ONU (SMART VIEW) ==={RESET}")
-    print(f"{WHITE}Brand OLT Terdeteksi: {YELLOW}{brand.upper()}{RESET}")
+    print(f"{WHITE}Brand OLT: {YELLOW}{brand.upper()}{RESET}")
     port = input(f"{WHITE}Port (contoh 1/1/1): {RESET}").strip()
     onu_id = input(f"{WHITE}ONU ID (contoh 1): {RESET}").strip()
     
-    # Kumpulan skenario perintah yang akan dicoba
+    # Menyiapkan perintah berdasarkan brand
     if brand == 'fiberhome':
         cmds_to_try = [f"show onu optical-power {port} {onu_id}"]
     else:
-        # Skenario ZTE: Masuk mode enable dulu, baru cek
+        # Skenario ZTE: Mencoba beberapa varian perintah yang umum digunakan
         cmds_to_try = [
-            f"show pon optical-power gpon-olt_{port} {onu_id}",
             f"show pon optical-power gpon-onu_{port}:{onu_id}",
-            f"show gpon onu detail-info gpon-onu_{port}:{onu_id}"
+            f"show pon optical-power gpon-olt_{port} {onu_id}"
         ]
         
-    output = ""
-    
-    # Alice tambahkan 'enable' di awal untuk OLT ZTE
+    # Eksekusi Terminal Length agar output tidak terpotong
     base_cmds = ["terminal length 0"]
     if brand == 'zte':
-        base_cmds.append("enable") # Memastikan hak akses penuh
-        # Masukkan password enable jika OLT memintanya (opsional, tergantung config OLT)
-        if creds.get('pass'): base_cmds.append(creds['pass']) 
+        base_cmds.append("enable") # Masuk mode privilage
+        # Jika OLT minta password lagi setelah enable, telnet_olt_execute perlu disesuaikan
     
-    print(f"{CYAN}[*] Sedang berkomunikasi dengan OLT...{RESET}")
+    print(f"{CYAN}[*] Menghubungkan ke OLT dan mengambil data...{RESET}")
     
+    final_output = ""
     for cmd in cmds_to_try:
-        current_cmds = base_cmds + [cmd]
-        raw = telnet_olt_execute(creds, current_cmds)
-        
-        # Validasi: Jika output mengandung angka atau tabel, berarti sukses
-        if raw and any(x in raw for x in ["dBm", "Power", "Voltage", "Temp"]):
-            output = raw
+        res = telnet_olt_execute(creds, base_cmds + [cmd])
+        if res and ("dBm" in res or "working" in res.lower()):
+            final_output = res
             break
-        output = raw # Simpan untuk debug jika semua gagal
-            
+        final_output = res
+
     print(f"\n{WHITE}HASIL DIAGNOSA {brand.upper()} ONU {port}:{onu_id}:{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
-    if "dBm" in output:
-        print(f"{GREEN}[✓] STATUS: ONU ONLINE / DATA DITERIMA{RESET}")
-        
-        # Cari baris yang spesifik milik ONU tersebut
-        lines = output.splitlines()
+    if not final_output:
+        print(f"{RED}[!] Tidak ada respon dari OLT.{RESET}")
+    elif "dBm" in final_output:
+        print(f"{GREEN}[✓] STATUS: ONU TERDETEKSI / ONLINE{RESET}\n")
+        # Parsing baris yang mengandung informasi power
+        lines = final_output.splitlines()
+        found_info = False
         for line in lines:
-            if "dBm" in line and (onu_id in line or port in line):
+            # Cari baris yang mengandung angka dBm (biasanya berisi Rx/Tx power)
+            if re.search(r'(-?\d+\.\d+\s*\(dBm\)|-?\d+\.\d+)', line):
                 print(f"{YELLOW}{line.strip()}{RESET}")
-            elif any(x in line.lower() for x in ["temp", "volt", "input", "output"]):
-                print(f"{CYAN}{line.strip()}{RESET}")
-    
-    elif "---" in output or "N/A" in output or "offline" in output.lower():
+                found_info = True
+        
+        if not found_info:
+            print(f"{WHITE}{final_output}{RESET}")
+    elif "offline" in final_output.lower() or "no such" in final_output.lower():
         print(f"{RED}[!] STATUS: ONU OFFLINE / LOS{RESET}")
-        print(f"{YELLOW}[i] Deteksi: Sinyal laser tidak sampai ke ONU.{RESET}")
-    
+        print(f"{YELLOW}[i] Deteksi: Kabel putus atau ONU mati.{RESET}")
     else:
-        # MODE DEBUG: Jika tetap gagal, tampilkan apa yang dikatakan OLT
-        print(f"{RED}[!] Perintah Ditolak atau Format Salah.{RESET}")
-        print(f"{WHITE}Respon Terakhir OLT:{RESET}")
-        print(f"{CYAN}{output}{RESET}")
-        print(f"\n{YELLOW}[i] Tips: Coba masukkan port tanpa gpon-olt (misal: 1/1/1 saja){RESET}")
+        print(f"{WHITE}Respon OLT:{RESET}\n{CYAN}{final_output}{RESET}")
             
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 
@@ -563,7 +556,7 @@ def main():
         elif c == '10': config_onu_logic()
         elif c == '11': reset_onu()
         elif c == '12': delete_onu()
-        elif c == '13': status_power()
+        elif c == '13': check_optical_power_fast()
         elif c == '14': port_vlan()
         elif c == '17': os.system("speedtest-cli")
         elif c == '20': os.system(f"nmap -F {input('IP: ')}")

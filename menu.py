@@ -325,32 +325,42 @@ def snmp_monitoring(): # Menu 7
         api = pool.get_api()
 
         # 1. Resource System
-        res = api.get_resource('/system/resource').get()[0]
+        res_data = api.get_resource('/system/resource').get()
+        res = res_data[0] if res_data else {}
+        
         # 2. Routerboard Info
-        rb = api.get_resource('/system/routerboard').get()[0]
-        # 3. Health (Voltage/Temp jika didukung perangkat)
+        rb_data = api.get_resource('/system/routerboard').get()
+        rb = rb_data[0] if rb_data else {}
+        
+        # 3. Health (Voltage/Temp)
         health = api.get_resource('/system/health').get()
 
         print(f"\n{MAGENTA}--------------------------------------------------{RESET}")
-        print(f"{WHITE}MODEL PERANGKAT : {GREEN}{res.get('board-name')} ({res.get('architecture-name')}){RESET}")
-        print(f"{WHITE}SERIAL NUMBER   : {GREEN}{rb.get('serial-number')}{RESET}")
-        print(f"{WHITE}UPTIME          : {GREEN}{res.get('uptime')}{RESET}")
-        print(f"{WHITE}ROUTEROS VER    : {GREEN}{res.get('version')}{RESET}")
+        print(f"{WHITE}MODEL PERANGKAT : {GREEN}{res.get('board-name', 'Unknown')} ({res.get('architecture-name', 'N/A')}){RESET}")
+        print(f"{WHITE}SERIAL NUMBER   : {GREEN}{rb.get('serial-number', 'N/A')}{RESET}")
+        print(f"{WHITE}UPTIME          : {GREEN}{res.get('uptime', 'N/A')}{RESET}")
+        print(f"{WHITE}ROUTEROS VER    : {GREEN}{res.get('version', 'N/A')}{RESET}")
         print(f"{MAGENTA}--------------------------------------------------{RESET}")
         
         # Load Stats
-        cpu_load = res.get('cpu-load')
+        cpu_load = res.get('cpu-load', '0')
         free_mem = int(res.get('free-memory', 0)) / 1024 / 1024
         total_mem = int(res.get('total-memory', 0)) / 1024 / 1024
         
         print(f"{WHITE}CPU LOAD       : {YELLOW}{cpu_load}%{RESET}")
         print(f"{WHITE}FREE MEMORY    : {YELLOW}{round(free_mem, 1)} MB / {round(total_mem, 1)} MB{RESET}")
         
+        # Iterasi Health dengan proteksi NoneType
         if health:
             for h in health:
                 name = h.get('name')
                 value = h.get('value')
-                print(f"{WHITE}{name.upper():<14} : {YELLOW}{value}{RESET}")
+                # Cek jika name tidak None sebelum di-upper
+                if name:
+                    label = str(name).upper()
+                    print(f"{WHITE}{label:<14} : {YELLOW}{value}{RESET}")
+                elif value: # Jika nama tidak ada tapi nilai ada
+                    print(f"{WHITE}SENSOR         : {YELLOW}{value}{RESET}")
         
         print(f"{MAGENTA}--------------------------------------------------{RESET}")
 

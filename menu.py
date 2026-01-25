@@ -93,19 +93,36 @@ def telnet_olt_execute(creds, commands):
     if not creds: return None
     prompt = "ZXAN#" if creds.get('brand') == 'zte' else "OLT#"
     try:
-        tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
-        tn.read_until(b"Username:", timeout=5); tn.write(creds['user'].encode() + b"\n")
-        tn.read_until(b"Password:", timeout=5); tn.write(creds['pass'].encode() + b"\n")
-        tn.read_until(prompt.encode(), timeout=5)
+        tn = telnetlib.Telnet(creds['ip'], 23, timeout=15)
+        tn.read_until(b"Username:", timeout=5)
+        tn.write(creds['user'].encode('utf-8') + b"\n")
+        tn.read_until(b"Password:", timeout=5)
+        tn.write(creds['pass'].encode('utf-8') + b"\n")
+        
+        # Masuk ke prompt utama
+        tn.read_until(prompt.encode('utf-8'), timeout=5)
+        
+        # FORCE: Matikan paging agar semua data keluar sekaligus
         tn.write(b"terminal length 0\n")
         time.sleep(0.5)
-        out = ""
+        
+        output = ""
         for cmd in commands:
-            tn.write((cmd + "\n").encode())
-            time.sleep(1.5 if "show" in cmd else 0.8)
-            out += tn.read_very_eager().decode('utf-8', errors='ignore')
-        tn.close(); return out.strip()
-    except Exception as e: return f"Error Telnet: {e}"
+            tn.write((cmd + "\n").encode('utf-8'))
+            # Beri jeda lebih lama untuk perintah 'show' yang datanya banyak
+            if "show" in cmd:
+                time.sleep(2.0) 
+            else:
+                time.sleep(0.8)
+            
+            # Baca semua data yang ada di buffer
+            output += tn.read_very_eager().decode('utf-8', errors='ignore')
+            
+        tn.close()
+        return output.strip()
+    except Exception as e:
+        print(f"{RED}Error Telnet: {e}{RESET}")
+        return None
 
 # --- MIKROTIK TOOLS (1-8) ---
 def run_mikhmon(): # Menu 1
@@ -137,39 +154,78 @@ def mk_hotspot_active(): # Menu 2
         pool.disconnect()
     except Exception as e: print(f"{RED}Error: {e}{RESET}")
 
-def cek_dhcp_rogue(): # Menu 3
+def cek_dhcp_rogue():
     creds = get_credentials("mikrotik")
-    if not creds: return
-    print(f"\n{CYAN}[+] Memeriksa Rogue DHCP...{RESET}")
+    if not creds:
+        print(f"{RED}[!] Profile belum diset.{RESET}")
+        return
+    print(f"\n{CYAN}[+] Memindai Rogue DHCP di {creds['ip']}...{RESET}")
     try:
-        conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], plaintext_login=True)
-        api = conn.get_api(); alerts = api.get_resource('/ip/dhcp-server/alert').get()
-        found = False
+        conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True)
+        api = conn.get_api()
+        alerts = api.get_resource('/ip/dhcp-server/alert').get()
+        
+        found_rogue = False
         for al in alerts:
             mac = al.get('unknown-server')
-            if mac:
-                found = True
-                print(f"{RED}![ROGUE DETECTED] MAC: {mac} | Brand: {get_brand(mac)} | Int: {al.get('interface')}{RESET}")
-        if not found: print(f"{GREEN}[✓] Kondisi Aman.{RESET}")
+            interface = al.get('interface', 'N/A')
+            if mac and mac != "":
+                found_rogue = True
+                print(f"{RED}![ROGUE DETECTED] MAC: {mac} | Brand: {get_brand(mac)} | Int: {interface}{RESET}")
+        
+        if not found_rogue:
+            print(f"{GREEN}[✓] Kondisi Aman. Tidak ada DHCP Rogue terdeteksi pada interface:{RESET}")
+            for al in alerts:
+                print(f" - {al.get('interface')}")
         conn.disconnect()
     except Exception as e: print(f"{RED}Error: {e}{RESET}")
 
-def hapus_laporan_mikhmon(): # Menu 4
+def hapus_laporan_mikhmon():
     creds = get_credentials("mikrotik")
-    if not creds: return
-    try:
-        conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], plaintext_login=True)
-        api = conn.get_api(); res = api.get_resource('/system/script')
-        scripts = [s for s in res.get() if 'mikhmon' in s.get('name','').lower()]
-        if not scripts: print(f"{GREEN}[✓] Script Bersih!{RESET}")
-        else:
-            if input(f"{YELLOW}Hapus {len(scripts)} script? (y/n): {RESET}").lower() == 'y':
-                for s in scripts: res.remove(id=s['id'])
-                print(f"{GREEN}[✓] Berhasil dihapus.{RESET}")
-        conn.disconnect()
-    except Exception as e: print(e)
+    if not creds:
+        print(f"{RED}[!] Profile MikroTik belum diset. Pilih menu 22 dulu.{RESET}")
+        return
 
-# --- OLT TOOLS (9-18) ---
+    print(f"\n{CYAN}[+] Menghubungkan ke MikroTik {creds['ip']}...{RESET}")
+    try:
+        conn = routeros_api.RouterOsApiPool(
+            creds['ip'], 
+            username=creds['user'], 
+            password=creds['pass'], 
+            port=8728, 
+            plaintext_login=True
+        )
+        api = conn.get_api()
+        resource = api.get_resource('/system/script')
+        
+        # 1. Pindai script yang namanya mengandung 'mikhmon'
+        print(f"{CYAN}[+] Memindai script laporan Mikhmon...{RESET}")
+        all_scripts = resource.get()
+        
+        # Filter script yang ada komentar atau nama 'mikhmon' sesuai gambar
+        mikhmon_scripts = [s for s in all_scripts if 'mikhmon' in s.get('name', '').lower() or 'mikhmon' in s.get('comment', '').lower()]
+        count = len(mikhmon_scripts)
+
+        if count == 0:
+            print(f"{GREEN}[✓] Tidak ditemukan script laporan Mikhmon. MikroTik bersih!{RESET}")
+        else:
+            print(f"{YELLOW}[!] Terdeteksi {WHITE}{count}{YELLOW} script laporan Mikhmon di MikroTik.{RESET}")
+            confirm = input(f"{RED}>>> Hapus semua script laporan ini? (y/n): {RESET}").lower()
+            
+            if confirm == 'y':
+                print(f"{CYAN}[*] Menghapus {count} script... (Mohon tunggu){RESET}")
+                for s in mikhmon_scripts:
+                    try:
+                        resource.remove(id=s['id'])
+                    except:
+                        pass
+                print(f"{GREEN}[✓] Sukses! {count} script laporan telah dibersihkan dari MikroTik.{RESET}")
+            else:
+                print(f"{MAGENTA}[-] Penghapusan dibatalkan.{RESET}")
+        
+        conn.disconnect()
+    except Exception as e:
+        print(f"{RED}[!] Error: {e}{RESET}")
 # --- OLT TOOLS (9-18) ---
 
 def list_onu(): # Menu 9

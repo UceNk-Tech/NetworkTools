@@ -138,7 +138,7 @@ def manage_profiles(): # Menu 99
 
         elif opt == '3':
             if not p_keys: continue
-            idx = input(f"\n{RED}Nomor Profile yang akan dihapus: {RESET}").strip()
+            idx = input(f"\n{GREEN}Nomor Profile yang akan dihapus: {RESET}").strip()
             if idx.isdigit():
                 idx = int(idx) - 1
                 if 0 <= idx < len(p_keys):

@@ -885,21 +885,6 @@ def auto_audit_olt(): # Menu 18 (OLT Tools)
         
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 
-# PERBAIKAN MENU 19 (Speedtest)
-      elif c == '19':
-            print(f"\n{CYAN}[+] Menjalankan Speedtest...{RESET}")
-            # Cek apakah speedtest-cli sudah terinstall di sistem
-            check_st = os.system("command -v speedtest-cli > /dev/null 2>&1")
-            if check_st != 0:
-                print(f"{YELLOW}[!] speedtest-cli belum terinstall.{RESET}")
-                install = input(f"{WHITE}Install sekarang? (y/n): {RESET}").lower()
-                if install == 'y':
-                    os.system("pip install speedtest-cli --break-system-packages")
-                else:
-                    continue
-            
-            # Jalankan speedtest
-            os.system("speedtest-cli") [cite: 138]
 
 
 def nmap_scan_tool(): # Menu 20

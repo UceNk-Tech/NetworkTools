@@ -368,38 +368,33 @@ def log_viewer_mikrotik(): # Menu 8
     print(f"\n{CYAN}=== LOG VIEWER MIKROTIK (15 Baris Terakhir) ==={RESET}")
     
     try:
-        pool = routeros_api.RouterOsApiPool(
-            creds['ip'], 
-            username=creds['user'], 
-            password=creds['pass'], 
-            plaintext_login=True
-        )
+        pool = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], plaintext_login=True)
         api = pool.get_api()
         
-        # Mengambil 15 log terbaru
         logs = api.get_resource('/log').get()
-        last_logs = logs[-15:] # Ambil 15 baris terakhir
+        last_logs = logs[-15:]
 
         print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
         for l in last_logs:
             time_log = l.get('time')
-            message = l.get('message')
-            topics = l.get('topics')
+            message = l.get('message', '')
+            topics = l.get('topics', '')
 
-            # Pewarnaan berdasarkan isi log
+            # Pewarnaan yang aman (Simple & Stable)
             color = WHITE
+            low_msg = message.lower() # Kita pisah variabelnya di sini supaya tidak error
+            
             if "error" in topics or "critical" in topics:
-                color = YELLOW  # Sesuai request Ucenk, peringatan pakai kuning
+                color = YELLOW
             elif "hotspot" in topics:
                 color = CYAN
-            elif "login" in l_msg := message.lower() or "logged in" in l_msg:
+            elif "login" in low_msg or "logged in" in low_msg:
                 color = GREEN
             
             print(f"{CYAN}{time_log}{RESET} {color}{message}{RESET}")
         
         print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
         pool.disconnect()
-        
     except Exception as e:
         print(f"{YELLOW}[!] Gagal mengambil log: {e}{RESET}")
         

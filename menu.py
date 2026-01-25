@@ -10,7 +10,7 @@ import json
 import getpass
 from datetime import datetime
 
-# Handler untuk library requests (Fitur MAC Lookup & Brand Detection)
+# Handler untuk library requests
 try:
     import requests
 except ImportError:
@@ -155,16 +155,18 @@ def get_credentials(target_type):
 
 def telnet_olt_execute(creds, commands):
     if not creds: return None
-    prompt = "ZXAN#" if creds.get('brand') == 'zte' else "OLT#"
+    brand = creds.get('brand', 'zte').lower()
+    prompt = "ZXAN#" if brand == 'zte' else "OLT#"
     try:
         tn = telnetlib.Telnet(creds['ip'], 23, timeout=15)
         tn.read_until(b"Username:", timeout=5)
         tn.write(creds['user'].encode('utf-8') + b"\n")
         tn.read_until(b"Password:", timeout=5)
         tn.write(creds['pass'].encode('utf-8') + b"\n")
-        tn.read_until(prompt.encode('utf-8'), timeout=5)
+        
+        # Terminal Length 0 agar output tidak terpotong (Pagination)
         tn.write(b"terminal length 0\n")
-        time.sleep(0.5)
+        time.sleep(0.2)
         
         output = ""
         for cmd in commands:
@@ -199,6 +201,7 @@ def cek_dhcp_rogue():
 def run_mikhmon():
     mikhmon_path = os.path.expanduser("~/mikhmonv3")
     os.makedirs(mikhmon_path, exist_ok=True)
+    print(f"{CYAN}[*] Jalankan Mikhmon di port 8080...{RESET}")
     os.system(f"php -S 127.0.0.1:8080 -t {mikhmon_path}")
 
 def hapus_laporan_mikhmon():
@@ -228,20 +231,19 @@ def mikrotik_hotspot_active():
 # --- OLT TOOLS ---
 def list_onu_aktif():
     creds = get_credentials("olt")
+    if not creds: return
     p = input("Input Port (1/3/1): ")
     brand = creds.get('brand', 'zte')
     cmd = [f"show pon onu information gpon-olt_{p}"] if brand == 'zte' else [f"show onu status port {p}"]
     print(telnet_olt_execute(creds, cmd))
 
 def monitor_optical_power():
-    # Fungsi registrasi ONU yang ada di kode awal anda
     creds = get_credentials("olt")
     if not creds: return
-    # (Kode monitor/registrasi anda tetap di sini)
+    # Logika registrasi/monitor ONU
     pass
 
 def reset_onu_safe():
-    """Menu 11: Reset ONU dengan detail lengkap (Cek Sebelum Hapus)"""
     creds = get_credentials("olt")
     if not creds: return
     brand = creds.get('brand', 'zte').lower()
@@ -250,23 +252,21 @@ def reset_onu_safe():
     onu_id = input(f"{WHITE}Masukkan Nomor ONU (1): {RESET}").strip()
     
     if brand == 'zte':
-        check_cmds = ["terminal length 0", "end", f"show gpon onu detail-info gpon-onu_{port}:{onu_id}"]
+        check_cmds = ["enable", creds.get('pass',''), "show gpon onu detail-info gpon-onu_{port}:{onu_id}"]
     else:
-        check_cmds = ["terminal length 0", "end", f"show onu info port {port} ont {onu_id}"]
+        check_cmds = [f"show onu info port {port} ont {onu_id}"]
 
     output = telnet_olt_execute(creds, check_cmds)
     if output and "Invalid" not in output:
         print(f"\n{YELLOW}{output}{RESET}")
-        confirm = input(f"\n{RED}Hapus ONU {port}:{onu_id} ini? (y/n): {RESET}").lower()
-        if confirm == 'y':
+        if input(f"\n{RED}Hapus ONU ini? (y/n): {RESET}").lower() == 'y':
             del_cmds = ["conf t", f"interface gpon-olt_{port}", f"no onu {onu_id}", "end", "write"]
             telnet_olt_execute(creds, del_cmds)
-            print(f"{GREEN}[✓] ONU Berhasil dihapus dan tersimpan.{RESET}")
+            print(f"{GREEN}[✓] Berhasil dihapus.{RESET}")
     else:
         print(f"{RED}[!] Data tidak ditemukan.{RESET}")
 
 def delete_onu_fast():
-    """Menu 12: Delete ONU dengan tampilan tabel ringkas (Mode Cepat)"""
     creds = get_credentials("olt")
     if not creds: return
     print(f"\n{RED}=== DELETE ONU (FAST TABLE VIEW) ==={RESET}")
@@ -276,88 +276,59 @@ def delete_onu_fast():
     cmd = [f"show gpon onu state gpon-olt_{port} {onu_id}"]
     output = telnet_olt_execute(creds, cmd)
     if output:
-        print(f"\n{WHITE}HASIL CEK ONU:{RESET}")
-        print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
         for line in output.splitlines():
             if f"{port}:{onu_id}" in line: print(f"{YELLOW}{line}{RESET}")
-        print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
-        
         if input(f"{RED}Konfirmasi Hapus? (y/n): {RESET}").lower() == 'y':
             telnet_olt_execute(creds, ["conf t", f"interface gpon-olt_{port}", f"no onu {onu_id}", "end", "write"])
-            print(f"{GREEN}[✓] ONU {port}:{onu_id} Terhapus.{RESET}")
+            print(f"{GREEN}[✓] Terhapus.{RESET}")
 
 def check_optical_power_fast():
-    """Menu 13: Cek Power Optik - Versi Anti-Gagal & Debug Mode"""
     creds = get_credentials("olt")
-    if not creds: 
-        print(f"{RED}[!] Profile OLT belum aktif.{RESET}")
-        return
-    
+    if not creds: return
     brand = creds.get('brand', 'zte').lower()
-    
     print(f"\n{CYAN}=== CEK OPTICAL POWER ONU (SMART VIEW) ==={RESET}")
-    print(f"{WHITE}Brand OLT Terdeteksi: {YELLOW}{brand.upper()}{RESET}")
-    port = input(f"{WHITE}Port (contoh 1/1/1): {RESET}").strip()
-    onu_id = input(f"{WHITE}ONU ID (contoh 1): {RESET}").strip()
+    port = input(f"{WHITE}Port (1/1/1): {RESET}").strip()
+    onu_id = input(f"{WHITE}ONU ID: {RESET}").strip()
     
-    # Kumpulan skenario perintah yang akan dicoba
     if brand == 'fiberhome':
         cmds_to_try = [f"show onu optical-power {port} {onu_id}"]
     else:
-        # Skenario ZTE: Masuk mode enable dulu, baru cek
         cmds_to_try = [
             f"show pon optical-power gpon-olt_{port} {onu_id}",
-            f"show pon optical-power gpon-onu_{port}:{onu_id}",
-            f"show gpon onu detail-info gpon-onu_{port}:{onu_id}"
+            f"show pon optical-power gpon-onu_{port}:{onu_id}"
         ]
         
+    base_cmds = ["enable", creds.get('pass','')] if brand == 'zte' else []
     output = ""
-    
-    # Alice tambahkan 'enable' di awal untuk OLT ZTE
-    base_cmds = ["terminal length 0"]
-    if brand == 'zte':
-        base_cmds.append("enable") # Memastikan hak akses penuh
-        # Masukkan password enable jika OLT memintanya (opsional, tergantung config OLT)
-        if creds.get('pass'): base_cmds.append(creds['pass']) 
-    
-    print(f"{CYAN}[*] Sedang berkomunikasi dengan OLT...{RESET}")
+    success = False
     
     for cmd in cmds_to_try:
-        current_cmds = base_cmds + [cmd]
-        raw = telnet_olt_execute(creds, current_cmds)
-        
-        # Validasi: Jika output mengandung angka atau tabel, berarti sukses
-        if raw and any(x in raw for x in ["dBm", "Power", "Voltage", "Temp"]):
-            output = raw
-            break
-        output = raw # Simpan untuk debug jika semua gagal
+        raw = telnet_olt_execute(creds, base_cmds + [cmd])
+        if raw and any(x in raw for x in ["dBm", "Power"]):
+            output = raw; success = True; break
             
-    print(f"\n{WHITE}HASIL DIAGNOSA {brand.upper()} ONU {port}:{onu_id}:{RESET}")
-    print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
-    
-    if "dBm" in output:
-        print(f"{GREEN}[✓] STATUS: ONU ONLINE / DATA DITERIMA{RESET}")
-        
-        # Cari baris yang spesifik milik ONU tersebut
-        lines = output.splitlines()
-        for line in lines:
-            if "dBm" in line and (onu_id in line or port in line):
+    print(f"\n{WHITE}HASIL DIAGNOSA {brand.upper()}:{RESET}")
+    if success:
+        for line in output.splitlines():
+            if any(x in line for x in ["dBm", "Power", "Temp", "Volt"]):
                 print(f"{YELLOW}{line.strip()}{RESET}")
-            elif any(x in line.lower() for x in ["temp", "volt", "input", "output"]):
-                print(f"{CYAN}{line.strip()}{RESET}")
-    
-    elif "---" in output or "N/A" in output or "offline" in output.lower():
-        print(f"{RED}[!] STATUS: ONU OFFLINE / LOS{RESET}")
-        print(f"{YELLOW}[i] Deteksi: Sinyal laser tidak sampai ke ONU.{RESET}")
-    
     else:
-        # MODE DEBUG: Jika tetap gagal, tampilkan apa yang dikatakan OLT
-        print(f"{RED}[!] Perintah Ditolak atau Format Salah.{RESET}")
-        print(f"{WHITE}Respon Terakhir OLT:{RESET}")
-        print(f"{CYAN}{output}{RESET}")
-        print(f"\n{YELLOW}[i] Tips: Coba masukkan port tanpa gpon-olt (misal: 1/1/1 saja){RESET}")
-            
-    print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
+        print(f"{RED}[!] ONU OFFLINE / LOS{RESET}")
+
+# --- NETWORK TOOLS ---
+def network_what_my_ip():
+    print(f"{CYAN}[*] Mengecek IP Publik anda...{RESET}")
+    try:
+        resp = requests.get("https://api.ipify.org?format=json", timeout=5)
+        print(f"{GREEN}[✓] IP Publik Anda: {YELLOW}{resp.json().get('ip')}{RESET}")
+    except: print(f"{RED}[!] Gagal mengambil IP.{RESET}")
+
+def network_port_scanner():
+    target = input(f"{WHITE}Masukkan IP Target: {RESET}")
+    if target:
+        print(f"{CYAN}[*] Scanning Port (Common) pada {target}...{RESET}")
+        os.system(f"nmap -F {target}")
+
 def show_menu():
     vault = load_vault()
     prof = vault.get("active_profile", "None")
@@ -379,10 +350,12 @@ def show_menu():
     print(f"12. {RED}Delete ONU (Quick){RESET}       16. Traffic Report per PON")
 
     print(f"\n{GREEN}--- NETWORK TOOLS ---{RESET}")
-    print(f"17. Speedtest CLI            20. Ping & Traceroute")
+    print(f"17. Speedtest CLI            20. {CYAN}What My IP{RESET}")
     print(f"18. Nmap Scan                21. DNS Tools")
-    print(f"19. MAC Lookup               22. {YELLOW}PROFILE SETTINGS{RESET}")
-    print(f"\n{MAGENTA}0. Keluar{RESET}")
+    print(f"19. {CYAN}Port Scanner{RESET}             22. Ping & Traceroute")
+    
+    print(f"\n99. {YELLOW}PROFILE SETTINGS{RESET}")
+    print(f"{MAGENTA}0. Keluar{RESET}")
 
 def main():
     while True:
@@ -393,19 +366,22 @@ def main():
         elif c == '3': cek_dhcp_rogue()
         elif c == '4': hapus_laporan_mikhmon()
         elif c == '9': list_onu_aktif()
-        elif c == '10': monitor_optical_power()
         elif c == '11': reset_onu_safe()
         elif c == '12': delete_onu_fast()
         elif c == '13': check_optical_power_fast()
         elif c == '17': os.system("speedtest-cli --simple")
-        elif c == '19':
-            mac = input("Masukkan MAC: ")
-            print(f"Brand: {get_brand(mac)}")
-        elif c == '22': manage_profiles()
+        elif c == '18': 
+            target = input("Target IP: ")
+            os.system(f"nmap -sV {target}")
+        elif c == '19': network_port_scanner()
+        elif c == '20': network_what_my_ip()
+        elif c == '22': 
+            target = input("IP/Host: ")
+            os.system(f"ping -c 4 {target}")
+        elif c == '99': manage_profiles()
         elif c == '0': sys.exit()
         
-        if c != '22' and c != '0' and c != '': 
-            input(f"\n{YELLOW}Tekan Enter...{RESET}")
+        if c not in ['99', '0', '']: input(f"\n{YELLOW}Tekan Enter...{RESET}")
 
 if __name__ == "__main__":
     main()

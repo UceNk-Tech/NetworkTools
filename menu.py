@@ -10,7 +10,7 @@ import json
 import getpass
 from datetime import datetime
 
-# Handler untuk library requests
+# Handler untuk library requests (Fitur MAC Lookup & Brand Detection)
 try:
     import requests
 except ImportError:
@@ -18,6 +18,7 @@ except ImportError:
     os.system("pip install requests --break-system-packages")
     import requests
 
+# Cek dependensi sistem
 try:
     import telnetlib
 except ImportError:
@@ -41,6 +42,7 @@ RESET   = "\033[0m"
 
 VAULT_FILE = os.path.join(os.path.dirname(__file__), "vault_session.json")
 
+# --- DATABASE INTERNAL BRAND (OUI) ---
 BRAND_MAP = {
     "94:A6:7E": "TP-Link", "F4:F2:6D": "TP-Link", "00:0C:42": "MikroTik", 
     "48:8F:5A": "ZTE", "D0:16:B4": "ZTE", "CC:2D:21": "Huawei",
@@ -48,6 +50,7 @@ BRAND_MAP = {
 }
 
 def get_brand(mac):
+    """Cek brand berdasarkan MAC Address"""
     if not mac or mac == "N/A": return "Unknown"
     prefix = mac.upper()[:8]
     if prefix in BRAND_MAP:
@@ -102,6 +105,7 @@ def manage_profiles():
                 m_ip = input(" IP Address: ")
                 m_user = input(" Username: ")
                 m_pass = getpass.getpass(" Password: ")
+                
                 print(f"{CYAN}--- Login OLT ---{RESET}")
                 o_ip = input(" IP Address: ")
                 o_user = input(" Username: ")
@@ -117,15 +121,19 @@ def manage_profiles():
                 save_vault(vault)
                 print(f"\n{GREEN}[+] Profile {name} Berhasil Disimpan!{RESET}")
                 time.sleep(1.5)
+        
         elif opt == 's':
             if not profiles: continue
             name = input(f"\n{WHITE}Ketik Nama Profile untuk diaktifkan: {RESET}").strip()
             if name in profiles:
                 vault["active_profile"] = name
                 save_vault(vault)
-                print(f"{GREEN}[+] Switch ke Profile: {name}{RESET}"); time.sleep(1); break
+                print(f"{GREEN}[+] Switch ke Profile: {name}{RESET}")
+                time.sleep(1)
+                break
             else:
                 print(f"{RED}[!] Nama tidak ditemukan.{RESET}"); time.sleep(1)
+                
         elif opt == 'd':
             if not profiles: continue
             name = input(f"\n{RED}Ketik Nama Profile yang akan dihapus: {RESET}").strip()
@@ -134,6 +142,7 @@ def manage_profiles():
                 if vault["active_profile"] == name: vault["active_profile"] = None
                 save_vault(vault)
                 print(f"{YELLOW}[-] Profile dihapus.{RESET}"); time.sleep(1)
+        
         elif opt == '0':
             break
 
@@ -156,11 +165,13 @@ def telnet_olt_execute(creds, commands):
         tn.read_until(prompt.encode('utf-8'), timeout=5)
         tn.write(b"terminal length 0\n")
         time.sleep(0.5)
+        
         output = ""
         for cmd in commands:
             tn.write((cmd + "\n").encode('utf-8'))
             time.sleep(1.5 if "show" in cmd else 0.5)
             output += tn.read_very_eager().decode('utf-8', errors='ignore')
+            
         tn.close()
         return output.strip()
     except Exception as e:
@@ -223,32 +234,45 @@ def list_onu_aktif():
     print(telnet_olt_execute(creds, cmd))
 
 def monitor_optical_power():
+    # Fungsi registrasi ONU yang ada di kode awal anda
     creds = get_credentials("olt")
-    p = input("Port: ")
-    # ... (Isi fungsi monitor seperti kode awal anda)
+    if not creds: return
+    # (Kode monitor/registrasi anda tetap di sini)
     pass
 
 def reset_onu_safe():
-    """Menu 11: Reset ONU dengan detail lengkap"""
+    """Menu 11: Reset ONU dengan detail lengkap (Cek Sebelum Hapus)"""
     creds = get_credentials("olt")
+    if not creds: return
+    brand = creds.get('brand', 'zte').lower()
     print(f"\n{RED}=== RESET ONU (SAFE MODE) ==={RESET}")
-    port = input("Masukkan Port (1/1/1): ").strip()
-    onu_id = input("Masukkan ONU ID (1): ").strip()
-    cmd = [f"show gpon onu detail-info gpon-onu_{port}:{onu_id}"]
-    output = telnet_olt_execute(creds, cmd)
-    if output:
+    port = input(f"{WHITE}Masukkan Port (1/1/1): {RESET}").strip()
+    onu_id = input(f"{WHITE}Masukkan Nomor ONU (1): {RESET}").strip()
+    
+    if brand == 'zte':
+        check_cmds = ["terminal length 0", "end", f"show gpon onu detail-info gpon-onu_{port}:{onu_id}"]
+    else:
+        check_cmds = ["terminal length 0", "end", f"show onu info port {port} ont {onu_id}"]
+
+    output = telnet_olt_execute(creds, check_cmds)
+    if output and "Invalid" not in output:
         print(f"\n{YELLOW}{output}{RESET}")
-        if input("Hapus ONU ini? (y/n): ").lower() == 'y':
-            del_cmd = ["conf t", f"interface gpon-olt_{port}", f"no onu {onu_id}", "end", "write"]
-            telnet_olt_execute(creds, del_cmd)
-            print(f"{GREEN}[✓] Berhasil dihapus.{RESET}")
+        confirm = input(f"\n{RED}Hapus ONU {port}:{onu_id} ini? (y/n): {RESET}").lower()
+        if confirm == 'y':
+            del_cmds = ["conf t", f"interface gpon-olt_{port}", f"no onu {onu_id}", "end", "write"]
+            telnet_olt_execute(creds, del_cmds)
+            print(f"{GREEN}[✓] ONU Berhasil dihapus dan tersimpan.{RESET}")
+    else:
+        print(f"{RED}[!] Data tidak ditemukan.{RESET}")
 
 def delete_onu_fast():
-    """Menu 12: Delete ONU dengan tampilan tabel ringkas"""
+    """Menu 12: Delete ONU dengan tampilan tabel ringkas (Mode Cepat)"""
     creds = get_credentials("olt")
+    if not creds: return
     print(f"\n{RED}=== DELETE ONU (FAST TABLE VIEW) ==={RESET}")
-    port = input("Port (1/3/1): ").strip()
-    onu_id = input("ONU ID: ").strip()
+    port = input(f"{WHITE}Port (1/3/1): {RESET}").strip()
+    onu_id = input(f"{WHITE}ONU ID: {RESET}").strip()
+    
     cmd = [f"show gpon onu state gpon-olt_{port} {onu_id}"]
     output = telnet_olt_execute(creds, cmd)
     if output:
@@ -257,21 +281,41 @@ def delete_onu_fast():
         for line in output.splitlines():
             if f"{port}:{onu_id}" in line: print(f"{YELLOW}{line}{RESET}")
         print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
-        if input("Konfirmasi Hapus? (y/n): ").lower() == 'y':
+        
+        if input(f"{RED}Konfirmasi Hapus? (y/n): {RESET}").lower() == 'y':
             telnet_olt_execute(creds, ["conf t", f"interface gpon-olt_{port}", f"no onu {onu_id}", "end", "write"])
             print(f"{GREEN}[✓] ONU {port}:{onu_id} Terhapus.{RESET}")
 
-def check_optical_power_single():
-    """Menu 13: Cek Power Optik ONU Tertentu"""
+def check_optical_power_fast():
+    """Menu 13: Cek Power Optik ONU Tertentu dengan tampilan Tabel Ringkas"""
     creds = get_credentials("olt")
-    print(f"\n{CYAN}=== CEK OPTICAL POWER ONU ==={RESET}")
-    port = input("Port (1/3/1): ").strip()
-    onu_id = input("ONU ID: ").strip()
-    cmd = [f"show pon optical-power gpon-onu_{port}:{onu_id}"]
+    if not creds: return
+    brand = creds.get('brand', 'zte').lower()
+    
+    print(f"\n{CYAN}=== CEK OPTICAL POWER ONU (QUICK VIEW) ==={RESET}")
+    port = input(f"{WHITE}Port (1/3/1): {RESET}").strip()
+    onu_id = input(f"{WHITE}ONU ID: {RESET}").strip()
+    
+    if brand == 'zte':
+        cmd = [f"show pon optical-power gpon-olt_{port} {onu_id}"]
+    else:
+        cmd = [f"show onu optical-power {port} {onu_id}"]
+        
     output = telnet_olt_execute(creds, cmd)
-    print(f"\n{WHITE}--------------------------------------------------{RESET}")
-    print(f"{GREEN}{output}{RESET}")
-    print(f"{WHITE}--------------------------------------------------{RESET}")
+    if output:
+        print(f"\n{WHITE}HASIL CEK REDAMAN:{RESET}")
+        print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
+        lines = output.splitlines()
+        for line in lines:
+            # Tampilkan Header tabel dan Baris data ONU saja
+            if "onu" in line.lower() or "rx" in line.lower() or "---" in line:
+                if "interface" in line.lower() or "onu" in line.lower():
+                    print(f"{CYAN}{line}{RESET}")
+            if f"{port}:{onu_id}" in line:
+                print(f"{YELLOW}{line}{RESET}")
+        print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
+    else:
+        print(f"{RED}[!] Gagal mengambil data redaman.{RESET}")
 
 def show_menu():
     vault = load_vault()
@@ -288,7 +332,7 @@ def show_menu():
     print(f"4. Hapus Laporan Mikhmon     8. Log Viewer")
 
     print(f"\n{GREEN}--- OLT TOOLS ---{RESET}")
-    print(f"9. Lihat ONU Terdaftar       13. {CYAN}Cek Power Optic ONU{RESET}")
+    print(f"9. Lihat ONU Terdaftar       13. {CYAN}Cek Power Optic (Quick){RESET}")
     print(f"10. Registrasi ONU           14. Alarm & Event Viewer")
     print(f"11. Reset ONU (Detail)       15. Backup & Restore OLT")
     print(f"12. {RED}Delete ONU (Quick){RESET}       16. Traffic Report per PON")
@@ -297,7 +341,7 @@ def show_menu():
     print(f"17. Speedtest CLI            20. Ping & Traceroute")
     print(f"18. Nmap Scan                21. DNS Tools")
     print(f"19. MAC Lookup               22. {YELLOW}PROFILE SETTINGS{RESET}")
-    print(f"\n0. Keluar")
+    print(f"\n{MAGENTA}0. Keluar{RESET}")
 
 def main():
     while True:
@@ -311,7 +355,7 @@ def main():
         elif c == '10': monitor_optical_power()
         elif c == '11': reset_onu_safe()
         elif c == '12': delete_onu_fast()
-        elif c == '13': check_optical_power_single()
+        elif c == '13': check_optical_power_fast()
         elif c == '17': os.system("speedtest-cli --simple")
         elif c == '19':
             mac = input("Masukkan MAC: ")
@@ -319,7 +363,8 @@ def main():
         elif c == '22': manage_profiles()
         elif c == '0': sys.exit()
         
-        if c != '22' and c != '0': input(f"\n{YELLOW}Tekan Enter...{RESET}")
+        if c != '22' and c != '0' and c != '': 
+            input(f"\n{YELLOW}Tekan Enter...{RESET}")
 
 if __name__ == "__main__":
     main()

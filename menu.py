@@ -50,7 +50,6 @@ BRAND_MAP = {
 }
 
 def get_brand(mac):
-    """Cek brand berdasarkan MAC Address"""
     if not mac or mac == "N/A": return "Unknown"
     prefix = mac.upper()[:8]
     if prefix in BRAND_MAP:
@@ -164,9 +163,8 @@ def telnet_olt_execute(creds, commands):
         tn.read_until(b"Password:", timeout=5)
         tn.write(creds['pass'].encode('utf-8') + b"\n")
         
-        # Terminal Length 0 agar output tidak terpotong (Pagination)
         tn.write(b"terminal length 0\n")
-        time.sleep(0.2)
+        time.sleep(0.5)
         
         output = ""
         for cmd in commands:
@@ -181,6 +179,48 @@ def telnet_olt_execute(creds, commands):
         return None
 
 # --- MIKROTIK TOOLS ---
+def run_mikhmon():
+    print(f"\n{CYAN}[+] Menyiapkan Mikhmon Server...{RESET}")
+    mikhmon_path = os.path.expanduser("~/mikhmonv3")
+    session_path = os.path.expanduser("~/session_mikhmon")
+    tmp_path = os.path.expanduser("~/tmp")
+
+    if not os.path.exists(mikhmon_path):
+        print(f"{YELLOW}[*] Mendownload file Mikhmon...{RESET}")
+        os.system(f"git clone https://github.com/laksa19/mikhmonv3.git {mikhmon_path}")
+
+    os.makedirs(session_path, exist_ok=True)
+    os.makedirs(tmp_path, exist_ok=True)
+
+    with open(os.path.join(tmp_path, "custom.ini"), "w") as f:
+        f.write("opcache.enable=0\n")
+        f.write(f'session.save_path="{session_path}"\n')
+        f.write(f'sys_temp_dir="{tmp_path}"\n')
+        f.write("display_errors=Off\n")
+
+    os.system("fuser -k 8080/tcp > /dev/null 2>&1")
+    print(f"{GREEN}[!] Mikhmon Aktif: http://127.0.0.1:8080{RESET}")
+    print(f"{RED}[!] Tekan Ctrl+C untuk Berhenti & Kembali ke Menu{RESET}\n")
+    
+    cmd = f"export PHP_INI_SCAN_DIR={tmp_path} && php -S 127.0.0.1:8080 -t {mikhmon_path}"
+    try:
+        os.system(cmd)
+    except KeyboardInterrupt:
+        print(f"\n{YELLOW}[-] Server Mikhmon dimatikan.{RESET}")
+
+def mikrotik_hotspot_active():
+    creds = get_credentials("mikrotik")
+    if not creds: return
+    try:
+        conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True)
+        api = conn.get_api()
+        active = api.get_resource('/ip/hotspot/active').get()
+        print(f"\n{GREEN}>>> TOTAL USER AKTIF: {len(active)} {RESET}")
+        for user in active[:10]:
+            print(f" - {user.get('user')} | IP: {user.get('address')}")
+        conn.disconnect()
+    except Exception as e: print(f"{RED}Error: {e}{RESET}")
+
 def cek_dhcp_rogue():
     creds = get_credentials("mikrotik")
     if not creds: return
@@ -196,13 +236,7 @@ def cek_dhcp_rogue():
                 print(f"{RED}![ROGUE] MAC: {mac} | Brand: {get_brand(mac)}{RESET}")
         if not found: print(f"{GREEN}[✓] Kondisi Aman.{RESET}")
         conn.disconnect()
-    except Exception as e: print(f"Error: {e}")
-
-def run_mikhmon():
-    mikhmon_path = os.path.expanduser("~/mikhmonv3")
-    os.makedirs(mikhmon_path, exist_ok=True)
-    print(f"{CYAN}[*] Jalankan Mikhmon di port 8080...{RESET}")
-    os.system(f"php -S 127.0.0.1:8080 -t {mikhmon_path}")
+    except Exception as e: print(f"{RED}Error: {e}{RESET}")
 
 def hapus_laporan_mikhmon():
     creds = get_credentials("mikrotik")
@@ -210,178 +244,139 @@ def hapus_laporan_mikhmon():
     try:
         conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True)
         api = conn.get_api()
-        res = api.get_resource('/system/script')
-        m_scripts = [s for s in res.get() if 'mikhmon' in s.get('name', '').lower()]
-        for s in m_scripts: res.remove(id=s['id'])
-        print(f"{GREEN}[✓] {len(m_scripts)} Script Laporan dibersihkan.{RESET}")
+        resource = api.get_resource('/system/script')
+        mikhmon_scripts = [s for s in resource.get() if 'mikhmon' in s.get('name', '').lower()]
+        if mikhmon_scripts:
+            confirm = input(f"{RED}Hapus {len(mikhmon_scripts)} script laporan? (y/n): {RESET}").lower()
+            if confirm == 'y':
+                for s in mikhmon_scripts: resource.remove(id=s['id'])
+                print(f"{GREEN}[✓] Berhasil dihapus.{RESET}")
+        else:
+            print(f"{GREEN}[✓] MikroTik Bersih.{RESET}")
         conn.disconnect()
-    except Exception as e: print(f"Error: {e}")
-
-def mikrotik_hotspot_active():
-    creds = get_credentials("mikrotik")
-    if not creds: return
-    try:
-        conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True)
-        api = conn.get_api()
-        active = api.get_resource('/ip/hotspot/active').get()
-        print(f"{GREEN}Total User Aktif: {len(active)}{RESET}")
-        conn.disconnect()
-    except Exception as e: print(f"Error: {e}")
+    except Exception as e: print(f"{RED}Error: {e}{RESET}")
 
 # --- OLT TOOLS ---
 def list_onu_aktif():
     creds = get_credentials("olt")
     if not creds: return
-    p = input("Input Port (1/3/1): ")
-    brand = creds.get('brand', 'zte')
-    cmd = [f"show pon onu information gpon-olt_{p}"] if brand == 'zte' else [f"show onu status port {p}"]
-    print(telnet_olt_execute(creds, cmd))
+    p = input(f"{WHITE}Input Port (contoh 1/3/1): {RESET}")
+    brand = creds.get('brand', 'zte').lower()
+    cmds = ["terminal length 0", "end", f"show pon onu information gpon-olt_{p}"] if brand == 'zte' else [f"show onu status port {p}"]
+    output = telnet_olt_execute(creds, cmds)
+    print(f"\n{WHITE}{output}{RESET}")
 
 def monitor_optical_power():
     creds = get_credentials("olt")
     if not creds: return
-    # Logika registrasi/monitor ONU
-    pass
-
-def reset_onu_safe():
-    creds = get_credentials("olt")
-    if not creds: return
     brand = creds.get('brand', 'zte').lower()
-    print(f"\n{RED}=== RESET ONU (SAFE MODE) ==={RESET}")
-    port = input(f"{WHITE}Masukkan Port (1/1/1): {RESET}").strip()
-    onu_id = input(f"{WHITE}Masukkan Nomor ONU (1): {RESET}").strip()
+    p = input(f"{WHITE}Input Port (contoh 1/4/1): {RESET}")
     
-    if brand == 'zte':
-        check_cmds = ["enable", creds.get('pass',''), "show gpon onu detail-info gpon-onu_{port}:{onu_id}"]
-    else:
-        check_cmds = [f"show onu info port {port} ont {onu_id}"]
-
-    output = telnet_olt_execute(creds, check_cmds)
-    if output and "Invalid" not in output:
-        print(f"\n{YELLOW}{output}{RESET}")
-        if input(f"\n{RED}Hapus ONU ini? (y/n): {RESET}").lower() == 'y':
-            del_cmds = ["conf t", f"interface gpon-olt_{port}", f"no onu {onu_id}", "end", "write"]
-            telnet_olt_execute(creds, del_cmds)
-            print(f"{GREEN}[✓] Berhasil dihapus.{RESET}")
-    else:
-        print(f"{RED}[!] Data tidak ditemukan.{RESET}")
-
-def delete_onu_fast():
-    creds = get_credentials("olt")
-    if not creds: return
-    print(f"\n{RED}=== DELETE ONU (FAST TABLE VIEW) ==={RESET}")
-    port = input(f"{WHITE}Port (1/3/1): {RESET}").strip()
-    onu_id = input(f"{WHITE}ONU ID: {RESET}").strip()
+    # Scan Unconfigured
+    cmd_scan = ["show gpon onu uncfg"] if brand == 'zte' else [f"show onu unconfigured port {p}"]
+    res_unconfig = telnet_olt_execute(creds, cmd_scan)
+    print(f"\n{YELLOW}ONU Unconfigured:{RESET}\n{res_unconfig}")
     
-    cmd = [f"show gpon onu state gpon-olt_{port} {onu_id}"]
-    output = telnet_olt_execute(creds, cmd)
-    if output:
-        for line in output.splitlines():
-            if f"{port}:{onu_id}" in line: print(f"{YELLOW}{line}{RESET}")
-        if input(f"{RED}Konfirmasi Hapus? (y/n): {RESET}").lower() == 'y':
-            telnet_olt_execute(creds, ["conf t", f"interface gpon-olt_{port}", f"no onu {onu_id}", "end", "write"])
-            print(f"{GREEN}[✓] Terhapus.{RESET}")
-
-def check_optical_power_fast():
-    creds = get_credentials("olt")
-    if not creds: return
-    brand = creds.get('brand', 'zte').lower()
-    print(f"\n{CYAN}=== CEK OPTICAL POWER ONU (SMART VIEW) ==={RESET}")
-    port = input(f"{WHITE}Port (1/1/1): {RESET}").strip()
-    onu_id = input(f"{WHITE}ONU ID: {RESET}").strip()
-    
-    if brand == 'fiberhome':
-        cmds_to_try = [f"show onu optical-power {port} {onu_id}"]
-    else:
-        cmds_to_try = [
-            f"show pon optical-power gpon-olt_{port} {onu_id}",
-            f"show pon optical-power gpon-onu_{port}:{onu_id}"
-        ]
+    while True:
+        print(f"\n{MAGENTA}1. Scan ID Kosong | 2. Reg Hotspot | 3. Reg PPPoE | 6. Cek Power | 0. Kembali{RESET}")
+        opt = input("Pilih: ")
+        if opt == '0': break
         
-    base_cmds = ["enable", creds.get('pass','')] if brand == 'zte' else []
-    output = ""
-    success = False
-    
-    for cmd in cmds_to_try:
-        raw = telnet_olt_execute(creds, base_cmds + [cmd])
-        if raw and any(x in raw for x in ["dBm", "Power"]):
-            output = raw; success = True; break
-            
-    print(f"\n{WHITE}HASIL DIAGNOSA {brand.upper()}:{RESET}")
-    if success:
-        for line in output.splitlines():
-            if any(x in line for x in ["dBm", "Power", "Temp", "Volt"]):
-                print(f"{YELLOW}{line.strip()}{RESET}")
-    else:
-        print(f"{RED}[!] ONU OFFLINE / LOS{RESET}")
+        if opt == '1':
+            cmd_list = [f"show gpon onu state gpon-olt_{p}"] if brand == 'zte' else [f"show onu status port {p}"]
+            res_list = telnet_olt_execute(creds, cmd_list)
+            ids = re.findall(r':(\d{1,3})\s+', res_list)
+            ids_int = sorted(list(set([int(x) for x in ids])))
+            max_id = max(ids_int) if ids_int else 0
+            print(f"{GREEN}Saran ID Baru: {max_id + 1}{RESET}")
+        elif opt == '6':
+            cmds = [f"show pon optical-power gpon-olt_{p}"] if brand == 'zte' else [f"show onu optical-power {p}"]
+            print(telnet_olt_execute(creds, cmds))
+
+def reset_onu():
+    creds = get_credentials("olt")
+    if not creds: return
+    brand = creds.get('brand', 'zte').lower()
+    t = input("Slot/Port/ID (misal 1/1/1): ")
+    try:
+        s, p, oid = t.split("/")
+        if brand == 'zte':
+            cmds = ["conf t", f"interface gpon-olt_1/{s}/{p}", f"no onu {oid}", "end", "write"]
+        else:
+            cmds = ["conf t", f"interface gpon-olt_1/{s}/{p}", f"onu {oid} delete", "end", "write"]
+        print(f"{CYAN}[*] Menghapus ONU {t}...{RESET}")
+        print(telnet_olt_execute(creds, cmds))
+        print(f"{GREEN}[✓] Selesai.{RESET}")
+    except:
+        print(f"{RED}Format salah! Gunakan S/P/ID{RESET}")
 
 # --- NETWORK TOOLS ---
-def network_what_my_ip():
-    print(f"{CYAN}[*] Mengecek IP Publik anda...{RESET}")
-    try:
-        resp = requests.get("https://api.ipify.org?format=json", timeout=5)
-        print(f"{GREEN}[✓] IP Publik Anda: {YELLOW}{resp.json().get('ip')}{RESET}")
-    except: print(f"{RED}[!] Gagal mengambil IP.{RESET}")
+def network_ping_trace():
+    target = input(f"{WHITE}Masukkan Host/IP: {RESET}")
+    print(f"\n{CYAN}--- PING {target} ---{RESET}")
+    os.system(f"ping -c 4 {target}")
+    print(f"\n{CYAN}--- TRACEROUTE {target} ---{RESET}")
+    os.system(f"traceroute {target}")
 
-def network_port_scanner():
-    target = input(f"{WHITE}Masukkan IP Target: {RESET}")
-    if target:
-        print(f"{CYAN}[*] Scanning Port (Common) pada {target}...{RESET}")
-        os.system(f"nmap -F {target}")
+def network_nmap_scan():
+    ip = input(f"{WHITE}Masukkan IP/Range (ex: 192.168.1.0/24): {RESET}")
+    print(f"{YELLOW}[*] Memulai Nmap Scan...{RESET}")
+    os.system(f"nmap -sn {ip}")
 
 def show_menu():
     vault = load_vault()
-    prof = vault.get("active_profile", "None")
+    prof = vault.get("active_profile", "None (Pilih menu 22)")
     os.system('clear')
     print(f"{MAGENTA}================================================================={RESET}")
-    print(f"{WHITE}    Ucenk D-Tech Premium Network System | Profile: {GREEN}{prof}{RESET}")
+    print(f"{CYAN}          Ucenk D-Tech Network Management System{RESET}")
     print(f"{MAGENTA}================================================================={RESET}")
+    print(f"Aktif Profile: {GREEN}{prof}{RESET}\n")
     
-    print(f"\n{GREEN}--- MIKROTIK TOOLS ---{RESET}")
-    print(f"1. Jalankan Mikhmon          5. Bandwidth Report")
-    print(f"2. Total User Hotspot        6. Backup & Restore")
-    print(f"3. Cek DHCP Rogue            7. SNMP Monitoring")
-    print(f"4. Hapus Laporan Mikhmon     8. Log Viewer")
+    print(f"{GREEN}--- MIKROTIK TOOLS ---{RESET}")
+    print(f"1. Jalankan Mikhmon Server          5. Bandwidth Usage Report")
+    print(f"2. Total User Aktif Hotspot         6. Backup & Restore MikroTik")
+    print(f"3. Cek DHCP Alert (Rogue)           7. SNMP Monitoring")
+    print(f"4. Hapus Laporan Mikhmon            8. Log Viewer MikroTik")
 
     print(f"\n{GREEN}--- OLT TOOLS ---{RESET}")
-    print(f"9. Lihat ONU Terdaftar       13. {CYAN}Cek Power Optic (Quick){RESET}")
-    print(f"10. Registrasi ONU           14. Alarm & Event Viewer")
-    print(f"11. Reset ONU (Detail)       15. Backup & Restore OLT")
-    print(f"12. {RED}Delete ONU (Quick){RESET}       16. Traffic Report per PON")
+    print(f"9. Lihat ONU Terdaftar              13. Alarm & Event Viewer")
+    print(f"10. Konfigurasi ONU (ZTE/FH)        14. Backup & Restore OLT")
+    print(f"{RED}11. Reset ONU{RESET}                       15. Traffic Report per PON")
+    print(f"12. Port & VLAN Config              16. Auto Audit Script")
 
     print(f"\n{GREEN}--- NETWORK TOOLS ---{RESET}")
-    print(f"17. Speedtest CLI            20. {CYAN}What My IP{RESET}")
-    print(f"18. Nmap Scan                21. DNS Tools")
-    print(f"19. {CYAN}Port Scanner{RESET}             22. Ping & Traceroute")
-    
-    print(f"\n99. {YELLOW}PROFILE SETTINGS{RESET}")
-    print(f"{MAGENTA}0. Keluar{RESET}")
+    print(f"17. Speedtest CLI                   20. Ping & Traceroute")
+    print(f"18. Nmap Scan                       21. DNS Tools")
+    print(f"19. MAC Lookup                      {YELLOW}22. PROFILE SETTINGS{RESET}")
+
+    print(f"\n{MAGENTA}0. Keluar{RESET}")
+    print(f"{YELLOW}Pilih Nomor: {RESET}", end="")
 
 def main():
     while True:
         show_menu()
-        c = input(f"\n{YELLOW}Pilih Nomor: {RESET}").strip()
+        c = input().strip()
         if c == '1': run_mikhmon()
         elif c == '2': mikrotik_hotspot_active()
         elif c == '3': cek_dhcp_rogue()
         elif c == '4': hapus_laporan_mikhmon()
         elif c == '9': list_onu_aktif()
-        elif c == '11': reset_onu_safe()
-        elif c == '12': delete_onu_fast()
-        elif c == '13': check_optical_power_fast()
+        elif c == '10': monitor_optical_power()
+        elif c == '11': reset_onu()
         elif c == '17': os.system("speedtest-cli --simple")
-        elif c == '18': 
-            target = input("Target IP: ")
-            os.system(f"nmap -sV {target}")
-        elif c == '19': network_port_scanner()
-        elif c == '20': network_what_my_ip()
-        elif c == '22': 
-            target = input("IP/Host: ")
-            os.system(f"ping -c 4 {target}")
-        elif c == '99': manage_profiles()
-        elif c == '0': sys.exit()
+        elif c == '18': network_nmap_scan()
+        elif c == '19':
+            mac = input("Masukkan MAC Address: ")
+            print(f"{CYAN}Brand: {get_brand(mac)}{RESET}")
+        elif c == '20': network_ping_trace()
+        elif c == '22': manage_profiles()
+        elif c == '0': 
+            print(f"{GREEN}Sampai jumpa lagi, Bro Ucenk!{RESET}")
+            sys.exit()
+        elif c: 
+            print(f"{YELLOW}Fitur {c} sedang dikembangkan.{RESET}")
         
-        if c not in ['99', '0', '']: input(f"\n{YELLOW}Tekan Enter...{RESET}")
+        input(f"\n{YELLOW}Tekan Enter...{RESET}")
 
 if __name__ == "__main__":
     main()

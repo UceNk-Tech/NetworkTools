@@ -91,35 +91,27 @@ def get_credentials(target):
 
 def telnet_olt_execute(creds, commands):
     if not creds: return None
-    prompt = "ZXAN#" if creds.get('brand') == 'zte' else "OLT#"
+    prompt = "ZXAN" if creds.get('brand') == 'zte' else "OLT"
     try:
-        tn = telnetlib.Telnet(creds['ip'], 23, timeout=15)
+        tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
+        
+        # Login Process
         tn.read_until(b"Username:", timeout=5)
         tn.write(creds['user'].encode('utf-8') + b"\n")
         tn.read_until(b"Password:", timeout=5)
         tn.write(creds['pass'].encode('utf-8') + b"\n")
         
-        # Masuk ke prompt utama
-        tn.read_until(prompt.encode('utf-8'), timeout=5)
-        
-        # FORCE: Matikan paging agar semua data keluar sekaligus
-        tn.write(b"terminal length 0\n")
-        time.sleep(0.5)
+        time.sleep(1) # Tunggu login stabil
         
         output = ""
         for cmd in commands:
             tn.write((cmd + "\n").encode('utf-8'))
-            # Beri jeda lebih lama untuk perintah 'show' yang datanya banyak
-            if "show" in cmd:
-                time.sleep(2.0) 
-            else:
-                time.sleep(0.8)
-            
-            # Baca semua data yang ada di buffer
+            # Beri jeda antar perintah agar OLT tidak pusing (terutama ZTE)
+            time.sleep(1.2) 
             output += tn.read_very_eager().decode('utf-8', errors='ignore')
             
         tn.close()
-        return output.strip()
+        return output
     except Exception as e:
         print(f"{RED}Error Telnet: {e}{RESET}")
         return None
@@ -445,7 +437,7 @@ def delete_onu(): # Menu 12
             print(f"{GREEN}[✓] ONU {port}:{onu_id} Terhapus.{RESET}")
 
 def check_optical_power_fast():
-    """Menu 13: Cek Power Optik - Versi Akurat & Stabil"""
+    """Menu 13: Cek Power Optik - Versi Anti-Gagal ZTE & FH"""
     creds = get_credentials("olt")
     if not creds: 
         print(f"{RED}[!] Profile OLT belum aktif.{RESET}")
@@ -458,55 +450,52 @@ def check_optical_power_fast():
     port = input(f"{WHITE}Port (contoh 1/1/1): {RESET}").strip()
     onu_id = input(f"{WHITE}ONU ID (contoh 1): {RESET}").strip()
     
-    # Menyiapkan perintah berdasarkan brand
+    # Logic Perintah Khusus
     if brand == 'fiberhome':
-        cmds_to_try = [f"show onu optical-power {port} {onu_id}"]
+        cmds = ["terminal length 0", f"show onu optical-power {port} {onu_id}"]
     else:
-        # Skenario ZTE: Mencoba beberapa varian perintah yang umum digunakan
-        cmds_to_try = [
-            f"show pon optical-power gpon-onu_{port}:{onu_id}",
-            f"show pon optical-power gpon-olt_{port} {onu_id}"
+        # Format perintah ZTE yang lebih universal (Mencoba 2 metode sekaligus)
+        iface = f"gpon-onu_{port}:{onu_id}"
+        cmds = [
+            "terminal length 0",
+            "enable", # Memasuki mode privilege
+            f"show pon optical-power remote {iface}",
+            f"show gpon onu detail-info {iface}"
         ]
         
-    # Eksekusi Terminal Length agar output tidak terpotong
-    base_cmds = ["terminal length 0"]
-    if brand == 'zte':
-        base_cmds.append("enable") # Masuk mode privilage
-        # Jika OLT minta password lagi setelah enable, telnet_olt_execute perlu disesuaikan
+    print(f"{CYAN}[*] Berkomunikasi dengan OLT... (Mohon Tunggu){RESET}")
+    output = telnet_olt_execute(creds, cmds)
     
-    print(f"{CYAN}[*] Menghubungkan ke OLT dan mengambil data...{RESET}")
-    
-    final_output = ""
-    for cmd in cmds_to_try:
-        res = telnet_olt_execute(creds, base_cmds + [cmd])
-        if res and ("dBm" in res or "working" in res.lower()):
-            final_output = res
-            break
-        final_output = res
-
     print(f"\n{WHITE}HASIL DIAGNOSA {brand.upper()} ONU {port}:{onu_id}:{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
-    if not final_output:
-        print(f"{RED}[!] Tidak ada respon dari OLT.{RESET}")
-    elif "dBm" in final_output:
-        print(f"{GREEN}[✓] STATUS: ONU TERDETEKSI / ONLINE{RESET}\n")
-        # Parsing baris yang mengandung informasi power
-        lines = final_output.splitlines()
-        found_info = False
-        for line in lines:
-            # Cari baris yang mengandung angka dBm (biasanya berisi Rx/Tx power)
-            if re.search(r'(-?\d+\.\d+\s*\(dBm\)|-?\d+\.\d+)', line):
+    if not output:
+        print(f"{RED}[!] Gagal mendapatkan respon dari OLT. Periksa koneksi/kredensial.{RESET}")
+        return
+
+    # Filter hasil agar rapi
+    found = False
+    lines = output.splitlines()
+    
+    # Cari keyword penting dalam output
+    for line in lines:
+        l_low = line.lower()
+        # Jika mengandung nilai dBm atau info RX/TX
+        if any(x in l_low for x in ["dbm", "rx", "tx", "power", "voltage", "temperature"]):
+            # Abaikan baris yang isinya cuma perintah atau error
+            if "show" not in l_low and "%" not in l_low:
                 print(f"{YELLOW}{line.strip()}{RESET}")
-                found_info = True
-        
-        if not found_info:
-            print(f"{WHITE}{final_output}{RESET}")
-    elif "offline" in final_output.lower() or "no such" in final_output.lower():
-        print(f"{RED}[!] STATUS: ONU OFFLINE / LOS{RESET}")
-        print(f"{YELLOW}[i] Deteksi: Kabel putus atau ONU mati.{RESET}")
-    else:
-        print(f"{WHITE}Respon OLT:{RESET}\n{CYAN}{final_output}{RESET}")
+                found = True
+                
+    if not found:
+        # Jika tidak ada keyword dBm, tampilkan output mentah untuk diagnosa
+        if "Invalid" in output or "%" in output:
+            print(f"{RED}[!] Perintah tidak dikenali oleh OLT.{RESET}")
+            print(f"{WHITE}Saran: Cek manual perintah 'show' di OLT Anda.{RESET}")
+        elif "offline" in output.lower():
+            print(f"{RED}[!] STATUS: ONU OFFLINE / LOS{RESET}")
+        else:
+            print(f"{CYAN}Output Mentah OLT:{RESET}\n{output.strip()}")
             
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 

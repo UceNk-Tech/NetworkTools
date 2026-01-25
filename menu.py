@@ -437,7 +437,7 @@ def delete_onu(): # Menu 12
             print(f"{GREEN}[✓] ONU {port}:{onu_id} Terhapus.{RESET}")
 
 def check_optical_power_fast():
-    """Menu 13: Cek Power Optik - Versi Anti-Gagal ZTE & FH"""
+    """Menu 13: Cek Power Optik - Metode Deep-Dive (ZTE & FH)"""
     creds = get_credentials("olt")
     if not creds: 
         print(f"{RED}[!] Profile OLT belum aktif.{RESET}")
@@ -445,57 +445,64 @@ def check_optical_power_fast():
     
     brand = creds.get('brand', 'zte').lower()
     
-    print(f"\n{CYAN}=== CEK OPTICAL POWER ONU (SMART VIEW) ==={RESET}")
+    print(f"\n{CYAN}=== CEK OPTICAL POWER ONU (DEEP-SCAN) ==={RESET}")
     print(f"{WHITE}Brand OLT: {YELLOW}{brand.upper()}{RESET}")
     port = input(f"{WHITE}Port (contoh 1/1/1): {RESET}").strip()
     onu_id = input(f"{WHITE}ONU ID (contoh 1): {RESET}").strip()
     
-    # Logic Perintah Khusus
     if brand == 'fiberhome':
         cmds = ["terminal length 0", f"show onu optical-power {port} {onu_id}"]
     else:
-        # Format perintah ZTE yang lebih universal (Mencoba 2 metode sekaligus)
-        iface = f"gpon-onu_{port}:{onu_id}"
+        # LOGIKA KHUSUS ZTE: Masuk ke level interface agar perintah 'show' diterima
         cmds = [
             "terminal length 0",
-            "enable", # Memasuki mode privilege
-            f"show pon optical-power remote {iface}",
-            f"show gpon onu detail-info {iface}"
+            "enable",
+            "conf t",
+            f"interface gpon-olt_{port}",
+            f"show pon optical-power remote {onu_id}", 
+            f"show pon optical-power {onu_id}", # Backup jika 'remote' gagal
+            "exit",
+            "end"
         ]
         
-    print(f"{CYAN}[*] Berkomunikasi dengan OLT... (Mohon Tunggu){RESET}")
+    print(f"{CYAN}[*] Menembus Interface OLT... (Mohon Tunggu){RESET}")
     output = telnet_olt_execute(creds, cmds)
     
     print(f"\n{WHITE}HASIL DIAGNOSA {brand.upper()} ONU {port}:{onu_id}:{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
     if not output:
-        print(f"{RED}[!] Gagal mendapatkan respon dari OLT. Periksa koneksi/kredensial.{RESET}")
+        print(f"{RED}[!] Koneksi terputus atau timeout.{RESET}")
         return
 
-    # Filter hasil agar rapi
+    # Filter pencarian angka dBm
     found = False
-    lines = output.splitlines()
+    # Regex untuk menangkap angka redaman seperti -22.45 atau 2.10
+    pattern = re.compile(r'(-?\d+\.\d+)\s*\(?dBm\)?')
     
-    # Cari keyword penting dalam output
+    lines = output.splitlines()
     for line in lines:
-        l_low = line.lower()
-        # Jika mengandung nilai dBm atau info RX/TX
-        if any(x in l_low for x in ["dbm", "rx", "tx", "power", "voltage", "temperature"]):
-            # Abaikan baris yang isinya cuma perintah atau error
-            if "show" not in l_low and "%" not in l_low:
-                print(f"{YELLOW}{line.strip()}{RESET}")
+        if any(x in line.lower() for x in ["rx", "tx", "power", "dbm", "temp", "volt"]):
+            # Pastikan bukan baris perintah yang kita ketik tadi
+            if "show" not in line.lower() and "exit" not in line.lower():
+                # Jika ada angka redaman, beri warna hijau/kuning
+                clean_line = line.strip()
+                if "dBm" in clean_line:
+                    print(f"{GREEN}>>> {clean_line}{RESET}")
+                else:
+                    print(f"{YELLOW}    {clean_line}{RESET}")
                 found = True
                 
     if not found:
-        # Jika tidak ada keyword dBm, tampilkan output mentah untuk diagnosa
+        # Jika tetap gagal, kemungkinan format port salah atau ONU memang tidak terdaftar
         if "Invalid" in output or "%" in output:
-            print(f"{RED}[!] Perintah tidak dikenali oleh OLT.{RESET}")
-            print(f"{WHITE}Saran: Cek manual perintah 'show' di OLT Anda.{RESET}")
-        elif "offline" in output.lower():
-            print(f"{RED}[!] STATUS: ONU OFFLINE / LOS{RESET}")
+            print(f"{RED}[!] OLT menolak akses di interface {port}.{RESET}")
+            print(f"{WHITE}Pastikan format port benar. Contoh: 1/1/1 (tanpa gpon-olt_){RESET}")
+        elif "offline" in output.lower() or "not exist" in output.lower():
+            print(f"{RED}[!] STATUS: ONU OFFLINE / TIDAK TERDAFTAR{RESET}")
         else:
-            print(f"{CYAN}Output Mentah OLT:{RESET}\n{output.strip()}")
+            print(f"{CYAN}Respon OLT (Gunakan untuk Debug):{RESET}")
+            print(output.strip())
             
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 

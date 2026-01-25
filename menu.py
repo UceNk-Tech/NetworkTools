@@ -75,14 +75,14 @@ def manage_profiles(): # Menu 99
     while True:
         vault = load_vault()
         os.system('clear')
+        profiles = vault.get("profiles", {})
+        p_keys = list(profiles.keys())
+        
         print(f"{MAGENTA}======================================================{RESET}")
         print(f"{WHITE}              SETTING PROFILE JARINGAN                {RESET}")
         print(f"{MAGENTA}======================================================{RESET}")
         
-        profiles = vault.get("profiles", {})
-        p_keys = list(profiles.keys())
-        
-        # Menampilkan Daftar Profile dengan Nomor
+        # Menampilkan Daftar Profile
         if not p_keys:
             print(f"{YELLOW} [!] Belum ada profile tersimpan.{RESET}")
         else:
@@ -90,48 +90,55 @@ def manage_profiles(): # Menu 99
                 status = f"{GREEN}[Aktif]{RESET}" if p_name == vault.get('active_profile') else ""
                 print(f" {i}. {p_name} {status}")
         
-        print(f"\n{CYAN} 1. Add Profile")
+        print(f"{MAGENTA}======================================================{RESET}")
+        print(f"{CYAN} 1. Add Profile")
         print(" 2. Select Profile (by Number)")
         print(" 3. Delete Profile (by Number)")
         print(f" 0. Exit{RESET}")
+        print(f"{MAGENTA}======================================================{RESET}")
         
         opt = input(f"\n{YELLOW}Pilih Opsi: {RESET}").strip()
         
         if opt == '1':
-            name = input(f"{WHITE}Nama Profile: {RESET}").strip()
-            if name:
-                m_ip = input("MikroTik IP: ")
-                m_u = input("User: ")
-                m_p = getpass.getpass("Pass: ")
-                o_ip = input("OLT IP: ")
-                o_u = input("User: ")
-                o_p = getpass.getpass("Pass: ")
-                o_b = input("Brand (zte/fiberhome): ")
-                
-                profiles[name] = {
-                    "mikrotik": {"ip": m_ip, "user": m_u, "pass": m_p}, 
-                    "olt": {"ip": o_ip, "user": o_u, "pass": o_p, "brand": o_b}
-                }
-                vault["profiles"] = profiles
-                vault["active_profile"] = name
-                save_vault(vault)
-                print(f"{GREEN}[✓] Profile {name} berhasil ditambahkan.{RESET}")
+            print(f"\n{MAGENTA}====================== MIKROTIK ========================={RESET}")
+            name = input(f"{WHITE}Nama Profile : {RESET}").strip()
+            if not name: continue
+            
+            m_ip = input(f"{WHITE}MikroTik IP  : {RESET}")
+            m_u  = input(f"{WHITE}User         : {RESET}")
+            m_p  = getpass.getpass(f"{WHITE}Pass         : {RESET}")
+            
+            print(f"\n{MAGENTA}======================== OLT ============================{RESET}")
+            o_ip = input(f"{WHITE}OLT IP       : {RESET}")
+            o_u  = input(f"{WHITE}User         : {RESET}")
+            o_p  = getpass.getpass(f"{WHITE}Pass         : {RESET}")
+            o_b  = input(f"{WHITE}Brand (zte/fh): {RESET}").lower()
+            
+            profiles[name] = {
+                "mikrotik": {"ip": m_ip, "user": m_u, "pass": m_p}, 
+                "olt": {"ip": o_ip, "user": o_u, "pass": o_p, "brand": o_b}
+            }
+            vault["profiles"] = profiles
+            vault["active_profile"] = name
+            save_vault(vault)
+            print(f"\n{GREEN}[✓] Profile {name} Berhasil Disimpan!{RESET}")
+            input(f"{YELLOW}Tekan Enter...{RESET}")
 
         elif opt == '2':
             if not p_keys: continue
-            idx = input(f"{WHITE}Pilih Nomor Profile: {RESET}").strip()
+            idx = input(f"\n{WHITE}Masukkan Nomor Profile: {RESET}").strip()
             if idx.isdigit():
                 idx = int(idx) - 1
                 if 0 <= idx < len(p_keys):
                     selected = p_keys[idx]
                     vault["active_profile"] = selected
                     save_vault(vault)
-                    print(f"{GREEN}[✓] Profile aktif diubah ke: {selected}{RESET}")
+                    print(f"{GREEN}[✓] Profile Aktif: {selected}{RESET}")
                     break
 
         elif opt == '3':
             if not p_keys: continue
-            idx = input(f"{RED}Nomor Profile yang akan dihapus: {RESET}").strip()
+            idx = input(f"\n{RED}Nomor Profile yang akan dihapus: {RESET}").strip()
             if idx.isdigit():
                 idx = int(idx) - 1
                 if 0 <= idx < len(p_keys):
@@ -140,11 +147,11 @@ def manage_profiles(): # Menu 99
                     if confirm == 'y':
                         del profiles[target]
                         vault["profiles"] = profiles
-                        # Jika yang dihapus adalah profile aktif, reset active_profile
                         if vault.get("active_profile") == target:
                             vault["active_profile"] = ""
                         save_vault(vault)
-                        print(f"{GREEN}[✓] Profile berhasil dihapus.{RESET}")
+                        print(f"{GREEN}[✓] Profile Berhasil Dihapus.{RESET}")
+                        input(f"{YELLOW}Tekan Enter...{RESET}")
 
         elif opt == '0':
             break

@@ -287,7 +287,7 @@ def delete_onu_fast():
             print(f"{GREEN}[✓] ONU {port}:{onu_id} Terhapus.{RESET}")
 
 def check_optical_power_fast():
-    """Menu 13: Cek Power Optik dengan Deteksi Brand & Multi-Command Fix"""
+    """Menu 13: Cek Power Optik - Versi Anti-Gagal & Debug Mode"""
     creds = get_credentials("olt")
     if not creds: 
         print(f"{RED}[!] Profile OLT belum aktif.{RESET}")
@@ -300,68 +300,62 @@ def check_optical_power_fast():
     port = input(f"{WHITE}Port (contoh 1/1/1): {RESET}").strip()
     onu_id = input(f"{WHITE}ONU ID (contoh 1): {RESET}").strip()
     
-    # Kumpulan perintah yang akan dicoba satu per satu jika gagal
+    # Kumpulan skenario perintah yang akan dicoba
     if brand == 'fiberhome':
         cmds_to_try = [f"show onu optical-power {port} {onu_id}"]
     else:
-        # Variasi perintah ZTE untuk berbagai versi firmware
+        # Skenario ZTE: Masuk mode enable dulu, baru cek
         cmds_to_try = [
+            f"show pon optical-power gpon-olt_{port} {onu_id}",
             f"show pon optical-power gpon-onu_{port}:{onu_id}",
-            f"show pon optical-power gpon-olt_{port} {onu_id}"
+            f"show gpon onu detail-info gpon-onu_{port}:{onu_id}"
         ]
         
     output = ""
-    success_cmd = False
     
-    # Eksekusi percobaan perintah
+    # Alice tambahkan 'enable' di awal untuk OLT ZTE
+    base_cmds = ["terminal length 0"]
+    if brand == 'zte':
+        base_cmds.append("enable") # Memastikan hak akses penuh
+        # Masukkan password enable jika OLT memintanya (opsional, tergantung config OLT)
+        if creds.get('pass'): base_cmds.append(creds['pass']) 
+    
+    print(f"{CYAN}[*] Sedang berkomunikasi dengan OLT...{RESET}")
+    
     for cmd in cmds_to_try:
-        raw = telnet_olt_execute(creds, ["terminal length 0", "end", cmd])
-        if raw and "%Error" not in raw and "Invalid" not in raw:
+        current_cmds = base_cmds + [cmd]
+        raw = telnet_olt_execute(creds, current_cmds)
+        
+        # Validasi: Jika output mengandung angka atau tabel, berarti sukses
+        if raw and any(x in raw for x in ["dBm", "Power", "Voltage", "Temp"]):
             output = raw
-            success_cmd = True
             break
+        output = raw # Simpan untuk debug jika semua gagal
             
     print(f"\n{WHITE}HASIL DIAGNOSA {brand.upper()} ONU {port}:{onu_id}:{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
-    if not success_cmd or not output:
-        print(f"{RED}[!] Gagal mengeksekusi perintah. OLT menolak input.{RESET}")
-        print(f"{YELLOW}[i] Cek kembali format Port atau hak akses user.{RESET}")
+    if "dBm" in output:
+        print(f"{GREEN}[✓] STATUS: ONU ONLINE / DATA DITERIMA{RESET}")
+        
+        # Cari baris yang spesifik milik ONU tersebut
+        lines = output.splitlines()
+        for line in lines:
+            if "dBm" in line and (onu_id in line or port in line):
+                print(f"{YELLOW}{line.strip()}{RESET}")
+            elif any(x in line.lower() for x in ["temp", "volt", "input", "output"]):
+                print(f"{CYAN}{line.strip()}{RESET}")
     
     elif "---" in output or "N/A" in output or "offline" in output.lower():
-        print(f"{RED}[!] STATUS: ONU OFFLINE / LOS (Kabel Putus atau Power Mati){RESET}")
-        print(f"{YELLOW}[i] Saran: Cek fisik kabel FO atau adaptor di lokasi user.{RESET}")
+        print(f"{RED}[!] STATUS: ONU OFFLINE / LOS{RESET}")
+        print(f"{YELLOW}[i] Deteksi: Sinyal laser tidak sampai ke ONU.{RESET}")
     
     else:
-        print(f"{GREEN}[✓] STATUS: ONU ONLINE / AUTHENTICATION SUCCESS{RESET}")
-        
-        # Ekstraksi Data menggunakan Regex yang lebih fleksibel
-        # Mencari angka desimal (positif/negatif) di dekat kata Rx/Input/Tx/Output
-        rx = re.search(r"(?:Rx|Input).*?([-]?\d+\.\d+)", output, re.I)
-        tx = re.search(r"(?:Tx|Output).*?([-]?\d+\.\d+)", output, re.I)
-        temp = re.search(r"(?:Temp|Temperature).*?(\d+\.?\d*)", output, re.I)
-        volt = re.search(r"(?:Volt|Voltage).*?(\d+\.?\d*)", output, re.I)
-
-        print(f"{WHITE}Detail Informasi Modul Optik:{RESET}")
-        
-        # Tampilkan Input Power (Rx)
-        val_rx = rx.group(1) if rx else "---"
-        color_rx = RED if (rx and float(val_rx) < -27) else YELLOW
-        print(f" - Input Power (Rx)  : {color_rx}{val_rx} dBm{RESET}")
-        
-        # Tampilkan Output Power (Tx)
-        val_tx = tx.group(1) if tx else "---"
-        print(f" - Output Power (Tx) : {YELLOW}{val_tx} dBm{RESET}")
-        
-        if temp: print(f" - Operating Temp    : {YELLOW}{temp.group(1)} °C{RESET}")
-        if volt: print(f" - Supply Voltage    : {YELLOW}{volt.group(1)} V/uV{RESET}")
-
-        # Jika data spesifik tidak ketemu tapi ada output, tampilkan baris tabelnya
-        if not rx and not tx:
-            print(f"\n{WHITE}Data Tabel OLT:{RESET}")
-            for line in output.splitlines():
-                if any(x in line.lower() for x in ['dbm', 'power', port]):
-                    print(f" {CYAN}{line.strip()}{RESET}")
+        # MODE DEBUG: Jika tetap gagal, tampilkan apa yang dikatakan OLT
+        print(f"{RED}[!] Perintah Ditolak atau Format Salah.{RESET}")
+        print(f"{WHITE}Respon Terakhir OLT:{RESET}")
+        print(f"{CYAN}{output}{RESET}")
+        print(f"\n{YELLOW}[i] Tips: Coba masukkan port tanpa gpon-olt (misal: 1/1/1 saja){RESET}")
             
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 def show_menu():

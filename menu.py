@@ -1031,7 +1031,7 @@ def show_menu():
     print(f"\n{WHITE}Profile Aktif: {GREEN}{prof}{RESET}")
     
     print(f"{CYAN}--- MIKROTIK TOOLS ---{RESET}")
-    print("1.  Jalankan Mikhmon Server          5. Bandwidth Usage Report")
+    print("1.  Jalankan Mikhmon Server           5. Bandwidth Usage Report")
     print("2.  Total User Aktif Hotspot          6. Backup & Restore MikroTik")
     print("3.  Cek DHCP Alert (Rogue)            7. SNMP Monitoring")
     print("4.  Hapus Laporan Mikhmon             8. Log Viewer MikroTik")

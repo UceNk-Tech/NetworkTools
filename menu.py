@@ -71,21 +71,34 @@ def save_vault(data):
     with open(VAULT_FILE, 'w') as f: 
         json.dump(data, f, indent=4)
 
-def manage_profiles():
+def manage_profiles(): # Menu 99
     while True:
         vault = load_vault()
         os.system('clear')
         print(f"{MAGENTA}======================================================{RESET}")
-        print(f"{WHITE}             SETTING PROFILE JARINGAN                {RESET}")
+        print(f"{WHITE}              SETTING PROFILE JARINGAN                {RESET}")
         print(f"{MAGENTA}======================================================{RESET}")
+        
         profiles = vault.get("profiles", {})
-        for i, p_name in enumerate(profiles.keys(), 1):
-            status = f"{GREEN}[Aktif]{RESET}" if p_name == vault.get('active_profile') else ""
-            print(f" {i}. {p_name} {status}")
-        print(f"\n{CYAN}[A] Tambah  [S] Pilih  [D] Hapus  [0] Kembali{RESET}")
-        opt = input(f"\n{YELLOW}Pilih Opsi: {RESET}").lower()
-        if opt == 'a':
-            name = input("Nama Profile: ").strip()
+        p_keys = list(profiles.keys())
+        
+        # Menampilkan Daftar Profile dengan Nomor
+        if not p_keys:
+            print(f"{YELLOW} [!] Belum ada profile tersimpan.{RESET}")
+        else:
+            for i, p_name in enumerate(p_keys, 1):
+                status = f"{GREEN}[Aktif]{RESET}" if p_name == vault.get('active_profile') else ""
+                print(f" {i}. {p_name} {status}")
+        
+        print(f"\n{CYAN} 1. Add Profile")
+        print(" 2. Select Profile (by Number)")
+        print(" 3. Delete Profile (by Number)")
+        print(f" 0. Exit{RESET}")
+        
+        opt = input(f"\n{YELLOW}Pilih Opsi: {RESET}").strip()
+        
+        if opt == '1':
+            name = input(f"{WHITE}Nama Profile: {RESET}").strip()
             if name:
                 m_ip = input("MikroTik IP: ")
                 m_u = input("User: ")
@@ -94,6 +107,7 @@ def manage_profiles():
                 o_u = input("User: ")
                 o_p = getpass.getpass("Pass: ")
                 o_b = input("Brand (zte/fiberhome): ")
+                
                 profiles[name] = {
                     "mikrotik": {"ip": m_ip, "user": m_u, "pass": m_p}, 
                     "olt": {"ip": o_ip, "user": o_u, "pass": o_p, "brand": o_b}
@@ -101,13 +115,38 @@ def manage_profiles():
                 vault["profiles"] = profiles
                 vault["active_profile"] = name
                 save_vault(vault)
-        elif opt == 's':
-            name = input("Nama Profile: ").strip()
-            if name in profiles: 
-                vault["active_profile"] = name
-                save_vault(vault)
-                break
-        elif opt == '0': 
+                print(f"{GREEN}[✓] Profile {name} berhasil ditambahkan.{RESET}")
+
+        elif opt == '2':
+            if not p_keys: continue
+            idx = input(f"{WHITE}Pilih Nomor Profile: {RESET}").strip()
+            if idx.isdigit():
+                idx = int(idx) - 1
+                if 0 <= idx < len(p_keys):
+                    selected = p_keys[idx]
+                    vault["active_profile"] = selected
+                    save_vault(vault)
+                    print(f"{GREEN}[✓] Profile aktif diubah ke: {selected}{RESET}")
+                    break
+
+        elif opt == '3':
+            if not p_keys: continue
+            idx = input(f"{RED}Nomor Profile yang akan dihapus: {RESET}").strip()
+            if idx.isdigit():
+                idx = int(idx) - 1
+                if 0 <= idx < len(p_keys):
+                    target = p_keys[idx]
+                    confirm = input(f"{YELLOW}Hapus {target}? (y/n): {RESET}").lower()
+                    if confirm == 'y':
+                        del profiles[target]
+                        vault["profiles"] = profiles
+                        # Jika yang dihapus adalah profile aktif, reset active_profile
+                        if vault.get("active_profile") == target:
+                            vault["active_profile"] = ""
+                        save_vault(vault)
+                        print(f"{GREEN}[✓] Profile berhasil dihapus.{RESET}")
+
+        elif opt == '0':
             break
 
 def get_credentials(target):
@@ -415,7 +454,7 @@ def list_onu():
         print(f"{RED}[!] Profile OLT belum diset.{RESET}")
         return
         
-    p = input(f"{WHITE}Input Port (contoh 1/3/1): {RESET}")
+    p = input(f"{WHITE}Input Port (contoh 1/2/1): {RESET}")
     brand = creds.get('brand', 'zte').lower()
     print(f"\n{CYAN}[+] Mengambil daftar semua ONU di port {p}...{RESET}")
     
@@ -440,7 +479,7 @@ def config_onu_logic():
     brand = creds.get('brand', 'zte').lower()
     found_sn = ""
     print(f"\n{MAGENTA}=== MONITOR & REGISTRASI ONU ==={RESET}")
-    p = input(f"{WHITE}Input Port Lokasi (contoh 1/4/1): {RESET}").strip()
+    p = input(f"{WHITE}Input Port Lokasi (contoh 1/2/1): {RESET}").strip()
 
     print(f"\n{CYAN}[+] Memeriksa ONU Unconfigured...{RESET}")
     cmd_scan = ["terminal length 0", "enable", "show gpon onu uncfg"] if brand == 'zte' else ["terminal length 0", f"show onu unconfigured port {p}"]
@@ -454,19 +493,19 @@ def config_onu_logic():
             found_sn = sn_match.group(0)
             print(f"{GREEN}[✓] SN Otomatis Disimpan: {found_sn}{RESET}")
     else:
-        print(f"{CYAN}[i] Scan Selesai: Tidak menemukan ONU baru yang unconfigured.{RESET}")
+        print(f"{YELLOW}[i] Scan Selesai: Tidak menemukan ONU baru unregister.{RESET}")
 
     while True:
         print(f"\n{MAGENTA}--- PILIH TINDAKAN (PORT {p}) ---{RESET}")
-        print(f" 1. {YELLOW}Scan ONU ID Kosong (Cari nomor bolong){RESET}")
-        print(f" 2. {CYAN}Registrasi ZTE (Hotspot){RESET}")
-        print(f" 3. {CYAN}Registrasi ZTE (PPPoE){RESET}")
-        print(f" 4. {WHITE}Registrasi FH (Hotspot){RESET}")
-        print(f" 5. {WHITE}Registrasi FH (PPPoE){RESET}")
-        print(f" 6. {GREEN}Cek Status & Power Optik{RESET}") 
+        print(f" 1. {YELLOW}Scan ONU ID Kosong (Cari nomor kosong){RESET}")
+        print(f" 2. {GREEN}Registrasi ZTE (Hotspot){RESET}")
+        print(f" 3. {GREEN}Registrasi ZTE (PPPoE){RESET}")
+        print(f" 4. {GREEN}Registrasi FH (Hotspot){RESET}")
+        print(f" 5. {GREEN}Registrasi FH (PPPoE){RESET}")
+        print(f" 6. {CYAN}Cek Status & Power Optik{RESET}") 
         print(f" 0. {YELLOW}Keluar/Kembali{RESET}")
         
-        opt = input(f"\n{YELLOW}Pilih aksi (0-6): {RESET}")
+        opt = input(f"\n{YELLOW}Pilih (0-6): {RESET}")
         if opt == '0' or not opt: 
             break
 
@@ -488,7 +527,7 @@ def config_onu_logic():
                         chunks = [map(str, missing_ids[i:i + 10]) for i in range(0, len(missing_ids), 10)]
                         for chunk in chunks: print(f"{WHITE}    {', '.join(chunk)}{RESET}")
                     else:
-                        print(f"{CYAN}[i] Tidak ada nomor bolong (ID 1 sampai {max_id} terisi).{RESET}")
+                        print(f"{YELLOW}[i] Tidak ada nomor Kkosong (ID 1 sampai {max_id} terisi).{RESET}")
                     print(f"\n{GREEN}[+] SARAN ID BARU: {max_id + 1}{RESET}")
                     print(f"{MAGENTA}--------------------------------------------------{RESET}")
             continue
@@ -538,13 +577,13 @@ def reset_onu():
     if not creds: return
     brand = creds.get('brand', 'zte').lower()
     print(f"\n{RED}=== RESET ONU (SAFE MODE) ==={RESET}")
-    port = input(f"{WHITE}Masukkan Port (1/1/1): {RESET}").strip()
+    port = input(f"{WHITE}Masukkan Port (1/2/1): {RESET}").strip()
     onu_id = input(f"{WHITE}Masukkan Nomor ONU (1): {RESET}").strip()
     check_cmds = ["terminal length 0", "end", f"show gpon onu detail-info gpon-onu_{port}:{onu_id}"] if brand == 'zte' else ["terminal length 0", "end", f"show onu info port {port} ont {onu_id}"]
     output = telnet_olt_execute(creds, check_cmds)
     if output and "Invalid" not in output:
         print(f"\n{YELLOW}{output}{RESET}")
-        if input(f"\n{RED}Hapus ONU {port}:{onu_id} ini? (y/n): {RESET}").lower() == 'y':
+        if input(f"\n{YELLOW}Hapus ONU {port}:{onu_id} ini? (y/n): {RESET}").lower() == 'y':
             telnet_olt_execute(creds, ["conf t", f"interface gpon-olt_{port}", f"no onu {onu_id}", "end", "write"])
             print(f"{GREEN}[✓] ONU Berhasil dihapus.{RESET}")
     else: print(f"{RED}[!] Data tidak ditemukan.{RESET}")
@@ -553,14 +592,14 @@ def delete_onu():
     creds = get_credentials("olt")
     if not creds: return
     print(f"\n{RED}=== DELETE ONU (FAST TABLE VIEW) ==={RESET}")
-    port = input(f"{WHITE}Port (1/3/1): {RESET}").strip()
-    onu_id = input(f"{WHITE}ONU ID: {RESET}").strip()
+    port = input(f"{WHITE}Port (1/2/1): {RESET}").strip()
+    onu_id = input(f"{WHITE}NO ONU: {RESET}").strip()
     output = telnet_olt_execute(creds, [f"show gpon onu state gpon-olt_{port} {onu_id}"])
     if output:
         print(f"\n{WHITE}HASIL CEK ONU:{RESET}")
         for line in output.splitlines():
             if f"{port}:{onu_id}" in line: print(f"{YELLOW}{line}{RESET}")
-        if input(f"{RED}Konfirmasi Hapus? (y/n): {RESET}").lower() == 'y':
+        if input(f"{YELLOW}Konfirmasi Hapus? (y/n): {RESET}").lower() == 'y':
             telnet_olt_execute(creds, ["conf t", f"interface gpon-olt_{port}", f"no onu {onu_id}", "end", "write"])
             print(f"{GREEN}[✓] ONU {port}:{onu_id} Terhapus.{RESET}")
 
@@ -571,13 +610,13 @@ def check_optical_power_fast():
         return
     brand = creds.get('brand', 'zte').lower()
     print(f"\n{CYAN}=== CEK STATUS & POWER OPTIK ONU ==={RESET}")
-    port = input(f"{WHITE}Masukkan Port (contoh 1/1/1): {RESET}").strip()
-    onu_id = input(f"{WHITE}ONU ID: {RESET}").strip()
+    port = input(f"{WHITE}Masukkan Port (contoh 1/2/1): {RESET}").strip()
+    onu_id = input(f"{WHITE}NO ONU: {RESET}").strip()
     target = f"{port}:{onu_id}"
     
     cmds = ["terminal length 0", f"show onu optical-power {port} {onu_id}"] if brand == 'fiberhome' else ["terminal length 0", "enable", f"show gpon onu state gpon-olt_{port} {onu_id}", f"show pon optical-power gpon-onu_{target}", f"show gpon onu detail-info gpon-onu_{target}"]
     
-    print(f"\n{CYAN}[*] Menghubungkan ke OLT...{RESET}")
+    print(f"\n{CYAN}[*] Menghubungkan...{RESET}")
     output = telnet_olt_execute(creds, cmds)
     print(f"\n{WHITE}HASIL DIAGNOSA UNTUK ONU {onu_id}:{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
@@ -620,7 +659,7 @@ def alarm_event_viewer(): # Menu 15
     opt = input(f"\n{YELLOW}Pilih Opsi: {RESET}").strip()
     if opt == '0' or not opt: return
 
-    print(f"\n{CYAN}[*] Mengambil data dari OLT...{RESET}")
+    print(f"\n{CYAN}[*] Mengambil data...{RESET}")
     
     if brand == 'zte':
         # Kita tambahkan 'enable' untuk memastikan hak akses penuh

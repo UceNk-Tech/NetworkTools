@@ -50,6 +50,7 @@ BRAND_MAP = {
 }
 
 def get_brand(mac):
+    """Cek brand berdasarkan MAC Address"""
     if not mac or mac == "N/A": return "Unknown"
     prefix = mac.upper()[:8]
     if prefix in BRAND_MAP:
@@ -152,6 +153,112 @@ def get_credentials(target_type):
         return None
     return vault["profiles"][active].get(target_type)
 
+# --- FUNGSI TOOLS MIKROTIK (KEMBALI KE KODE AWAL) ---
+
+def cek_dhcp_rogue():
+    creds = get_credentials("mikrotik")
+    if not creds:
+        print(f"{RED}[!] Profile belum diset.{RESET}")
+        return
+    print(f"\n{CYAN}[+] Memindai Rogue DHCP di {creds['ip']}...{RESET}")
+    try:
+        conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True)
+        api = conn.get_api()
+        alerts = api.get_resource('/ip/dhcp-server/alert').get()
+        
+        found_rogue = False
+        for al in alerts:
+            mac = al.get('unknown-server')
+            interface = al.get('interface', 'N/A')
+            if mac and mac != "":
+                found_rogue = True
+                print(f"{RED}![ROGUE DETECTED] MAC: {mac} | Brand: {get_brand(mac)} | Int: {interface}{RESET}")
+        
+        if not found_rogue:
+            print(f"{GREEN}[✓] Kondisi Aman. Tidak ada DHCP Rogue terdeteksi pada interface:{RESET}")
+            for al in alerts:
+                print(f" - {al.get('interface')}")
+        conn.disconnect()
+    except Exception as e: print(f"{RED}Error: {e}{RESET}")
+
+def run_mikhmon():
+    print(f"\n{CYAN}[+] Menyiapkan Mikhmon Server...{RESET}")
+    mikhmon_path = os.path.expanduser("~/mikhmonv3")
+    session_path = os.path.expanduser("~/session_mikhmon")
+    tmp_path = os.path.expanduser("~/tmp")
+
+    if not os.path.exists(mikhmon_path):
+        print(f"{YELLOW}[*] Mendownload file Mikhmon...{RESET}")
+        os.system(f"git clone https://github.com/laksa19/mikhmonv3.git {mikhmon_path}")
+
+    os.makedirs(session_path, exist_ok=True)
+    os.makedirs(tmp_path, exist_ok=True)
+
+    with open(os.path.join(tmp_path, "custom.ini"), "w") as f:
+        f.write("opcache.enable=0\n")
+        f.write(f'session.save_path="{session_path}"\n')
+        f.write(f'sys_temp_dir="{tmp_path}"\n')
+        f.write("display_errors=Off\n")
+
+    os.system("fuser -k 8080/tcp > /dev/null 2>&1")
+
+    print(f"{GREEN}[!] Mikhmon Aktif: http://127.0.0.1:8080{RESET}")
+    print(f"{RED}[!] Tekan Ctrl+C untuk Berhenti & Kembali ke Menu{RESET}\n")
+    
+    cmd = f"export PHP_INI_SCAN_DIR={tmp_path} && php -S 127.0.0.1:8080 -t {mikhmon_path}"
+    
+    try:
+        os.system(cmd)
+    except KeyboardInterrupt:
+        print(f"\n{YELLOW}[-] Server Mikhmon dimatikan.{RESET}")
+
+def hapus_laporan_mikhmon():
+    creds = get_credentials("mikrotik")
+    if not creds:
+        print(f"{RED}[!] Profile MikroTik belum diset. Pilih menu 22 dulu.{RESET}")
+        return
+
+    print(f"\n{CYAN}[+] Menghubungkan ke MikroTik {creds['ip']}...{RESET}")
+    try:
+        conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True)
+        api = conn.get_api()
+        resource = api.get_resource('/system/script')
+        
+        all_scripts = resource.get()
+        mikhmon_scripts = [s for s in all_scripts if 'mikhmon' in s.get('name', '').lower() or 'mikhmon' in s.get('comment', '').lower()]
+        count = len(mikhmon_scripts)
+
+        if count == 0:
+            print(f"{GREEN}[✓] Tidak ditemukan script laporan Mikhmon. MikroTik bersih!{RESET}")
+        else:
+            print(f"{YELLOW}[!] Terdeteksi {WHITE}{count}{YELLOW} script laporan Mikhmon di MikroTik.{RESET}")
+            confirm = input(f"{RED}>>> Hapus semua script laporan ini? (y/n): {RESET}").lower()
+            
+            if confirm == 'y':
+                for s in mikhmon_scripts:
+                    try: resource.remove(id=s['id'])
+                    except: pass
+                print(f"{GREEN}[✓] Sukses! {count} script laporan telah dibersihkan.{RESET}")
+        conn.disconnect()
+    except Exception as e: print(f"{RED}[!] Error: {e}{RESET}")
+
+def mikrotik_hotspot_active():
+    creds = get_credentials("mikrotik")
+    if not creds:
+        print(f"{RED}[!] Profile belum diset.{RESET}")
+        return
+    try:
+        conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True)
+        api = conn.get_api()
+        active = api.get_resource('/ip/hotspot/active').get()
+        print(f"\n{GREEN}>>> TOTAL USER AKTIF: {len(active)} {RESET}")
+        for user in active[:10]:
+            print(f" - {user.get('user')} | IP: {user.get('address')}")
+        conn.disconnect()
+    except Exception as e: print(f"{RED}Error: {e}{RESET}")
+
+# --- FUNGSI TELNET OLT (DARI REVISI) ---
+
 def telnet_olt_execute(creds, commands):
     if not creds: return None
     brand = creds.get('brand', 'zte').lower()
@@ -178,85 +285,8 @@ def telnet_olt_execute(creds, commands):
         print(f"{RED}Error Telnet: {e}{RESET}")
         return None
 
-# --- MIKROTIK TOOLS ---
-def run_mikhmon():
-    print(f"\n{CYAN}[+] Menyiapkan Mikhmon Server...{RESET}")
-    mikhmon_path = os.path.expanduser("~/mikhmonv3")
-    session_path = os.path.expanduser("~/session_mikhmon")
-    tmp_path = os.path.expanduser("~/tmp")
+# --- OLT TOOLS (DENGAN PENAMBAHAN) ---
 
-    if not os.path.exists(mikhmon_path):
-        print(f"{YELLOW}[*] Mendownload file Mikhmon...{RESET}")
-        os.system(f"git clone https://github.com/laksa19/mikhmonv3.git {mikhmon_path}")
-
-    os.makedirs(session_path, exist_ok=True)
-    os.makedirs(tmp_path, exist_ok=True)
-
-    with open(os.path.join(tmp_path, "custom.ini"), "w") as f:
-        f.write("opcache.enable=0\n")
-        f.write(f'session.save_path="{session_path}"\n')
-        f.write(f'sys_temp_dir="{tmp_path}"\n')
-        f.write("display_errors=Off\n")
-
-    os.system("fuser -k 8080/tcp > /dev/null 2>&1")
-    print(f"{GREEN}[!] Mikhmon Aktif: http://127.0.0.1:8080{RESET}")
-    print(f"{RED}[!] Tekan Ctrl+C untuk Berhenti & Kembali ke Menu{RESET}\n")
-    
-    cmd = f"export PHP_INI_SCAN_DIR={tmp_path} && php -S 127.0.0.1:8080 -t {mikhmon_path}"
-    try:
-        os.system(cmd)
-    except KeyboardInterrupt:
-        print(f"\n{YELLOW}[-] Server Mikhmon dimatikan.{RESET}")
-
-def mikrotik_hotspot_active():
-    creds = get_credentials("mikrotik")
-    if not creds: return
-    try:
-        conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True)
-        api = conn.get_api()
-        active = api.get_resource('/ip/hotspot/active').get()
-        print(f"\n{GREEN}>>> TOTAL USER AKTIF: {len(active)} {RESET}")
-        for user in active[:10]:
-            print(f" - {user.get('user')} | IP: {user.get('address')}")
-        conn.disconnect()
-    except Exception as e: print(f"{RED}Error: {e}{RESET}")
-
-def cek_dhcp_rogue():
-    creds = get_credentials("mikrotik")
-    if not creds: return
-    try:
-        conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True)
-        api = conn.get_api()
-        alerts = api.get_resource('/ip/dhcp-server/alert').get()
-        found = False
-        for al in alerts:
-            mac = al.get('unknown-server')
-            if mac:
-                found = True
-                print(f"{RED}![ROGUE] MAC: {mac} | Brand: {get_brand(mac)}{RESET}")
-        if not found: print(f"{GREEN}[✓] Kondisi Aman.{RESET}")
-        conn.disconnect()
-    except Exception as e: print(f"{RED}Error: {e}{RESET}")
-
-def hapus_laporan_mikhmon():
-    creds = get_credentials("mikrotik")
-    if not creds: return
-    try:
-        conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True)
-        api = conn.get_api()
-        resource = api.get_resource('/system/script')
-        mikhmon_scripts = [s for s in resource.get() if 'mikhmon' in s.get('name', '').lower()]
-        if mikhmon_scripts:
-            confirm = input(f"{RED}Hapus {len(mikhmon_scripts)} script laporan? (y/n): {RESET}").lower()
-            if confirm == 'y':
-                for s in mikhmon_scripts: resource.remove(id=s['id'])
-                print(f"{GREEN}[✓] Berhasil dihapus.{RESET}")
-        else:
-            print(f"{GREEN}[✓] MikroTik Bersih.{RESET}")
-        conn.disconnect()
-    except Exception as e: print(f"{RED}Error: {e}{RESET}")
-
-# --- OLT TOOLS ---
 def list_onu_aktif():
     creds = get_credentials("olt")
     if not creds: return
@@ -264,33 +294,40 @@ def list_onu_aktif():
     brand = creds.get('brand', 'zte').lower()
     cmds = ["terminal length 0", "end", f"show pon onu information gpon-olt_{p}"] if brand == 'zte' else [f"show onu status port {p}"]
     output = telnet_olt_execute(creds, cmds)
-    print(f"\n{WHITE}{output}{RESET}")
+    print(f"\n{WHITE}==== DAFTAR ONU TERDAFTAR ===={RESET}\n{output}")
 
 def monitor_optical_power():
     creds = get_credentials("olt")
     if not creds: return
     brand = creds.get('brand', 'zte').lower()
-    p = input(f"{WHITE}Input Port (contoh 1/4/1): {RESET}")
-    
+    p = input(f"{WHITE}Input Port Lokasi (contoh 1/4/1): {RESET}")
+
     # Scan Unconfigured
-    cmd_scan = ["show gpon onu uncfg"] if brand == 'zte' else [f"show onu unconfigured port {p}"]
+    cmd_scan = ["terminal length 0", "show gpon onu uncfg"] if brand == 'zte' else [f"show onu unconfigured port {p}"]
     res_unconfig = telnet_olt_execute(creds, cmd_scan)
-    print(f"\n{YELLOW}ONU Unconfigured:{RESET}\n{res_unconfig}")
+    print(f"\n{YELLOW}⚠️ ONU TERDETEKSI (Hasil Scan):{RESET}\n{res_unconfig}")
     
+    found_sn = ""
+    sn_match = re.search(r'(FHTT|ZTEG)[0-9A-Z]{8,}', res_unconfig.upper()) if res_unconfig else None
+    if sn_match: found_sn = sn_match.group(0)
+
     while True:
-        print(f"\n{MAGENTA}1. Scan ID Kosong | 2. Reg Hotspot | 3. Reg PPPoE | 6. Cek Power | 0. Kembali{RESET}")
-        opt = input("Pilih: ")
-        if opt == '0': break
-        
+        print(f"\n{MAGENTA}--- PILIH TINDAKAN (PORT {p}) ---{RESET}")
+        print(f" 1. Scan ID Kosong | 2. Reg Hotspot | 3. Reg PPPoE | 6. Cek Power | 0. Kembali")
+        opt = input(f"\n{YELLOW}Pilih: {RESET}")
+        if opt == '0' or not opt: break
+
         if opt == '1':
             cmd_list = [f"show gpon onu state gpon-olt_{p}"] if brand == 'zte' else [f"show onu status port {p}"]
             res_list = telnet_olt_execute(creds, cmd_list)
             ids = re.findall(r':(\d{1,3})\s+', res_list)
             ids_int = sorted(list(set([int(x) for x in ids])))
             max_id = max(ids_int) if ids_int else 0
+            missing_ids = [x for x in range(1, max_id + 1) if x not in ids_int]
+            print(f"{YELLOW}ID Kosong: {missing_ids if missing_ids else 'Tidak ada'}{RESET}")
             print(f"{GREEN}Saran ID Baru: {max_id + 1}{RESET}")
         elif opt == '6':
-            cmds = [f"show pon optical-power gpon-olt_{p}"] if brand == 'zte' else [f"show onu optical-power {p}"]
+            cmds = ["end", f"show pon optical-power gpon-olt_{p}"] if brand == 'zte' else [f"show onu optical-power {p}"]
             print(telnet_olt_execute(creds, cmds))
 
 def reset_onu():
@@ -304,11 +341,9 @@ def reset_onu():
             cmds = ["conf t", f"interface gpon-olt_1/{s}/{p}", f"no onu {oid}", "end", "write"]
         else:
             cmds = ["conf t", f"interface gpon-olt_1/{s}/{p}", f"onu {oid} delete", "end", "write"]
-        print(f"{CYAN}[*] Menghapus ONU {t}...{RESET}")
+        print(f"{RED}[!] Menghapus ONU {t}...{RESET}")
         print(telnet_olt_execute(creds, cmds))
-        print(f"{GREEN}[✓] Selesai.{RESET}")
-    except:
-        print(f"{RED}Format salah! Gunakan S/P/ID{RESET}")
+    except: print(f"{RED}Format salah!{RESET}")
 
 # --- NETWORK TOOLS ---
 def network_ping_trace():
@@ -327,10 +362,12 @@ def show_menu():
     vault = load_vault()
     prof = vault.get("active_profile", "None (Pilih menu 22)")
     os.system('clear')
-    print(f"{MAGENTA}================================================================={RESET}")
-    print(f"{CYAN}          Ucenk D-Tech Network Management System{RESET}")
-    print(f"{MAGENTA}================================================================={RESET}")
-    print(f"Aktif Profile: {GREEN}{prof}{RESET}\n")
+    os.system('echo "=================================================================" | lolcat 2>/dev/null')
+    os.system('figlet -f slant "Ucenk D-Tech" | lolcat 2>/dev/null')
+    os.system('echo "      Premium Network Management System - Author: Ucenk" | lolcat 2>/dev/null')
+    os.system('echo "=================================================================" | lolcat 2>/dev/null')
+    
+    print(f"\n{WHITE}Aktif Profile: {GREEN}{prof}{RESET}")
     
     print(f"{GREEN}--- MIKROTIK TOOLS ---{RESET}")
     print(f"1. Jalankan Mikhmon Server          5. Bandwidth Usage Report")

@@ -1577,10 +1577,10 @@ def show_menu():
     print(f"\n{WHITE}Profile Aktif: {GREEN}{prof}{RESET}")
     
     print(f"{CYAN}--- MIKROTIK TOOLS ---{RESET}")
-    print("1.  Mikhmon Server           5. Bandwidth Usage Report")
+    print("1.  Mikhmon Server                    5. Bandwidth Usage Report")
     print("2.  Total User Aktif Hotspot          6. Backup & Restore MikroTik")
     print("3.  Cek DHCP Alert (Rogue)            7. SNMP Monitoring")
-    print("4.  Hapus Script Mikhmon             8. Log Viewer MikroTik")
+    print("4.  Hapus Script Mikhmon              8. Log Viewer MikroTik")
     print(f"\n{CYAN}--- OLT TOOLS ---{RESET}")
     print("9.  Lihat ONU Terdaftar              14. Port & VLAN Config")
     print("10. Konfigurasi ONU (ZTE/FH)         15. Alarm & Event Viewer")

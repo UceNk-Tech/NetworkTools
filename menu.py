@@ -990,68 +990,51 @@ def check_optical_power_fast():
     port = input(f"{WHITE}Masukkan Port (contoh 1/2/1): {RESET}").strip()
     onu_id = input(f"{WHITE}NO ONU: {RESET}").strip()
     
+    # Pesan loading seperti menu Reset
+    print(f"\n{CYAN}[*] Mohon tunggu, sedang mengambil data redaman...{RESET}")
+
     if brand == 'fiberhome':
         cmds = ["terminal length 0", f"show onu optical-power {port} {onu_id}"]
-    else: # ZTE C300
+    else: # ZTE C300 / C320
+        # GUNAKAN PERINTAH YANG LANGSUNG KE ONU ID AGAR TIDAK MUNCUL TABEL PANJANG
         cmds = [
-            "terminal length 0", 
-            "enable", 
-            f"show gpon onu state gpon-olt_{port} {onu_id}",
-            f"show pon optical-power gpon-olt_{port}" 
+            "terminal length 0",
+            f"show pon power optic gpon-onu_{port}:{onu_id}"
         ]
     
-    print(f"\n{CYAN}[*] Menghubungkan & Scanning Tabel Power...{RESET}")
     output = telnet_olt_execute(creds, cmds)
     
     print(f"\n{WHITE}HASIL DIAGNOSA ONU {onu_id} @ PORT {port}:{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
     if output:
-        lines = output.splitlines()
-        found_power = False
+        # Jika ZTE, biasanya outputnya sederhana: Rx power: -23.456(dbm)
+        # Kita cari angka negatif yang ada titik desimalnya
+        matches = re.findall(r"(-?\d+\.\d+)", output)
         
-        # 1. Tampilkan Status Online
-        for line in lines:
-            if f":{onu_id} " in line or f" {onu_id} " in line:
-                 if any(x in line.lower() for x in ["working", "online"]):
-                    print(f"{GREEN}[✓] STATUS ONU: ONLINE (WORKING){RESET}")
-                    break
-
-        # 2. Parsing Redaman (Metode Baris Cerdas)
-        print(f"{CYAN}RINCIAN REDAMAN:{RESET}")
-        
-        for i, line in enumerate(lines):
-            l_low = line.lower()
+        if matches:
+            # Biasanya angka pertama adalah Rx (Redaman yang kita cari)
+            rx_val = float(matches[0])
             
-            # Cari baris yang mengandung port dan ID ONU (Misal 1/3/1:6 atau gpon-onu_1/3/1:6)
-            # Kita buat pencarian lebih fleksibel
-            if f":{onu_id}" in line or f" {onu_id} " in line:
-                # Cek apakah baris ini sendiri mengandung angka redaman (dBm)
-                matches = re.findall(r"(-?\d+\.\d+)", line)
-                
-                # Jika tidak ada di baris yang sama, cek 1 baris di bawahnya (ZTE sering begini)
-                if not matches and i + 1 < len(lines):
-                    matches = re.findall(r"(-?\d+\.\d+)", lines[i+1])
-                    line = lines[i+1] # Gunakan baris bawahnya untuk tampilan
-                
-                if matches:
-                    try:
-                        # Ambil nilai Rx (biasanya angka pertama yang negatif kuat)
-                        rx_val = float(matches[0])
-                        color = RED if rx_val < -27.0 else GREEN
-                        status = "[LEMAH]" if rx_val < -27.0 else "[BAGUS]"
-                        
-                        print(f"{color}>>> {line.strip()} {status}{RESET}")
-                        found_power = True
-                        break # Sudah ketemu, hentikan loop
-                    except:
-                        continue
-
-        if not found_power:
-            print(f"{YELLOW}[!] Power optik tidak ditemukan.{RESET}")
-            print(f"{WHITE}[i] Tips: Pastikan SFP Port {port} Support Digital Diagnostic Monitoring.{RESET}")
+            # Tentukan warna berdasarkan standar ISP
+            if rx_val < -27.0:
+                color = RED
+                status = "CRITICAL / BERPOTENSI RTO"
+            elif rx_val < -25.0:
+                color = YELLOW
+                status = "WARNING / KURANG SEHAT"
+            else:
+                color = GREEN
+                status = "NORMAL / BAGUS"
+            
+            print(f"{WHITE}Redaman (Rx Power) : {color}{rx_val} dBm{RESET}")
+            print(f"{WHITE}Kondisi            : {color}{status}{RESET}")
+        else:
+            # Jika tidak ketemu angka, tampilkan output mentahnya saja untuk analisa
+            print(f"{YELLOW}[!] Tidak bisa mengambil angka otomatis. Output Mentah OLT:{RESET}")
+            print(output.strip())
     else:
-        print(f"{RED}[!] Gagal koneksi ke OLT.{RESET}")
+        print(f"{RED}[!] Gagal koneksi ke OLT atau OLT tidak merespon.{RESET}")
 
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 

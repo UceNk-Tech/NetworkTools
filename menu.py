@@ -994,53 +994,53 @@ def check_optical_power_fast():
     print(f"\n{CYAN}[*] Mohon tunggu, sedang mengambil data redaman...{RESET}")
 
     if brand == 'fiberhome':
-        # Untuk Fiberhome
-        cmds = ["terminal length 0", f"show onu optical-power {port} {onu_id}"]
+        cmds = ["", "terminal length 0", f"show onu optical-power {port} {onu_id}"]
     else: 
-        # Untuk ZTE: Kita kirim perintah satu per satu dengan sangat hati-hati
-        # Jangan pakai spasi di awal perintah
+        # TRICK: Kirim dua kali string kosong untuk memastikan banner password terlewati
         cmds = [
+            "", 
+            "", 
             "terminal length 0",
             f"show pon power optic gpon-onu_{port}:{onu_id}"
         ]
     
-    # Jalankan perintah menggunakan fungsi asli kamu
     output = telnet_olt_execute(creds, cmds)
     
     print(f"\n{WHITE}HASIL DIAGNOSA ONU {onu_id} @ PORT {port}:{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
     if output:
-        # Hapus pesan peringatan password dari output agar tidak mengganggu pencarian angka
-        clean_output = output.replace("The password is not strong, please change the password.", "")
-        
-        # Cari angka redaman (negatif desimal)
-        matches = re.findall(r"(-?\d+\.\d+)", clean_output)
+        # Kita fokus ambil bagian setelah perintah 'show' dikirim
+        # Regex mencari angka negatif/positif desimal (contoh: -23.45 atau 2.12)
+        matches = re.findall(r"(-?\d+\.\d+)", output)
         
         if matches:
-            # Ambil angka pertama sebagai Rx Power
-            rx_val = float(matches[0])
+            # Pada ZTE 'show pon power optic', biasanya ada 2-3 angka:
+            # 1. Tx Power ONU, 2. Rx Power ONU (ini yang kita cari), 3. Rx Power OLT
+            # Kita ambil yang nilainya biasanya di bawah -10 (Rx ONU)
+            rx_val = None
+            for val in matches:
+                v = float(val)
+                if -40.0 < v < -5.0: # Range normal Rx Power ONU
+                    rx_val = v
+                    break
             
-            # Penentuan status dan warna
-            if rx_val < -27.0:
-                color, status = RED, "CRITICAL (DROP)"
-            elif rx_val < -25.0:
-                color, status = YELLOW, "WARNING (LEMAH)"
+            if rx_val is not None:
+                color = GREEN if rx_val > -25.0 else YELLOW if rx_val > -27.0 else RED
+                status = "BAGUS" if rx_val > -25.0 else "WARNING" if rx_val > -27.0 else "DROP"
+                
+                print(f"{WHITE}Identity ONU       : {MAGENTA}{port}:{onu_id}{RESET}")
+                print(f"{WHITE}Redaman (Rx Power) : {color}{rx_val} dBm{RESET}")
+                print(f"{WHITE}Kondisi            : {color}{status}{RESET}")
             else:
-                color, status = GREEN, "NORMAL (BAGUS)"
-            
-            print(f"{WHITE}Identity ONU       : {MAGENTA}{port}:{onu_id}{RESET}")
-            print(f"{WHITE}Redaman (Rx Power) : {color}{rx_val} dBm{RESET}")
-            print(f"{WHITE}Kondisi            : {color}{status}{RESET}")
+                print(f"{YELLOW}[!] Angka ditemukan ({matches}), tapi tidak sesuai range Rx.{RESET}")
         else:
-            # Jika gagal ambil angka, tampilkan yang ada
-            print(f"{YELLOW}[!] Gagal mendapatkan angka otomatis. Respon OLT:{RESET}")
-            # Tampilkan hanya 5 baris terakhir agar tidak memenuhi layar
-            lines = [l for l in output.splitlines() if l.strip() and "ZXAN" not in l]
-            for l in lines[-5:]:
-                print(f"{WHITE}{l}{RESET}")
+            print(f"{YELLOW}[!] Respon OLT masih kotor. Silakan cek manual:{RESET}")
+            # Tampilkan 5 baris terakhir untuk diagnosa
+            for line in output.splitlines()[-5:]:
+                print(f"{WHITE}{line.strip()}{RESET}")
     else:
-        print(f"{RED}[!] Gagal mendapatkan data dari OLT.{RESET}")
+        print(f"{RED}[!] OLT Tidak Merespon.{RESET}")
 
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 

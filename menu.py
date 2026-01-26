@@ -815,7 +815,9 @@ def config_onu_logic():
     
     if res_unconfig and any(x in res_unconfig.upper() for x in ["FHTT", "ZTEG", "SN", "ONUINDEX"]):
         print(f"\n{YELLOW}⚠️  ONU TERDETEKSI (Hasil Scan):{RESET}")
+        print(f"{WHITE}--------------------------------------------------{RESET}")
         print(f"{WHITE}{res_unconfig}{RESET}")
+        print(f"{WHITE}--------------------------------------------------{RESET}")
         sn_match = re.search(r'(FHTT|ZTEG)[0-9A-Z]{8,}', res_unconfig.upper())
         if sn_match:
             found_sn = sn_match.group(0)
@@ -830,7 +832,7 @@ def config_onu_logic():
         print(f" 3. {GREEN}Registrasi ZTE (PPPoE){RESET}")
         print(f" 4. {GREEN}Registrasi FH (Hotspot){RESET}")
         print(f" 5. {GREEN}Registrasi FH (PPPoE){RESET}")
-        print(f" 6. {CYAN}Cek Status & Power Optik{RESET}") 
+        print(f" 6. {CYAN}Cek Detail Power Optik (Attenuation){RESET}") 
         print(f" 0. {YELLOW}Keluar/Kembali{RESET}")
         
         opt = input(f"\n{YELLOW}Pilih (0-6): {RESET}")
@@ -861,19 +863,21 @@ def config_onu_logic():
             continue
 
         if opt == '6':
-            print(f"\n{CYAN}[+] Menampilkan Laporan Optical Power Port {p}...{RESET}")
-            cmds = ["terminal length 0", "enable", f"show pon optical-power gpon-olt_{p}"] if brand == 'zte' else ["terminal length 0", f"show onu optical-power {p}"]
+            print(f"\n{CYAN}[+] Mengambil Detail Power Attenuation...{RESET}")
+            # Karena ini tahap uncfg, kita butuh input ID sementara untuk cek, 
+            # Tapi karena kamu ingin detail tabel, kita gunakan perintah attenuation.
+            # Jika ONU belum register, kita cek manual ke arah SN jika memungkinkan, 
+            # namun umumnya attenuation butuh ID. Di sini saya buatkan input ID target cek.
+            target_id = input(f"{WHITE}Masukkan ID ONU untuk dicek (misal 7): {RESET}").strip()
+            cmds = ["terminal length 0", "enable", f"show pon power attenuation gpon-onu_{p}:{target_id}"] if brand == 'zte' else ["terminal length 0", f"show onu optical-power {p} {target_id}"]
             output = telnet_olt_execute(creds, cmds)
-            print(f"\n{WHITE}LAPORAN REDAMAN PORT {p}:{RESET}")
-            print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
+            
+            print(f"\n{WHITE}DETAIL POWER & ATTENUATION ONU {target_id}:{RESET}")
             if output:
-                for line in output.splitlines():
-                    if "dbm" in line.lower() and "show" not in line.lower():
-                        if found_sn and found_sn in line.upper():
-                            print(f"{GREEN}>>> {line.strip()} (ONU BARU){RESET}")
-                        else:
-                            print(f"{YELLOW}    {line.strip()}{RESET}")
-            print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
+                # Menampilkan output apa adanya agar tabel terlihat rapi sesuai permintaanmu
+                print(f"{YELLOW}{output}{RESET}")
+            else:
+                print(f"{RED}[!] Gagal mendapatkan data detail.{RESET}")
             continue
 
         if opt in ['2', '3', '4', '5']:

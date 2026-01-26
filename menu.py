@@ -1391,7 +1391,7 @@ def ping_traceroute_tool(): # Menu 24
 
 def dns_tools(): # Menu 25
     print(f"\n{CYAN}=== DNS LOOKUP TOOLS ==={RESET}")
-    domain = input(f"{WHITE}Masukkan Domain (contoh google.com atau mikhmon.online): {RESET}").strip()
+    domain = input(f"{WHITE}Masukkan Domain (contoh google.com): {RESET}").strip()
     
     if not domain:
         print(f"{YELLOW}[!] Domain tidak boleh kosong.{RESET}")

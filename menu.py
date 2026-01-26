@@ -274,26 +274,23 @@ def hapus_laporan_mikhmon():
         print(f"{RED}[!] Profile MikroTik belum diset. Pilih menu 99 dulu.{RESET}")
         return
 
-    # 1. Tampilkan pesan loading TANPA IP
+    # SAYA SUDAH HAPUS VARIABEL IP DI BAWAH INI
     print(f"\n{CYAN}[+] Menghubungkan ke MikroTik...{RESET}")
     
     try:
-        # 2. Proses koneksi di belakang layar
         conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True)
         api = conn.get_api()
         
-        # 3. Ambil Identity Router
+        # Ambil Identity agar lebih keren tampilannya
         identity_res = api.get_resource('/system/identity').get()
         router_name = identity_res[0].get('name', 'MikroTik')
         
-        # 4. Tampilkan Nama Identity sebagai ganti IP
         print(f"{GREEN}[✓] Terhubung ke: {MAGENTA}{router_name}{RESET}")
         
         resource = api.get_resource('/system/script')
         print(f"{CYAN}[+] Memindai script laporan Mikhmon...{RESET}")
         
         all_scripts = resource.get()
-        # Filter script mikhmon
         mikhmon_scripts = [s for s in all_scripts if 'mikhmon' in s.get('name', '').lower() or 'mikhmon' in s.get('comment', '').lower()]
         count = len(mikhmon_scripts)
 
@@ -301,7 +298,10 @@ def hapus_laporan_mikhmon():
             print(f"{GREEN}[✓] Tidak ditemukan script laporan Mikhmon di {router_name}.{RESET}")
         else:
             print(f"{YELLOW}[!] Terdeteksi {WHITE}{count}{YELLOW} script laporan di {MAGENTA}{router_name}{RESET}.")
+            
+            # Revisi warna (y/n) sesuai requestmu tadi, Cenk
             confirm = input(f"{RED}>>> Hapus semua script laporan ini? {YELLOW}(y/n){RED}: {RESET}").lower()
+            
             if confirm == 'y':
                 print(f"{CYAN}[*] Menghapus {count} script... (Mohon tunggu){RESET}")
                 for s in mikhmon_scripts:
@@ -314,9 +314,9 @@ def hapus_laporan_mikhmon():
                 print(f"{MAGENTA}[-] Penghapusan dibatalkan.{RESET}")
         
         conn.disconnect()
-    except Exception as e:
-        # Pesan error juga dibuat anonim tanpa IP
-        print(f"{RED}[!] Gagal Terhubung ke Router. Cek koneksi atau user/pass.{RESET}")
+    except Exception:
+        # Error handling tanpa menampilkan IP
+        print(f"{RED}[!] Gagal Terhubung ke Router. Pastikan API Port 8728 Aktif.{RESET}")
 
 def bandwidth_usage_report(): 
     creds = get_credentials("mikrotik")

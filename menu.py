@@ -163,32 +163,44 @@ def get_credentials(target):
         return None
     return v["profiles"][act].get(target)
 
-# --- CORE EXECUTION ---
-def telnet_olt_execute(creds, commands):
+def list_onu(): 
+    creds = get_credentials("olt")
     if not creds: 
-        return None
-    try:
-        tn = telnetlib.Telnet(creds['ip'], 23, timeout=10)
+        print(f"{RED}[!] Profile OLT belum diset.{RESET}")
+        return
         
-        # Login Process
-        tn.read_until(b"Username:", timeout=5)
-        tn.write(creds['user'].encode('utf-8') + b"\n")
-        tn.read_until(b"Password:", timeout=5)
-        tn.write(creds['pass'].encode('utf-8') + b"\n")
+    p = input(f"{WHITE}Input Port (contoh 1/2/1): {RESET}").strip()
+    brand = creds.get('brand', 'zte').lower()
+    print(f"\n{CYAN}[+] Mengambil daftar lengkap ONU di port {p}...{RESET}")
+    
+    # Gunakan 'enable' agar hak akses maksimal & 'terminal length 0' agar tidak --More--
+    if brand == 'zte':
+        cmds = ["terminal length 0", "enable", f"show pon onu information gpon-olt_{p}"]
+    else:
+        cmds = ["terminal length 0", f"show onu status port {p}"]
         
-        time.sleep(1) # Tunggu login stabil
+    output = telnet_olt_execute(creds, cmds)
+    
+    if output:
+        print(f"\n{WHITE}==== DAFTAR ONU TERDAFTAR (PORT {p}) ===={RESET}")
+        print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
         
-        output = ""
-        for cmd in commands:
-            tn.write((cmd + "\n").encode('utf-8'))
-            time.sleep(1.2) # Jeda agar OLT stabil
-            output += tn.read_very_eager().decode('utf-8', errors='ignore')
+        lines = output.splitlines()
+        found_any = False
+        for line in lines:
+            # Filter: Hanya tampilkan baris yang berisi data port atau header tabel
+            # Ini akan menghilangkan baris perintah 'enable', 'terminal length', dll.
+            if p in line or "OnuIndex" in line or "Admin State" in line:
+                print(f"{WHITE}{line}{RESET}")
+                found_any = True
+        
+        if not found_any:
+            # Jika filter di atas gagal, tampilkan saja semua (fall-back)
+            print(f"{WHITE}{output}{RESET}")
             
-        tn.close()
-        return output
-    except Exception as e:
-        print(f"{RED}Error Telnet: {e}{RESET}")
-        return None
+        print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
+    else:
+        print(f"{RED}[!] Gagal mengambil data. Pastikan Port {p} sudah benar.{RESET}")
 
 # --- MIKROTIK TOOLS (1-8) ---
 def run_mikhmon(): 

@@ -832,7 +832,7 @@ def config_onu_logic():
         print(f" 3. {GREEN}Registrasi ZTE (PPPoE){RESET}")
         print(f" 4. {GREEN}Registrasi FH (Hotspot){RESET}")
         print(f" 5. {GREEN}Registrasi FH (PPPoE){RESET}")
-        print(f" 6. {CYAN}Cek Detail Power Optik (Attenuation){RESET}") 
+        print(f" 6. {CYAN}Cek Detail Power Optik (Khusus Uncfg){RESET}") 
         print(f" 0. {YELLOW}Keluar/Kembali{RESET}")
         
         opt = input(f"\n{YELLOW}Pilih (0-6): {RESET}")
@@ -863,21 +863,27 @@ def config_onu_logic():
             continue
 
         if opt == '6':
-            print(f"\n{CYAN}[+] Mengambil Detail Power Attenuation...{RESET}")
-            # Karena ini tahap uncfg, kita butuh input ID sementara untuk cek, 
-            # Tapi karena kamu ingin detail tabel, kita gunakan perintah attenuation.
-            # Jika ONU belum register, kita cek manual ke arah SN jika memungkinkan, 
-            # namun umumnya attenuation butuh ID. Di sini saya buatkan input ID target cek.
-            target_id = input(f"{WHITE}Masukkan ID ONU untuk dicek (misal 7): {RESET}").strip()
-            cmds = ["terminal length 0", "enable", f"show pon power attenuation gpon-onu_{p}:{target_id}"] if brand == 'zte' else ["terminal length 0", f"show onu optical-power {p} {target_id}"]
+            print(f"\n{CYAN}[+] Mengambil Detail Power ONU Unconfigured...{RESET}")
+            # Perintah khusus ZTE untuk cek redaman ONU yang belum register
+            cmds = ["terminal length 0", "enable", "show gpon onu uncfg-optical-info"] if brand == 'zte' else ["terminal length 0", f"show onu unconfigured port {p}"]
             output = telnet_olt_execute(creds, cmds)
             
-            print(f"\n{WHITE}DETAIL POWER & ATTENUATION ONU {target_id}:{RESET}")
+            print(f"\n{WHITE}DETAIL POWER OPTIK (UNCONFIGURED):{RESET}")
+            print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
             if output:
-                # Menampilkan output apa adanya agar tabel terlihat rapi sesuai permintaanmu
-                print(f"{YELLOW}{output}{RESET}")
+                # Membersihkan banner password dan prompt sampah
+                for line in output.splitlines():
+                    if any(x in line for x in ["% The password", "ZXAN#", "terminal length"]):
+                        continue
+                    if line.strip():
+                        # Highlight SN yang baru saja ditemukan jika ada di dalam list
+                        if found_sn and found_sn in line.upper():
+                            print(f"{GREEN}>>> {line.strip()} (TARGET){RESET}")
+                        else:
+                            print(f"{YELLOW}{line.strip()}{RESET}")
             else:
-                print(f"{RED}[!] Gagal mendapatkan data detail.{RESET}")
+                print(f"{RED}[!] Gagal mendapatkan data detail unconfigured.{RESET}")
+            print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
             continue
 
         if opt in ['2', '3', '4', '5']:

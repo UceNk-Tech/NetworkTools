@@ -867,9 +867,19 @@ def config_onu_logic():
                 print(f"{RED}[!] Tidak ada SN terdeteksi. Silakan Scan (Opsi 1) terlebih dahulu.{RESET}")
                 continue
             
-            test_id = "128" # Menggunakan ID ujung agar aman
-            print(f"\n{CYAN}[+] Memulai Diagnosa Cepat untuk SN: {found_sn}{RESET}")
-            print(f"{CYAN}[+] Mendaftarkan sementara ke ID {test_id}...{RESET}")
+            # --- LOGIKA OTOMATIS CARI ID TEST ---
+            print(f"\n{CYAN}[*] Mencari ID aman untuk pengecekan...{RESET}")
+            cmd_check = ["terminal length 0", f"show gpon onu state gpon-olt_{p}"]
+            res_check = telnet_olt_execute(creds, cmd_check)
+            test_id = "128" # Default aman
+            if res_check:
+                ids_in_use = re.findall(r':(\d+)\s+', res_check)
+                if ids_in_use:
+                    used_ints = [int(x) for x in ids_in_use]
+                    if 128 in used_ints: test_id = str(max(used_ints) + 1)
+
+            print(f"{CYAN}[+] Memulai Diagnosa Cepat untuk SN: {found_sn}{RESET}")
+            print(f"{CYAN}[+] Pinjam jalur ONU ID {test_id} sementara untuk Cek...{RESET}") 
             
             # Perintah berantai: Register -> Cek Power -> Hapus
             cmds = [

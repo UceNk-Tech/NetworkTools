@@ -615,52 +615,59 @@ def check_optical_power_fast():
     if not creds: return
     
     brand = creds.get('brand', 'zte').lower()
-    print(f"\n{CYAN}=== CEK STATUS & POWER OPTIK ONU ==={RESET}")
-    port = input(f"{WHITE}Masukkan Port (1/2/1): {RESET}").strip()
+    print(f"\n{CYAN}=== CEK STATUS & POWER OPTIK ONU (C300 MODE) ==={RESET}")
+    port = input(f"{WHITE}Masukkan Port (contoh 1/2/1): {RESET}").strip()
     onu_id = input(f"{WHITE}NO ONU: {RESET}").strip()
-    target = f"{port}:{onu_id}"
     
-    # PERBAIKAN: Gunakan format perintah yang benar untuk ZTE C300
+    # Kita panggil per PORT, bukan per ONU agar OLT tidak Error 20200
     if brand == 'fiberhome':
         cmds = ["terminal length 0", f"show onu optical-power {port} {onu_id}"]
-    else: # ZTE C300
+    else: # ZTE C300 Mode
         cmds = [
             "terminal length 0", 
             "enable", 
             f"show gpon onu state gpon-olt_{port} {onu_id}",
-            # Perintah alternatif jika perintah spesifik ditolak:
-            f"show pon optical-power gpon-onu_{target}", 
-            f"show pon optical-power gpon-olt_{port}" # Lihat satu port sekalian jika target ditolak
+            f"show pon optical-power gpon-olt_{port}" # Perintah per PORT
         ]
     
-    print(f"\n{CYAN}[*] Menghubungkan & Menjalankan Perintah...{RESET}")
+    print(f"\n{CYAN}[*] Menghubungkan & Meminta Data Port {port}...{RESET}")
     output = telnet_olt_execute(creds, cmds)
     
-    # Debugging: Jika kamu mau lihat error asli dari OLT, buka komen line di bawah:
-    # print(f"DEBUG OLT: {output}") 
-
-    print(f"\n{WHITE}HASIL DIAGNOSA ONU {target}:{RESET}")
+    print(f"\n{WHITE}HASIL DIAGNOSA UNTUK ONU {onu_id} DI PORT {port}:{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
     if output:
-        # Logika parsing tetap sama seperti sebelumnya
         lines = output.splitlines()
-        found_power = False
+        found_data = False
         
-        # Cek baris per baris
+        # 1. Cek Status Online (seperti biasa)
         for line in lines:
-            l_low = line.lower()
-            if "dbm" in l_low or "working voltage" in l_low:
+            if f"{port}:{onu_id}" in line and any(x in line.lower() for x in ["working", "online"]):
+                print(f"{GREEN}[✓] STATUS ONU: ONLINE (WORKING){RESET}")
+                break
+
+        # 2. Filtering Data Power (Hanya ambil baris milik ONU yang dicari)
+        print(f"{CYAN}RINCIAN REDAMAN:{RESET}")
+        target_marker = f"{port}:{onu_id}"
+        
+        for line in lines:
+            # Cari baris yang mengandung Port:ID dan punya angka desimal/dBm
+            if target_marker in line and any(x in line.lower() for x in ["dbm", "-", "."]):
                 matches = re.findall(r"(-?\d+\.\d+)", line)
                 if matches:
                     val = float(matches[0])
+                    # Penanda warna
                     color = RED if val < -27.0 else GREEN
                     print(f"{color}>>> {line.strip()}{RESET}")
-                    found_power = True
+                    found_data = True
+        
+        if not found_data:
+            print(f"{YELLOW}[!] Data power tidak ditemukan untuk ONU {onu_id}.{RESET}")
+            print(f"{WHITE}[i] Cek apakah SFP di OLT mendukung DDM/Optical Monitor.{RESET}")
+    else:
+        print(f"{RED}[!] Gagal mengambil respon dari OLT.{RESET}")
 
-        if not found_power:
-            print(f"{RED}[!] OLT Menolak Perintah (Invalid Command).{RESET}")
-            print(f"{WHITE}[i] Coba ganti ke: show pon optical-power gpon-olt_{port}{RESET}")
+    print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 
 def port_vlan(): 
     c = get_credentials("olt")

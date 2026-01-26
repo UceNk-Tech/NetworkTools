@@ -991,61 +991,56 @@ def check_optical_power_fast():
     port = input(f"{WHITE}Masukkan Port (contoh 1/2/1): {RESET}").strip()
     onu_id = input(f"{WHITE}NO ONU: {RESET}").strip()
     
-    # Pesan loading agar user sabar menunggu proses telnet
     print(f"\n{CYAN}[*] Mohon tunggu, sedang mengambil data redaman...{RESET}")
 
     if brand == 'fiberhome':
-        cmds = ["", "terminal length 0", f"show onu optical-power {port} {onu_id}"]
-    else: # ZTE C300 / C320
-        # Kita kirim "" (string kosong) untuk mengirim ENTER pertama kali
-        # Ini gunanya melewati banner "Weak Password" agar prompt ZXAN# siap
+        # Untuk Fiberhome
+        cmds = ["terminal length 0", f"show onu optical-power {port} {onu_id}"]
+    else: 
+        # Untuk ZTE: Kita kirim perintah satu per satu dengan sangat hati-hati
+        # Jangan pakai spasi di awal perintah
         cmds = [
-            "", 
             "terminal length 0",
             f"show pon power optic gpon-onu_{port}:{onu_id}"
         ]
     
+    # Jalankan perintah menggunakan fungsi asli kamu
     output = telnet_olt_execute(creds, cmds)
     
     print(f"\n{WHITE}HASIL DIAGNOSA ONU {onu_id} @ PORT {port}:{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
     if output:
-        # Menghapus baris-baris sampah seperti peringatan password agar tidak mengganggu parsing
-        clean_output = ""
-        for line in output.splitlines():
-            if "password is not strong" in line.lower() or "ZXAN#" in line:
-                continue
-            clean_output += line + "\n"
-
-        # Mencari angka desimal negatif (contoh: -23.45)
+        # Hapus pesan peringatan password dari output agar tidak mengganggu pencarian angka
+        clean_output = output.replace("The password is not strong, please change the password.", "")
+        
+        # Cari angka redaman (negatif desimal)
         matches = re.findall(r"(-?\d+\.\d+)", clean_output)
         
         if matches:
-            # Pada ZTE, biasanya nilai Rx adalah angka pertama yang muncul dalam format desimal
+            # Ambil angka pertama sebagai Rx Power
             rx_val = float(matches[0])
             
-            # Logika pewarnaan redaman
+            # Penentuan status dan warna
             if rx_val < -27.0:
-                color = RED
-                status = "CRITICAL (DROP)"
+                color, status = RED, "CRITICAL (DROP)"
             elif rx_val < -25.0:
-                color = YELLOW
-                status = "WARNING (REDAUP)"
+                color, status = YELLOW, "WARNING (LEMAH)"
             else:
-                color = GREEN
-                status = "NORMAL (BAGUS)"
+                color, status = GREEN, "NORMAL (BAGUS)"
             
             print(f"{WHITE}Identity ONU       : {MAGENTA}{port}:{onu_id}{RESET}")
             print(f"{WHITE}Redaman (Rx Power) : {color}{rx_val} dBm{RESET}")
             print(f"{WHITE}Kondisi            : {color}{status}{RESET}")
         else:
-            # Jika otomatis gagal, tampilkan output apa adanya agar bisa dibaca manual
-            print(f"{YELLOW}[!] Tidak ditemukan angka redaman otomatis.{RESET}")
-            print(f"{CYAN}Output Mentah OLT:{RESET}")
-            print(f"{WHITE}{output.strip()}{RESET}")
+            # Jika gagal ambil angka, tampilkan yang ada
+            print(f"{YELLOW}[!] Gagal mendapatkan angka otomatis. Respon OLT:{RESET}")
+            # Tampilkan hanya 5 baris terakhir agar tidak memenuhi layar
+            lines = [l for l in output.splitlines() if l.strip() and "ZXAN" not in l]
+            for l in lines[-5:]:
+                print(f"{WHITE}{l}{RESET}")
     else:
-        print(f"{RED}[!] Gagal koneksi ke OLT atau OLT tidak merespon.{RESET}")
+        print(f"{RED}[!] Gagal mendapatkan data dari OLT.{RESET}")
 
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 

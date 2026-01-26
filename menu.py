@@ -218,7 +218,7 @@ def run_mikhmon():
     
     os.system("fuser -k 8080/tcp > /dev/null 2>&1")
     print(f"{GREEN}[!] Mikhmon Aktif: http://127.0.0.1:8080{RESET}")
-    print(f"{RED}[!] Tekan Ctrl+C untuk Berhenti{RESET}\n")
+    print(f"{YELLOW}[!] Tekan Ctrl+C untuk Berhenti{RESET}\n")
     
     try:
         os.system(f"export PHP_INI_SCAN_DIR={tmp_path} && php -S 127.0.0.1:8080 -t {mikhmon_path}")
@@ -274,7 +274,7 @@ def hapus_laporan_mikhmon():
         print(f"{RED}[!] Profile MikroTik belum diset. Pilih menu 22 dulu.{RESET}")
         return
 
-    print(f"\n{CYAN}[+] Menghubungkan ke MikroTik {creds['ip']}...{RESET}")
+    print(f"\n{CYAN}[+] Menghubungkan ke MikroTik ({active_name})...{RESET}")
     try:
         conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True)
         api = conn.get_api()

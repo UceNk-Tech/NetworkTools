@@ -1011,19 +1011,20 @@ def check_optical_power_fast():
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
     if output:
+        # Menampilkan tabel detail asli dari OLT agar terlihat Up/Down & Attenuation
+        print(f"{YELLOW}{output.strip()}{RESET}")
+        print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
+
         # Trik Cerdas: Kita ambil baris yang mengandung kata 'down' saja
-        # Supaya tidak tertukar dengan Rx milik OLT (baris up)
         rx_val = None
         for line in output.splitlines():
             if "down" in line.lower() and "Rx" in line:
-                # Cari angka negatif desimal di baris 'down'
                 matches = re.findall(r"(-?\d+\.\d+)", line)
                 if matches:
                     rx_val = float(matches[0])
                     break
         
         if rx_val is not None:
-            # Penentuan status berdasarkan standar -27 dBm
             if rx_val < -27.0:
                 color, status = RED, "CRITICAL (DROP)"
             elif rx_val < -25.0:
@@ -1034,16 +1035,8 @@ def check_optical_power_fast():
             print(f"{WHITE}Identity ONU       : {MAGENTA}{port}:{onu_id}{RESET}")
             print(f"{WHITE}Redaman (Rx ONU)   : {color}{rx_val} dBm{RESET}")
             print(f"{WHITE}Kondisi            : {color}{status}{RESET}")
-            
-            # Tambahan informasi dari output manualmu tadi
-            if "29." in output or "27." in output:
-                # Cari nilai Attenuation (angka positif terakhir)
-                atten = re.findall(r"(\d+\.\d+)", output)
-                if len(atten) >= 3:
-                    print(f"{WHITE}Total Loss (Atten) : {CYAN}{atten[-1]} dB{RESET}")
         else:
-            print(f"{YELLOW}[!] Gagal mengekstrak angka. Output OLT berubah format:{RESET}")
-            print(f"{WHITE}{output.strip()}{RESET}")
+            print(f"{YELLOW}[!] Analisa otomatis gagal. Silakan baca tabel di atas secara manual.{RESET}")
     else:
         print(f"{RED}[!] Gagal koneksi ke OLT.{RESET}")
 

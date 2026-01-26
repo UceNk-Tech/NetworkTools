@@ -1546,7 +1546,7 @@ def show_menu():
     print("10. Konfigurasi ONU (ZTE/FH)         15. Alarm & Event Viewer")
     print("11. Restart ONU                      16. Backup & Restore OLT")
     print("12. Reset/Delete ONU                 17. Traffic Report per PON")
-    print("13. Detail Power Optic (Redaman)     18. Auto Audit Script")
+    print("13. Cek Power Optic (Redaman)         18. Auto Audit Script")
     print(f"\n{CYAN}--- NETWORK TOOLS ---{RESET}")
     print("19. Speedtest                        23. WhatMyIP")
     print("20. Nmap Scan                        24. Ping & Traceroute")

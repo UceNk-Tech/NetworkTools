@@ -615,22 +615,23 @@ def check_optical_power_fast():
     if not creds: return
     
     brand = creds.get('brand', 'zte').lower()
-    print(f"\n{CYAN}=== CEK STATUS & POWER OPTIK ONU (C300 MODE) ==={RESET}")
+    print(f"\n{CYAN}=== CEK STATUS & POWER OPTIK ONU (FINAL MODE) ==={RESET}")
     port = input(f"{WHITE}Masukkan Port (contoh 1/2/1): {RESET}").strip()
     onu_id = input(f"{WHITE}NO ONU: {RESET}").strip()
     
-    # Kita panggil per PORT, bukan per ONU agar OLT tidak Error 20200
+    # Perintah pancingan agar OLT mengeluarkan tabel power
     if brand == 'fiberhome':
         cmds = ["terminal length 0", f"show onu optical-power {port} {onu_id}"]
-    else: # ZTE C300 Mode
+    else: # ZTE C300/C320
         cmds = [
             "terminal length 0", 
             "enable", 
             f"show gpon onu state gpon-olt_{port} {onu_id}",
-            f"show pon optical-power gpon-olt_{port}" # Perintah per PORT
+            f"show pon optical-power gpon-olt_{port}" 
         ]
     
-    print(f"\n{CYAN}[*] Menghubungkan & Meminta Data Port {port}...{RESET}")
+    print(f"\n{CYAN}[*] Menghubungkan & Menarik Tabel Power (Tunggu 3 detik)...{RESET}")
+    # Tambahkan jeda manual di sini sebelum eksekusi
     output = telnet_olt_execute(creds, cmds)
     
     print(f"\n{WHITE}HASIL DIAGNOSA UNTUK ONU {onu_id} DI PORT {port}:{RESET}")
@@ -640,32 +641,48 @@ def check_optical_power_fast():
         lines = output.splitlines()
         found_data = False
         
-        # 1. Cek Status Online (seperti biasa)
+        # 1. Tampilkan Status Online
         for line in lines:
-            if f"{port}:{onu_id}" in line and any(x in line.lower() for x in ["working", "online"]):
-                print(f"{GREEN}[✓] STATUS ONU: ONLINE (WORKING){RESET}")
-                break
+            if f":{onu_id} " in line or f" {onu_id} " in line:
+                 if any(x in line.lower() for x in ["working", "online"]):
+                    print(f"{GREEN}[✓] STATUS ONU: ONLINE (WORKING){RESET}")
+                    break
 
-        # 2. Filtering Data Power (Hanya ambil baris milik ONU yang dicari)
+        # 2. Cari Angka Redaman (Parsing Baris secara cerdas)
         print(f"{CYAN}RINCIAN REDAMAN:{RESET}")
-        target_marker = f"{port}:{onu_id}"
         
-        for line in lines:
-            # Cari baris yang mengandung Port:ID dan punya angka desimal/dBm
-            if target_marker in line and any(x in line.lower() for x in ["dbm", "-", "."]):
+        for i, line in enumerate(lines):
+            l_low = line.lower()
+            
+            # Cek apakah baris ini mengandung ID ONU kita (misal ID 1)
+            # Kita cari pola ID ONU yang berdiri sendiri agar tidak tertukar (misal ID 1 vs 10)
+            target_pattern = rf"\b{onu_id}\b" 
+            
+            if re.search(target_pattern, line) and ("dbm" in l_low or "-" in line):
+                # Ambil angka desimal (redaman)
                 matches = re.findall(r"(-?\d+\.\d+)", line)
                 if matches:
                     val = float(matches[0])
-                    # Penanda warna
                     color = RED if val < -27.0 else GREEN
                     print(f"{color}>>> {line.strip()}{RESET}")
                     found_data = True
-        
+            
+            # CADANGAN: Jika tabel ZTE kamu model baris ID dan baris Power terpisah
+            elif found_data == False and "dbm" in l_low and i > 0:
+                if re.search(target_pattern, lines[i-1]): # Cek baris sebelumnya
+                    matches = re.findall(r"(-?\d+\.\d+)", line)
+                    if matches:
+                        val = float(matches[0])
+                        color = RED if val < -27.0 else GREEN
+                        print(f"{color}>>> {line.strip()}{RESET}")
+                        found_data = True
+
         if not found_data:
-            print(f"{YELLOW}[!] Data power tidak ditemukan untuk ONU {onu_id}.{RESET}")
-            print(f"{WHITE}[i] Cek apakah SFP di OLT mendukung DDM/Optical Monitor.{RESET}")
+            print(f"{YELLOW}[!] Data power tetap tidak ditemukan.{RESET}")
+            print(f"{WHITE}[i] Coba ketik manual: 'show pon optical-power gpon-olt_{port}'{RESET}")
+            print(f"{WHITE}    Lihat apakah ONU {onu_id} ada angkanya di sana.{RESET}")
     else:
-        print(f"{RED}[!] Gagal mengambil respon dari OLT.{RESET}")
+        print(f"{RED}[!] Gagal mengambil respon.{RESET}")
 
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 

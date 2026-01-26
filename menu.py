@@ -1075,20 +1075,37 @@ def dns_tools(): # Menu 25
 
 def update_tools_auto(): # Menu 26
     print(f"\n{CYAN}=== UPDATE & RESET TOOLS (FORCE SYNC) ==={RESET}")
-    print(f"{WHITE}[*] Membersihkan cache git lokal...{RESET}")
+    repo_url = "https://github.com/USERNAME_KAMU/NAMA_REPO.git" # <-- GANTI DENGAN URL REPO KAMU
     
+    # Cek apakah ini folder git
+    if not os.path.exists(".git"):
+        print(f"{YELLOW}[!] Folder ini bukan repository Git.{RESET}")
+        confirm = input(f"{WHITE}Ingin menginisialisasi ulang Git di folder ini? (y/n): {RESET}").lower()
+        if confirm == 'y':
+            os.system("git init")
+            os.system(f"git remote add origin {repo_url}")
+            print(f"{GREEN}[✓] Git berhasil diinisialisasi.{RESET}")
+        else:
+            return
+
+    print(f"{WHITE}[*] Membersihkan cache git lokal...{RESET}")
     try:
-        os.system("git fetch origin")
+        os.system("git fetch --all")
         print(f"{CYAN}[*] Menarik kode terbaru dari GitHub...{RESET}")
+        
+        # Coba paksa sinkronisasi ke branch main atau master
         result = os.popen("git reset --hard origin/main 2>&1").read()
         
         if "HEAD is now at" in result:
-            print(f"\n{GREEN}[✓] BERHASIL! Kode sudah paling baru.{RESET}")
-            print(f"{WHITE}Pesan: {result.strip()}{RESET}")
-            print(f"{YELLOW}[!] Silakan keluar dan jalankan script lagi.{RESET}")
+            print(f"\n{GREEN}[✓] BERHASIL! Kode sudah paling baru (Main).{RESET}")
         else:
-            os.system("git reset --hard origin/master")
-            print(f"{GREEN}[✓] Berhasil sync via master branch.{RESET}")
+            # Jika main gagal, coba master
+            result_master = os.popen("git reset --hard origin/master 2>&1").read()
+            if "HEAD is now at" in result_master:
+                print(f"\n{GREEN}[✓] BERHASIL! Kode sudah paling baru (Master).{RESET}")
+            else:
+                print(f"{RED}[!] Gagal sinkronisasi. Cek koneksi internet atau URL repo.{RESET}")
+                print(f"{WHITE}Log: {result_master.strip()}{RESET}")
 
     except Exception as e:
         print(f"{RED}[!] Error: {e}{RESET}")

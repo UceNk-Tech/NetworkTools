@@ -994,14 +994,11 @@ def check_optical_power_fast():
     print(f"\n{CYAN}[*] Mohon tunggu, sedang mengambil data redaman...{RESET}")
 
     if brand == 'fiberhome':
-        cmds = ["", "terminal length 0", f"show onu optical-power {port} {onu_id}"]
+        cmds = ["terminal length 0", f"show onu optical-power {port} {onu_id}"]
     else: 
-        # TRICK: Kirim dua kali string kosong untuk memastikan banner password terlewati
         cmds = [
-            "", 
-            "", 
-            "terminal length 0",
-            f"show pon power optic gpon-onu_{port}:{onu_id}"
+            "terminal length 0", 
+            f"show pon power attenuation gpon-onu_{port}:{onu_id}"
         ]
     
     output = telnet_olt_execute(creds, cmds)
@@ -1010,37 +1007,41 @@ def check_optical_power_fast():
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
     if output:
-        # Kita fokus ambil bagian setelah perintah 'show' dikirim
-        # Regex mencari angka negatif/positif desimal (contoh: -23.45 atau 2.12)
-        matches = re.findall(r"(-?\d+\.\d+)", output)
-        
-        if matches:
-            # Pada ZTE 'show pon power optic', biasanya ada 2-3 angka:
-            # 1. Tx Power ONU, 2. Rx Power ONU (ini yang kita cari), 3. Rx Power OLT
-            # Kita ambil yang nilainya biasanya di bawah -10 (Rx ONU)
-            rx_val = None
-            for val in matches:
-                v = float(val)
-                if -40.0 < v < -5.0: # Range normal Rx Power ONU
-                    rx_val = v
+        # Trik Cerdas: Kita ambil baris yang mengandung kata 'down' saja
+        # Supaya tidak tertukar dengan Rx milik OLT (baris up)
+        rx_val = None
+        for line in output.splitlines():
+            if "down" in line.lower() and "Rx" in line:
+                # Cari angka negatif desimal di baris 'down'
+                matches = re.findall(r"(-?\d+\.\d+)", line)
+                if matches:
+                    rx_val = float(matches[0])
                     break
-            
-            if rx_val is not None:
-                color = GREEN if rx_val > -25.0 else YELLOW if rx_val > -27.0 else RED
-                status = "BAGUS" if rx_val > -25.0 else "WARNING" if rx_val > -27.0 else "DROP"
-                
-                print(f"{WHITE}Identity ONU       : {MAGENTA}{port}:{onu_id}{RESET}")
-                print(f"{WHITE}Redaman (Rx Power) : {color}{rx_val} dBm{RESET}")
-                print(f"{WHITE}Kondisi            : {color}{status}{RESET}")
+        
+        if rx_val is not None:
+            # Penentuan status berdasarkan standar -27 dBm
+            if rx_val < -27.0:
+                color, status = RED, "CRITICAL (DROP)"
+            elif rx_val < -25.0:
+                color, status = YELLOW, "WARNING (REDAUP)"
             else:
-                print(f"{YELLOW}[!] Angka ditemukan ({matches}), tapi tidak sesuai range Rx.{RESET}")
+                color, status = GREEN, "NORMAL (BAGUS)"
+            
+            print(f"{WHITE}Identity ONU       : {MAGENTA}{port}:{onu_id}{RESET}")
+            print(f"{WHITE}Redaman (Rx ONU)   : {color}{rx_val} dBm{RESET}")
+            print(f"{WHITE}Kondisi            : {color}{status}{RESET}")
+            
+            # Tambahan informasi dari output manualmu tadi
+            if "29." in output or "27." in output:
+                # Cari nilai Attenuation (angka positif terakhir)
+                atten = re.findall(r"(\d+\.\d+)", output)
+                if len(atten) >= 3:
+                    print(f"{WHITE}Total Loss (Atten) : {CYAN}{atten[-1]} dB{RESET}")
         else:
-            print(f"{YELLOW}[!] Respon OLT masih kotor. Silakan cek manual:{RESET}")
-            # Tampilkan 5 baris terakhir untuk diagnosa
-            for line in output.splitlines()[-5:]:
-                print(f"{WHITE}{line.strip()}{RESET}")
+            print(f"{YELLOW}[!] Gagal mengekstrak angka. Output OLT berubah format:{RESET}")
+            print(f"{WHITE}{output.strip()}{RESET}")
     else:
-        print(f"{RED}[!] OLT Tidak Merespon.{RESET}")
+        print(f"{RED}[!] Gagal koneksi ke OLT.{RESET}")
 
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 

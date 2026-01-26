@@ -615,8 +615,8 @@ def check_optical_power_fast():
     if not creds: return
     
     brand = creds.get('brand', 'zte').lower()
-    print(f"\n{CYAN}=== CEK STATUS & POWER OPTIK ONU (C300 FIX) ==={RESET}")
-    port = input(f"{WHITE}Masukkan Port (contoh 1/3/1): {RESET}").strip()
+    print(f"\n{CYAN}=== CEK STATUS & POWER OPTIK ONU ==={RESET}")
+    port = input(f"{WHITE}Masukkan Port (contoh 1/2/1): {RESET}").strip()
     onu_id = input(f"{WHITE}NO ONU: {RESET}").strip()
     
     if brand == 'fiberhome':
@@ -678,7 +678,7 @@ def check_optical_power_fast():
 
         if not found_power:
             print(f"{YELLOW}[!] Power optik tidak ditemukan.{RESET}")
-            print(f"{WHITE}[i] Tips: Pastikan SFP Port {port} bukan merk murah yang tidak punya DDM.{RESET}")
+            print(f"{WHITE}[i] Tips: Pastikan SFP Port {port} Support Digital Diagnostic Monitoring.{RESET}")
     else:
         print(f"{RED}[!] Gagal koneksi ke OLT.{RESET}")
 

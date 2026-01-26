@@ -1185,7 +1185,7 @@ def backup_restore_olt(): # Menu 16
         result = telnet_olt_execute(creds, cmds)
         print(f"{GREEN}[✓] Perintah backup dikirim. Silakan cek di server FTP kamu.{RESET}")
 
-    print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
+    print(f"{MAGENTA}-----------------------------------------------------------------------{RESET}")
 
 
 def traffic_report_pon(): # Menu 17 (OLT Tools)
@@ -1215,7 +1215,7 @@ def traffic_report_pon(): # Menu 17 (OLT Tools)
     output = telnet_olt_execute(creds, cmds)
     
     print(f"\n{WHITE}LAPORAN TRAFIK PORT {port}:{RESET}")
-    print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
+    print(f"{MAGENTA}----------------------------------------------------------------------{RESET}")
     
     if output:
         lines = output.splitlines()
@@ -1236,7 +1236,7 @@ def traffic_report_pon(): # Menu 17 (OLT Tools)
     else:
         print(f"{YELLOW}[!] Gagal mengambil data trafik.{RESET}")
         
-    print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
+    print(f"{MAGENTA}-----------------------------------------------------------------------{RESET}")
 
 
 def auto_audit_olt(): # Menu 18 (OLT Tools)

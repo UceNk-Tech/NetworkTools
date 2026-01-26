@@ -951,17 +951,35 @@ def reset_onu():
     creds = get_credentials("olt")
     if not creds: return
     brand = creds.get('brand', 'zte').lower()
+    
     print(f"\n{RED}=== RESET ONU (SAFE MODE) ==={RESET}")
     port = input(f"{WHITE}Masukkan Port (1/2/1): {RESET}").strip()
     onu_id = input(f"{WHITE}Masukkan Nomor ONU (1): {RESET}").strip()
-    check_cmds = ["terminal length 0", "end", f"show gpon onu detail-info gpon-onu_{port}:{onu_id}"] if brand == 'zte' else ["terminal length 0", "end", f"show onu info port {port} ont {onu_id}"]
+    
+    # Pesan loading agar user tahu proses sedang berjalan
+    print(f"\n{CYAN}[*] Mohon tunggu, sedang mendapatkan informasi ONU...{RESET}")
+    
+    if brand == 'zte':
+        check_cmds = ["terminal length 0", "end", f"show gpon onu detail-info gpon-onu_{port}:{onu_id}"]
+    else:
+        check_cmds = ["terminal length 0", "end", f"show onu info port {port} ont {onu_id}"]
+        
     output = telnet_olt_execute(creds, check_cmds)
+    
     if output and "Invalid" not in output:
         print(f"\n{YELLOW}{output}{RESET}")
-        if input(f"\n{YELLOW}Hapus ONU {port}:{onu_id} ini? (y/n): {RESET}").lower() == 'y':
+        
+        # Menggunakan warna kuning pada (y/n)
+        tanya = f"{RED}>>> Reset ONU {port}:{onu_id} ini? {YELLOW}(y/n){RED}: {RESET}"
+        if input(tanya).lower() == 'y':
+            print(f"{CYAN}[*] Sedang memproses reset ONU...{RESET}")
+            # Perintah menghapus (reset) ONU dari database OLT
             telnet_olt_execute(creds, ["conf t", f"interface gpon-olt_{port}", f"no onu {onu_id}", "end", "write"])
-            print(f"{GREEN}[✓] ONU Berhasil dihapus.{RESET}")
-    else: print(f"{RED}[!] Data tidak ditemukan.{RESET}")
+            print(f"{GREEN}[✓] ONU Berhasil direset (dihapus dari OLT).{RESET}")
+        else:
+            print(f"{MAGENTA}[-] Reset dibatalkan.{RESET}")
+    else: 
+        print(f"{RED}[!] Data tidak ditemukan atau ONU tidak terdaftar.{RESET}")
 
 def check_optical_power_fast():
     creds = get_credentials("olt")

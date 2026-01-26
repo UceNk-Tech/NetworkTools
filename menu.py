@@ -274,32 +274,34 @@ def hapus_laporan_mikhmon():
         print(f"{RED}[!] Profile MikroTik belum diset. Pilih menu 99 dulu.{RESET}")
         return
 
-    # Sembunyikan IP, gunakan pesan loading umum
+    # 1. Tampilkan pesan loading TANPA IP
     print(f"\n{CYAN}[+] Menghubungkan ke MikroTik...{RESET}")
     
     try:
+        # 2. Proses koneksi di belakang layar
         conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True)
         api = conn.get_api()
         
-        # AMBIL IDENTITY MIKROTIK
+        # 3. Ambil Identity Router
         identity_res = api.get_resource('/system/identity').get()
-        router_name = identity_res[0].get('name', 'Unknown')
+        router_name = identity_res[0].get('name', 'MikroTik')
         
-        # Tampilkan Identity setelah berhasil konek
+        # 4. Tampilkan Nama Identity sebagai ganti IP
         print(f"{GREEN}[✓] Terhubung ke: {MAGENTA}{router_name}{RESET}")
         
         resource = api.get_resource('/system/script')
         print(f"{CYAN}[+] Memindai script laporan Mikhmon...{RESET}")
         
         all_scripts = resource.get()
+        # Filter script mikhmon
         mikhmon_scripts = [s for s in all_scripts if 'mikhmon' in s.get('name', '').lower() or 'mikhmon' in s.get('comment', '').lower()]
         count = len(mikhmon_scripts)
 
         if count == 0:
-            print(f"{GREEN}[✓] Tidak ditemukan script laporan Mikhmon. MikroTik bersih!{RESET}")
+            print(f"{GREEN}[✓] Tidak ditemukan script laporan Mikhmon di {router_name}.{RESET}")
         else:
-            print(f"{YELLOW}[!] Terdeteksi {WHITE}{count}{YELLOW} script laporan Mikhmon di {router_name}.{RESET}")
-            confirm = input(f"{RED}>>> Hapus semua script laporan ini? (y/n): {RESET}").lower()
+            print(f"{YELLOW}[!] Terdeteksi {WHITE}{count}{YELLOW} script laporan di {MAGENTA}{router_name}{RESET}.")
+            confirm = input(f"{RED}>>> Hapus semua script laporan ini? {YELLOW}(y/n){RED}: {RESET}").lower()
             if confirm == 'y':
                 print(f"{CYAN}[*] Menghapus {count} script... (Mohon tunggu){RESET}")
                 for s in mikhmon_scripts:
@@ -307,14 +309,14 @@ def hapus_laporan_mikhmon():
                         resource.remove(id=s['id'])
                     except:
                         pass
-                print(f"{GREEN}[✓] Sukses! {count} script laporan telah dibersihkan.{RESET}")
+                print(f"{GREEN}[✓] Sukses! Semua script laporan telah dibersihkan.{RESET}")
             else:
                 print(f"{MAGENTA}[-] Penghapusan dibatalkan.{RESET}")
         
         conn.disconnect()
     except Exception as e:
-        # Jika error, pastikan pesan error tidak membocorkan IP jika mungkin
-        print(f"{RED}[!] Gagal Terhubung ke Router.{RESET}")
+        # Pesan error juga dibuat anonim tanpa IP
+        print(f"{RED}[!] Gagal Terhubung ke Router. Cek koneksi atau user/pass.{RESET}")
 
 def bandwidth_usage_report(): 
     creds = get_credentials("mikrotik")

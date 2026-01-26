@@ -1361,7 +1361,7 @@ def ping_traceroute_tool(): # Menu 24
 
 def dns_tools(): # Menu 25
     print(f"\n{CYAN}=== DNS LOOKUP TOOLS ==={RESET}")
-    domain = input(f"{WHITE}Masukkan Domain (contoh google.com): {RESET}").strip()
+    domain = input(f"{WHITE}Masukkan Domain (contoh google.com atau mikhmon.online): {RESET}").strip()
     
     if not domain:
         print(f"{YELLOW}[!] Domain tidak boleh kosong.{RESET}")
@@ -1370,7 +1370,7 @@ def dns_tools(): # Menu 25
     print(f"\n{MAGENTA}--- PILIH INFORMASI DNS ---{RESET}")
     print(" 1. Cek IP Address (A Record)")
     print(" 2. Cek Name Server (NS Record)")
-    print(" 3. Cek Semua Record (MX, TXT, NS, A)")
+    print(" 3. Cek Semua Record (MX, TXT, NS, A, TXT)")
     print(" 0. Kembali")
     
     opt = input(f"\n{YELLOW}Pilih Opsi: {RESET}").strip()
@@ -1378,30 +1378,38 @@ def dns_tools(): # Menu 25
 
     print(f"\n{CYAN}[*] Mengambil data DNS untuk {domain}...{RESET}")
     
-    # Mapping tipe record
-    type_map = {'1': 'A', '2': 'NS', '3': 'ANY'}
-    record_type = type_map.get(opt, 'A')
+    # Mapping tipe record untuk API Google
+    # Tipe 1=A, 2=NS, 15=MX, 16=TXT, 255=ANY
+    type_map = {'1': 1, '2': 2, '3': 255}
+    record_type = type_map.get(opt, 1)
 
     try:
-        # Menggunakan Cloudflare DNS-over-HTTPS API (Lebih cepat & pasti ada)
-        headers = {'accept': 'application/dns-json'}
-        url = f"https://cloudflare-dns.com/query?name={domain}&type={record_type}"
+        # Menggunakan Google Public DNS API (Sangat stabil)
+        url = f"https://dns.google/resolve?name={domain}&type={record_type}"
+        resp = requests.get(url, timeout=10)
         
-        resp = requests.get(url, headers=headers, timeout=10)
+        if resp.status_code != 200:
+            print(f"{RED}[!] Server DNS Google merespon dengan kode: {resp.status_code}{RESET}")
+            return
+            
         data = resp.json()
 
         if "Answer" in data:
-            print(f"\n{GREEN}HASIL LOOKUP ({record_type}):{RESET}")
-            print(f"{WHITE}{'-'*45}{RESET}")
+            print(f"\n{GREEN}HASIL LOOKUP ({domain}):{RESET}")
+            print(f"{WHITE}{'-'*55}{RESET}")
+            
+            # Dictionary untuk menerjemahkan angka tipe DNS ke teks
+            names = {1: "A", 2: "NS", 5: "CNAME", 15: "MX", 16: "TXT", 28: "AAAA"}
+            
             for ans in data['Answer']:
-                # Tipe DNS balik ke nama (A=1, NS=2, MX=15, TXT=16)
-                rtype = "A" if ans['type'] == 1 else "NS" if ans['type'] == 2 else "DATA"
-                print(f" {YELLOW}[{rtype}]{RESET} {ans['data']}")
+                t_name = names.get(ans['type'], f"Type-{ans['type']}")
+                val = ans['data']
+                print(f" {YELLOW}[{t_name:<5}]{RESET} {val}")
         else:
-            print(f"{RED}[!] Record tidak ditemukan atau domain salah.{RESET}")
+            print(f"{RED}[!] Tidak ada record yang ditemukan untuk tipe tersebut.{RESET}")
 
     except Exception as e:
-        print(f"{RED}[!] Gagal melakukan lookup: {e}{RESET}")
+        print(f"{RED}[!] Error Koneksi: {e}{RESET}")
 
     print(f"\n{MAGENTA}--------------------------------------------------{RESET}")
 

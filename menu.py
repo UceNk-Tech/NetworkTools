@@ -813,17 +813,23 @@ def config_onu_logic():
     cmd_scan = ["terminal length 0", "enable", "show gpon onu uncfg"] if brand == 'zte' else ["terminal length 0", f"show onu unconfigured port {p}"]
     res_unconfig = telnet_olt_execute(creds, cmd_scan)
     
-    if res_unconfig and any(x in res_unconfig.upper() for x in ["FHTT", "ZTEG", "SN", "ONUINDEX"]):
-        print(f"\n{YELLOW}⚠️  ONU TERDETEKSI (Hasil Scan):{RESET}")
-        print(f"{WHITE}--------------------------------------------------{RESET}")
-        print(f"{WHITE}{res_unconfig}{RESET}")
-        print(f"{WHITE}--------------------------------------------------{RESET}")
-        sn_match = re.search(r'(FHTT|ZTEG)[0-9A-Z]{8,}', res_unconfig.upper())
-        if sn_match:
-            found_sn = sn_match.group(0)
-            print(f"{GREEN}[✓] SN Otomatis Disimpan: {found_sn}{RESET}")
+    if res_unconfig:
+        # Filter output scan awal agar bersih dari prompt dan warning password
+        clean_res = "\n".join([line for line in res_unconfig.splitlines() if "ZXAN" not in line and "% The password" not in line and line.strip()])
+        
+        if any(x in clean_res.upper() for x in ["FHTT", "ZTEG", "SN", "ONUINDEX"]):
+            print(f"\n{YELLOW}⚠️  ONU TERDETEKSI (Hasil Scan):{RESET}")
+            print(f"{WHITE}--------------------------------------------------{RESET}")
+            print(f"{WHITE}{clean_res}{RESET}")
+            print(f"{WHITE}--------------------------------------------------{RESET}")
+            sn_match = re.search(r'(FHTT|ZTEG)[0-9A-Z]{8,}', clean_res.upper())
+            if sn_match:
+                found_sn = sn_match.group(0)
+                print(f"{GREEN}[✓] SN Otomatis Disimpan: {found_sn}{RESET}")
+        else:
+            print(f"{YELLOW}[i] Scan Selesai: Tidak menemukan ONU baru unregister.{RESET}")
     else:
-        print(f"{YELLOW}[i] Scan Selesai: Tidak menemukan ONU baru unregister.{RESET}")
+        print(f"{RED}[!] Gagal mengambil data scan.{RESET}")
 
     while True:
         print(f"\n{MAGENTA}--- PILIH TINDAKAN (PORT {p}) ---{RESET}")
@@ -867,11 +873,10 @@ def config_onu_logic():
                 print(f"{RED}[!] Tidak ada SN terdeteksi. Silakan Scan (Opsi 1) terlebih dahulu.{RESET}")
                 continue
             
-            # --- LOGIKA OTOMATIS CARI ID TEST ---
             print(f"\n{CYAN}[*] Mencari ID aman untuk pengecekan...{RESET}")
             cmd_check = ["terminal length 0", f"show gpon onu state gpon-olt_{p}"]
             res_check = telnet_olt_execute(creds, cmd_check)
-            test_id = "128" # Default aman
+            test_id = "128"
             if res_check:
                 ids_in_use = re.findall(r':(\d+)\s+', res_check)
                 if ids_in_use:
@@ -881,7 +886,6 @@ def config_onu_logic():
             print(f"{CYAN}[+] Memulai Diagnosa Cepat untuk SN: {found_sn}{RESET}")
             print(f"{CYAN}[+] Pinjam jalur ONU ID {test_id} sementara untuk Cek...{RESET}") 
             
-            # Perintah berantai: Register -> Cek Power -> Hapus
             cmds = [
                 "conf t",
                 f"interface gpon-olt_{p}",
@@ -902,16 +906,13 @@ def config_onu_logic():
                 lines = output.splitlines()
                 show_table = False
                 for line in lines:
-                    # Filter: Hanya tampilkan baris jika mengandung data tabel (OLT/ONU)
-                    # Dan sembunyikan prompt ZXAN atau peringatan password
                     if "OLT" in line and "ONU" in line: show_table = True
+                    # Matikan show_table jika bertemu prompt atau perintah config
                     if any(x in line for x in ["ZXAN", "conf t", "exit", "no onu", "terminal length", "end"]): show_table = False
                     
-                    # Cek tambahan agar baris password benar-benar hilang
                     if show_table and line.strip() and "% The password" not in line:
                         print(f"{YELLOW}{line}{RESET}")
 
-                # Ambil Rx ONU untuk diagnosa cepat
                 for line in lines:
                     if "down" in line.lower() and "Rx" in line:
                         m = re.findall(r"Rx\s*:\s*(-?\d+\.\d+)", line)
@@ -948,7 +949,6 @@ def config_onu_logic():
                 print(f"\n{CYAN}[*] Mengirim konfigurasi...{RESET}")
                 telnet_olt_execute(creds, cmds)
                 print(f"{GREEN}[✓] Registrasi Selesai!{RESET}")
-                break
 
 
 

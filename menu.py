@@ -900,12 +900,14 @@ def config_onu_logic():
             print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
             if output:
                 lines = output.splitlines()
-                # Filter hanya tabel OLT-ONU-Attenuation
                 show_table = False
                 for line in lines:
+                    # Filter: Hanya tampilkan baris jika mengandung data tabel (OLT/ONU)
+                    # Dan sembunyikan prompt ZXAN atau peringatan password
                     if "OLT" in line and "ONU" in line: show_table = True
-                    if any(x in line for x in ["ZXAN", "conf t", "exit", "no onu", "terminal length"]): show_table = False
+                    if any(x in line for x in ["ZXAN", "conf t", "exit", "no onu", "terminal length", "end"]): show_table = False
                     
+                    # Cek tambahan agar baris password benar-benar hilang
                     if show_table and line.strip() and "% The password" not in line:
                         print(f"{YELLOW}{line}{RESET}")
 

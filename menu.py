@@ -616,18 +616,19 @@ def check_optical_power_fast():
     
     brand = creds.get('brand', 'zte').lower()
     print(f"\n{CYAN}=== CEK STATUS & POWER OPTIK ONU ==={RESET}")
-    port = input(f"{WHITE}Masukkan Port (contoh 1/2/1): {RESET}").strip()
+    port = input(f"{WHITE}Masukkan Port (1/3/1): {RESET}").strip()
     onu_id = input(f"{WHITE}NO ONU: {RESET}").strip()
     target = f"{port}:{onu_id}"
     
-    # Tambahkan 'show gpon onu detail-info' sebagai cadangan jika optical-power telat
+    # Kita gunakan 3 perintah sekaligus untuk memastikan data keluar
     cmds = [
         "terminal length 0", "enable", 
         f"show gpon onu state gpon-olt_{port} {onu_id}",
-        f"show pon optical-power gpon-onu_{target}"
+        f"show pon optical-power gpon-onu_{target}",
+        f"show gpon onu detail-info gpon-onu_{target}" # Perintah cadangan
     ]
     
-    print(f"\n{CYAN}[*] Menghubungkan & Menunggu Data...{RESET}")
+    print(f"\n{CYAN}[*] Menghubungkan & Menarik Data (Sabar ya Cenk...){RESET}")
     output = telnet_olt_execute(creds, cmds)
     
     print(f"\n{WHITE}HASIL DIAGNOSA ONU {target}:{RESET}")
@@ -637,32 +638,31 @@ def check_optical_power_fast():
         lines = output.splitlines()
         found_power = False
         
-        # Cek Status
+        # 1. Cek Status Utama
         for line in lines:
-            if f"{port}:{onu_id}" in line and any(x in line.lower() for x in ["working", "online"]):
+            if target in line and any(x in line.lower() for x in ["working", "online"]):
                 print(f"{GREEN}[✓] STATUS ONU: ONLINE (WORKING){RESET}")
+                break
 
+        # 2. Parsing Power Optik (Pola Luas)
         print(f"\n{CYAN}RINCIAN REDAMAN:{RESET}")
         for line in lines:
             l_low = line.lower()
-            # Kita tangkap baris yang punya angka negatif (khas redaman) atau unit dBm
-            if any(x in l_low for x in ["rx", "tx", "dbm", "optical"]) and "show" not in l_low:
-                # Cari pola angka desimal (misal -27.12 atau 2.15)
-                match = re.search(r"(-?\d+\.\d+)", line)
-                if match:
-                    val = float(match.group(1))
-                    # Aturan warna: di bawah -27 dBm atau di atas -8 dBm biasanya bermasalah
+            # Cari baris yang mengandung angka desimal dan kata kunci power
+            if any(x in l_low for x in ["rx", "tx", "dbm", "attenuation"]):
+                # Ambil semua angka desimal (positif/negatif)
+                matches = re.findall(r"(-?\d+\.\d+)", line)
+                if matches:
+                    # Biasanya angka pertama adalah Rx (Redaman)
+                    val = float(matches[0])
+                    # Penanda warna
                     color = RED if val < -27.0 or val > -8.0 else GREEN
                     print(f"{color}>>> {line.strip()}{RESET}")
                     found_power = True
-                elif "n/a" in l_low or "not support" in l_low:
-                    print(f"{YELLOW}>>> {line.strip()} (Data belum ditarik OLT){RESET}")
-                    found_power = True
-
+        
         if not found_power:
-            print(f"{YELLOW}[!] Power optik tidak ditemukan di output. Coba ulangi sekali lagi.{RESET}")
-            # Opsional: Debugging untuk Ucenk kalau masih kosong
-            # print(f"DEBUG OUTPUT: {output}") 
+            print(f"{YELLOW}[!] OLT belum memberikan data Power. Biasanya SFP lagi loading.{RESET}")
+            print(f"{WHITE}[i] Tips: Coba ulangi 5 detik lagi, Ucenk.{RESET}")
     
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 

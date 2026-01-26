@@ -615,14 +615,13 @@ def check_optical_power_fast():
     if not creds: return
     
     brand = creds.get('brand', 'zte').lower()
-    print(f"\n{CYAN}=== CEK STATUS & POWER OPTIK ONU (FINAL MODE) ==={RESET}")
-    port = input(f"{WHITE}Masukkan Port (contoh 1/2/1): {RESET}").strip()
+    print(f"\n{CYAN}=== CEK STATUS & POWER OPTIK ONU (C300 FIX) ==={RESET}")
+    port = input(f"{WHITE}Masukkan Port (contoh 1/3/1): {RESET}").strip()
     onu_id = input(f"{WHITE}NO ONU: {RESET}").strip()
     
-    # Perintah pancingan agar OLT mengeluarkan tabel power
     if brand == 'fiberhome':
         cmds = ["terminal length 0", f"show onu optical-power {port} {onu_id}"]
-    else: # ZTE C300/C320
+    else: # ZTE C300
         cmds = [
             "terminal length 0", 
             "enable", 
@@ -630,16 +629,15 @@ def check_optical_power_fast():
             f"show pon optical-power gpon-olt_{port}" 
         ]
     
-    print(f"\n{CYAN}[*] Menghubungkan & Menarik Tabel Power (Tunggu 3 detik)...{RESET}")
-    # Tambahkan jeda manual di sini sebelum eksekusi
+    print(f"\n{CYAN}[*] Menghubungkan & Scanning Tabel Power...{RESET}")
     output = telnet_olt_execute(creds, cmds)
     
-    print(f"\n{WHITE}HASIL DIAGNOSA UNTUK ONU {onu_id} DI PORT {port}:{RESET}")
+    print(f"\n{WHITE}HASIL DIAGNOSA ONU {onu_id} @ PORT {port}:{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
     if output:
         lines = output.splitlines()
-        found_data = False
+        found_power = False
         
         # 1. Tampilkan Status Online
         for line in lines:
@@ -648,41 +646,41 @@ def check_optical_power_fast():
                     print(f"{GREEN}[✓] STATUS ONU: ONLINE (WORKING){RESET}")
                     break
 
-        # 2. Cari Angka Redaman (Parsing Baris secara cerdas)
+        # 2. Parsing Redaman (Metode Baris Cerdas)
         print(f"{CYAN}RINCIAN REDAMAN:{RESET}")
         
         for i, line in enumerate(lines):
             l_low = line.lower()
             
-            # Cek apakah baris ini mengandung ID ONU kita (misal ID 1)
-            # Kita cari pola ID ONU yang berdiri sendiri agar tidak tertukar (misal ID 1 vs 10)
-            target_pattern = rf"\b{onu_id}\b" 
-            
-            if re.search(target_pattern, line) and ("dbm" in l_low or "-" in line):
-                # Ambil angka desimal (redaman)
+            # Cari baris yang mengandung port dan ID ONU (Misal 1/3/1:6 atau gpon-onu_1/3/1:6)
+            # Kita buat pencarian lebih fleksibel
+            if f":{onu_id}" in line or f" {onu_id} " in line:
+                # Cek apakah baris ini sendiri mengandung angka redaman (dBm)
                 matches = re.findall(r"(-?\d+\.\d+)", line)
+                
+                # Jika tidak ada di baris yang sama, cek 1 baris di bawahnya (ZTE sering begini)
+                if not matches and i + 1 < len(lines):
+                    matches = re.findall(r"(-?\d+\.\d+)", lines[i+1])
+                    line = lines[i+1] # Gunakan baris bawahnya untuk tampilan
+                
                 if matches:
-                    val = float(matches[0])
-                    color = RED if val < -27.0 else GREEN
-                    print(f"{color}>>> {line.strip()}{RESET}")
-                    found_data = True
-            
-            # CADANGAN: Jika tabel ZTE kamu model baris ID dan baris Power terpisah
-            elif found_data == False and "dbm" in l_low and i > 0:
-                if re.search(target_pattern, lines[i-1]): # Cek baris sebelumnya
-                    matches = re.findall(r"(-?\d+\.\d+)", line)
-                    if matches:
-                        val = float(matches[0])
-                        color = RED if val < -27.0 else GREEN
-                        print(f"{color}>>> {line.strip()}{RESET}")
-                        found_data = True
+                    try:
+                        # Ambil nilai Rx (biasanya angka pertama yang negatif kuat)
+                        rx_val = float(matches[0])
+                        color = RED if rx_val < -27.0 else GREEN
+                        status = "[LEMAH]" if rx_val < -27.0 else "[BAGUS]"
+                        
+                        print(f"{color}>>> {line.strip()} {status}{RESET}")
+                        found_power = True
+                        break # Sudah ketemu, hentikan loop
+                    except:
+                        continue
 
-        if not found_data:
-            print(f"{YELLOW}[!] Data power tetap tidak ditemukan.{RESET}")
-            print(f"{WHITE}[i] Coba ketik manual: 'show pon optical-power gpon-olt_{port}'{RESET}")
-            print(f"{WHITE}    Lihat apakah ONU {onu_id} ada angkanya di sana.{RESET}")
+        if not found_power:
+            print(f"{YELLOW}[!] Power optik tidak ditemukan.{RESET}")
+            print(f"{WHITE}[i] Tips: Pastikan SFP Port {port} bukan merk murah yang tidak punya DDM.{RESET}")
     else:
-        print(f"{RED}[!] Gagal mengambil respon.{RESET}")
+        print(f"{RED}[!] Gagal koneksi ke OLT.{RESET}")
 
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 

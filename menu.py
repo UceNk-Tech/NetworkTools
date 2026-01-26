@@ -832,7 +832,7 @@ def config_onu_logic():
         print(f" 3. {GREEN}Registrasi ZTE (PPPoE){RESET}")
         print(f" 4. {GREEN}Registrasi FH (Hotspot){RESET}")
         print(f" 5. {GREEN}Registrasi FH (PPPoE){RESET}")
-        print(f" 6. {CYAN}Cek Detail Power Optik Unconfigured{RESET}") 
+        print(f" 6. {CYAN}Cek Detail Power Optik Unconfigured (Tabel){RESET}") 
         print(f" 0. {YELLOW}Keluar/Kembali{RESET}")
         
         opt = input(f"\n{YELLOW}Pilih (0-6): {RESET}")
@@ -857,33 +857,61 @@ def config_onu_logic():
                         chunks = [map(str, missing_ids[i:i + 10]) for i in range(0, len(missing_ids), 10)]
                         for chunk in chunks: print(f"{WHITE}    {', '.join(chunk)}{RESET}")
                     else:
-                        print(f"{YELLOW}[i] Tidak ada nomor Kkosong (ID 1 sampai {max_id} terisi).{RESET}")
+                        print(f"{YELLOW}[i] Tidak ada nomor Kosong (ID 1 sampai {max_id} terisi).{RESET}")
                     print(f"\n{GREEN}[+] SARAN ID BARU: {max_id + 1}{RESET}")
                     print(f"{MAGENTA}--------------------------------------------------{RESET}")
             continue
 
         if opt == '6':
-            print(f"\n{CYAN}[+] Mengambil Detail Power ONU Unconfigured...{RESET}")
-            # Perintah khusus ZTE untuk cek redaman ONU yang belum register
-            cmds = ["terminal length 0", "enable", "show gpon onu uncfg-optical-info"] if brand == 'zte' else ["terminal length 0", f"show onu unconfigured port {p}"]
+            if not found_sn:
+                print(f"{RED}[!] Tidak ada SN terdeteksi. Silakan Scan (Opsi 1) terlebih dahulu.{RESET}")
+                continue
+            
+            test_id = "128" # Menggunakan ID ujung agar aman
+            print(f"\n{CYAN}[+] Memulai Diagnosa Cepat untuk SN: {found_sn}{RESET}")
+            print(f"{CYAN}[+] Mendaftarkan sementara ke ID {test_id}...{RESET}")
+            
+            # Perintah berantai: Register -> Cek Power -> Hapus
+            cmds = [
+                "conf t",
+                f"interface gpon-olt_{p}",
+                f"onu {test_id} type ALL sn {found_sn}",
+                "exit",
+                "terminal length 0",
+                f"show pon power attenuation gpon-onu_{p}:{test_id}",
+                "conf t",
+                f"interface gpon-olt_{p}",
+                f"no onu {test_id}",
+                "end"
+            ]
             output = telnet_olt_execute(creds, cmds)
             
-            print(f"\n{WHITE}DETAIL POWER OPTIK (UNCONFIGURED):{RESET}")
+            print(f"\n{WHITE}DETAIL POWER & ATTENUATION ONU (PRE-CONFIG):{RESET}")
             print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
             if output:
-                # Membersihkan banner password dan prompt sampah
-                for line in output.splitlines():
-                    if any(x in line for x in ["% The password", "ZXAN#", "terminal length"]):
-                        continue
-                    if line.strip():
-                        # Highlight SN yang baru saja ditemukan jika ada di dalam list
-                        if found_sn and found_sn in line.upper():
-                            print(f"{GREEN}>>> {line.strip()} (TARGET){RESET}")
-                        else:
-                            print(f"{YELLOW}{line.strip()}{RESET}")
+                lines = output.splitlines()
+                # Filter hanya tabel OLT-ONU-Attenuation
+                show_table = False
+                for line in lines:
+                    if "OLT" in line and "ONU" in line: show_table = True
+                    if any(x in line for x in ["ZXAN", "conf t", "exit", "no onu", "terminal length"]): show_table = False
+                    
+                    if show_table and line.strip() and "% The password" not in line:
+                        print(f"{YELLOW}{line}{RESET}")
+
+                # Ambil Rx ONU untuk diagnosa cepat
+                for line in lines:
+                    if "down" in line.lower() and "Rx" in line:
+                        m = re.findall(r"Rx\s*:\s*(-?\d+\.\d+)", line)
+                        if m:
+                            rx = float(m[0])
+                            color = GREEN if rx > -25.0 else YELLOW if rx > -27.0 else RED
+                            print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
+                            print(f"{WHITE}Hasil Analisa (Rx ONU): {color}{rx} dBm{RESET}")
             else:
-                print(f"{RED}[!] Gagal mendapatkan data detail unconfigured.{RESET}")
+                print(f"{RED}[!] Gagal mendapatkan respon dari OLT.{RESET}")
             print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
+            print(f"{CYAN}[i] Status: ID {test_id} telah dihapus kembali. Port Bersih.{RESET}")
             continue
 
         if opt in ['2', '3', '4', '5']:

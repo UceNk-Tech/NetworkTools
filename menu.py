@@ -832,7 +832,7 @@ def config_onu_logic():
         print(f" 3. {GREEN}Registrasi ZTE (PPPoE){RESET}")
         print(f" 4. {GREEN}Registrasi FH (Hotspot){RESET}")
         print(f" 5. {GREEN}Registrasi FH (PPPoE){RESET}")
-        print(f" 6. {CYAN}Cek Detail Power Optik (Khusus Uncfg){RESET}") 
+        print(f" 6. {CYAN}Cek Detail Power Optik Unconfigured{RESET}") 
         print(f" 0. {YELLOW}Keluar/Kembali{RESET}")
         
         opt = input(f"\n{YELLOW}Pilih (0-6): {RESET}")
@@ -1546,7 +1546,7 @@ def show_menu():
     print("10. Konfigurasi ONU (ZTE/FH)         15. Alarm & Event Viewer")
     print("11. Restart ONU                      16. Backup & Restore OLT")
     print("12. Reset/Delete ONU                 17. Traffic Report per PON")
-    print("13. Cek Status Power Optic           18. Auto Audit Script")
+    print("13. Detail Power Optic (Redaman)     18. Auto Audit Script")
     print(f"\n{CYAN}--- NETWORK TOOLS ---{RESET}")
     print("19. Speedtest                        23. WhatMyIP")
     print("20. Nmap Scan                        24. Ping & Traceroute")

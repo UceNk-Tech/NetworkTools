@@ -900,21 +900,7 @@ def config_onu_logic():
                 print(f"{GREEN}[✓] Registrasi Selesai!{RESET}")
                 break
 
-def reset_onu(): 
-    creds = get_credentials("olt")
-    if not creds: return
-    brand = creds.get('brand', 'zte').lower()
-    print(f"\n{RED}=== RESET ONU (SAFE MODE) ==={RESET}")
-    port = input(f"{WHITE}Masukkan Port (1/2/1): {RESET}").strip()
-    onu_id = input(f"{WHITE}Masukkan Nomor ONU (1): {RESET}").strip()
-    check_cmds = ["terminal length 0", "end", f"show gpon onu detail-info gpon-onu_{port}:{onu_id}"] if brand == 'zte' else ["terminal length 0", "end", f"show onu info port {port} ont {onu_id}"]
-    output = telnet_olt_execute(creds, check_cmds)
-    if output and "Invalid" not in output:
-        print(f"\n{YELLOW}{output}{RESET}")
-        if input(f"\n{YELLOW}Hapus ONU {port}:{onu_id} ini? (y/n): {RESET}").lower() == 'y':
-            telnet_olt_execute(creds, ["conf t", f"interface gpon-olt_{port}", f"no onu {onu_id}", "end", "write"])
-            print(f"{GREEN}[✓] ONU Berhasil dihapus.{RESET}")
-    else: print(f"{RED}[!] Data tidak ditemukan.{RESET}")
+
 
 def restart_onu(): 
     creds = get_credentials("olt")
@@ -960,6 +946,22 @@ def restart_onu():
             print(f"{MAGENTA}[-] Restart dibatalkan.{RESET}")
     else:
         print(f"{RED}[!] Gagal terhubung ke OLT.{RESET}")
+
+def reset_onu(): 
+    creds = get_credentials("olt")
+    if not creds: return
+    brand = creds.get('brand', 'zte').lower()
+    print(f"\n{RED}=== RESET ONU (SAFE MODE) ==={RESET}")
+    port = input(f"{WHITE}Masukkan Port (1/2/1): {RESET}").strip()
+    onu_id = input(f"{WHITE}Masukkan Nomor ONU (1): {RESET}").strip()
+    check_cmds = ["terminal length 0", "end", f"show gpon onu detail-info gpon-onu_{port}:{onu_id}"] if brand == 'zte' else ["terminal length 0", "end", f"show onu info port {port} ont {onu_id}"]
+    output = telnet_olt_execute(creds, check_cmds)
+    if output and "Invalid" not in output:
+        print(f"\n{YELLOW}{output}{RESET}")
+        if input(f"\n{YELLOW}Hapus ONU {port}:{onu_id} ini? (y/n): {RESET}").lower() == 'y':
+            telnet_olt_execute(creds, ["conf t", f"interface gpon-olt_{port}", f"no onu {onu_id}", "end", "write"])
+            print(f"{GREEN}[✓] ONU Berhasil dihapus.{RESET}")
+    else: print(f"{RED}[!] Data tidak ditemukan.{RESET}")
 
 def check_optical_power_fast():
     creds = get_credentials("olt")
@@ -1542,7 +1544,7 @@ def main():
         elif c == '9': list_onu()
         elif c == '10': config_onu_logic()
         elif c == '11': restart_onu()
-        elif c == '11': reset_onu()
+        elif c == '12': reset_onu()
         elif c == '13': check_optical_power_fast()
         elif c == '14': port_vlan()
         elif c == '15': alarm_event_viewer()

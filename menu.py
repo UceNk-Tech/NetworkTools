@@ -1011,15 +1011,29 @@ def check_optical_power_fast():
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
     if output:
-        # Menampilkan tabel detail asli dari OLT agar terlihat Up/Down & Attenuation
-        print(f"{YELLOW}{output.strip()}{RESET}")
+        # --- PROSES PEMBERSIHAN OUTPUT ---
+        lines = output.splitlines()
+        clean_lines = []
+        for line in lines:
+            l_strip = line.strip()
+            # Sembunyikan banner password, prompt ZXAN, dan baris kosong di awal
+            if not l_strip or "% The password" in line or "ZXAN#" in line or "terminal length" in line:
+                continue
+            clean_lines.append(line)
+        
+        clean_output = "\n".join(clean_lines)
+        
+        # Tampilkan tabel yang sudah bersih
+        print(f"{YELLOW}{clean_output}{RESET}")
         print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 
-        # Trik Cerdas: Kita ambil baris yang mengandung kata 'down' saja
+        # --- LOGIKA PENGAMBILAN RX ONU (BARIS DOWN) ---
         rx_val = None
-        for line in output.splitlines():
+        for line in clean_lines:
+            # Kita cari baris 'down' dan ambil angka Rx (bukan Tx)
             if "down" in line.lower() and "Rx" in line:
-                matches = re.findall(r"(-?\d+\.\d+)", line)
+                # Regex mencari angka negatif (Rx biasanya negatif)
+                matches = re.findall(r"Rx\s*:\s*(-?\d+\.\d+)", line)
                 if matches:
                     rx_val = float(matches[0])
                     break
@@ -1036,11 +1050,12 @@ def check_optical_power_fast():
             print(f"{WHITE}Redaman (Rx ONU)   : {color}{rx_val} dBm{RESET}")
             print(f"{WHITE}Kondisi            : {color}{status}{RESET}")
         else:
-            print(f"{YELLOW}[!] Analisa otomatis gagal. Silakan baca tabel di atas secara manual.{RESET}")
+            print(f"{YELLOW}[!] Analisa otomatis gagal. Silakan baca tabel di atas.{RESET}")
     else:
         print(f"{RED}[!] Gagal koneksi ke OLT.{RESET}")
 
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
+
 
 def port_vlan(): 
     c = get_credentials("olt")

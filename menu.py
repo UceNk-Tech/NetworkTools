@@ -1008,7 +1008,7 @@ def check_optical_power_fast():
     output = telnet_olt_execute(creds, cmds)
     
     print(f"\n{WHITE}HASIL DIAGNOSA ONU {onu_id} @ PORT {port}:{RESET}")
-    print(f"{MAGENTA}-------------------------------------------------------------------------------------------------------------------------------------{RESET}")
+    print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
     
     if output:
         # --- PROSES PEMBERSIHAN OUTPUT ---
@@ -1025,7 +1025,7 @@ def check_optical_power_fast():
         
         # Tampilkan tabel yang sudah bersih
         print(f"{YELLOW}{clean_output}{RESET}")
-        print(f"{MAGENTA}----------------------------------------------------------------------------------------------------------------------------------{RESET}")
+        print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
 
         # --- LOGIKA PENGAMBILAN RX ONU (BARIS DOWN) ---
         rx_val = None
@@ -1054,7 +1054,7 @@ def check_optical_power_fast():
     else:
         print(f"{RED}[!] Gagal koneksi ke OLT.{RESET}")
 
-    print(f"{MAGENTA}------------------------------------------------------------------------------------------------------------------------------------{RESET}")
+    print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
 
 
 def port_vlan(): 

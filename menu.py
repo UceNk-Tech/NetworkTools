@@ -612,23 +612,29 @@ def delete_onu():
 
 def check_optical_power_fast():
     creds = get_credentials("olt")
-    if not creds: return
+    if not creds: 
+        print(f"{YELLOW}[!] Profile OLT belum aktif.{RESET}")
+        return
     
     brand = creds.get('brand', 'zte').lower()
     print(f"\n{CYAN}=== CEK STATUS & POWER OPTIK ONU ==={RESET}")
-    port = input(f"{WHITE}Masukkan Port (1/3/1): {RESET}").strip()
+    port = input(f"{WHITE}Masukkan Port (contoh 1/3/1): {RESET}").strip()
     onu_id = input(f"{WHITE}NO ONU: {RESET}").strip()
     target = f"{port}:{onu_id}"
     
-    # Kita gunakan 3 perintah sekaligus untuk memastikan data keluar
-    cmds = [
-        "terminal length 0", "enable", 
-        f"show gpon onu state gpon-olt_{port} {onu_id}",
-        f"show pon optical-power gpon-onu_{target}",
-        f"show gpon onu detail-info gpon-onu_{target}" # Perintah cadangan
-    ]
+    # Kita pancing dengan 3 perintah berbeda karena ZTE sering "malu-malu" mengeluarkan data
+    if brand == 'fiberhome':
+        cmds = ["terminal length 0", f"show onu optical-power {port} {onu_id}"]
+    else: # ZTE
+        cmds = [
+            "terminal length 0", 
+            "enable", 
+            f"show gpon onu state gpon-olt_{port} {onu_id}",
+            f"show pon optical-power gpon-onu_{target}",
+            f"show gpon onu detail-info gpon-onu_{target}"
+        ]
     
-    print(f"\n{CYAN}[*] Menghubungkan & Menarik Data (Sabar ya Cenk...){RESET}")
+    print(f"\n{CYAN}[*] Menghubungkan & Menunggu Polling SFP...{RESET}")
     output = telnet_olt_execute(creds, cmds)
     
     print(f"\n{WHITE}HASIL DIAGNOSA ONU {target}:{RESET}")
@@ -638,32 +644,49 @@ def check_optical_power_fast():
         lines = output.splitlines()
         found_power = False
         
-        # 1. Cek Status Utama
-        for line in lines:
-            if target in line and any(x in line.lower() for x in ["working", "online"]):
-                print(f"{GREEN}[✓] STATUS ONU: ONLINE (WORKING){RESET}")
-                break
-
-        # 2. Parsing Power Optik (Pola Luas)
-        print(f"\n{CYAN}RINCIAN REDAMAN:{RESET}")
+        # 1. Cek Status Online/Offline
         for line in lines:
             l_low = line.lower()
-            # Cari baris yang mengandung angka desimal dan kata kunci power
-            if any(x in l_low for x in ["rx", "tx", "dbm", "attenuation"]):
-                # Ambil semua angka desimal (positif/negatif)
+            if target in line and any(x in l_low for x in ["working", "online"]):
+                print(f"{GREEN}[✓] STATUS ONU: ONLINE (WORKING){RESET}")
+                break
+        
+        # 2. Parsing Rincian Redaman
+        print(f"\n{CYAN}RINCIAN REDAMAN / OPTICAL POWER:{RESET}")
+        for line in lines:
+            l_low = line.lower()
+            
+            # Abaikan baris perintah agar tidak membingungkan
+            if any(x in l_low for x in ["show ", "terminal ", "enable"]):
+                continue
+                
+            # Cari baris yang mengandung angka desimal (negatif/positif) dan unit dBm/Power
+            if any(x in l_low for x in ["dbm", "rx", "tx", "power", "optical"]):
+                # Regex untuk mencari angka seperti -25.45 atau 2.10
                 matches = re.findall(r"(-?\d+\.\d+)", line)
                 if matches:
-                    # Biasanya angka pertama adalah Rx (Redaman)
-                    val = float(matches[0])
-                    # Penanda warna
-                    color = RED if val < -27.0 or val > -8.0 else GREEN
-                    print(f"{color}>>> {line.strip()}{RESET}")
-                    found_power = True
-        
+                    try:
+                        # Biasanya angka pertama di baris tersebut adalah Rx (Redaman)
+                        val = float(matches[0])
+                        # Standar Redaman: Hijau jika -8 s/d -27 dBm, selain itu Merah
+                        if -27.0 <= val <= -8.0:
+                            color = GREEN
+                            status_text = "[BAGUS]"
+                        else:
+                            color = RED
+                            status_text = "[ALARM/LEMAH]"
+                            
+                        print(f"{color}>>> {line.strip()} {status_text}{RESET}")
+                        found_power = True
+                    except:
+                        continue
+
         if not found_power:
-            print(f"{YELLOW}[!] OLT belum memberikan data Power. Biasanya SFP lagi loading.{RESET}")
-            print(f"{WHITE}[i] Tips: Coba ulangi 5 detik lagi, Ucenk.{RESET}")
-    
+            print(f"{YELLOW}[!] Power optik tidak ditemukan di output.{RESET}")
+            print(f"{WHITE}[i] Tips: Jika ONU baru online, butuh waktu ~10 detik agar SFP terbaca.{RESET}")
+    else:
+        print(f"{RED}[!] Gagal mengambil data dari OLT.{RESET}")
+        
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 
 def port_vlan(): 

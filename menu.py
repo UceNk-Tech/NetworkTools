@@ -952,7 +952,7 @@ def reset_onu():
     if not creds: return
     brand = creds.get('brand', 'zte').lower()
     
-    print(f"\n{RED}=== RESET ONU (SAFE MODE) ==={RESET}")
+    print(f"\n{GREEN}=== RESET ONU (SAFE MODE) ==={RESET}")
     port = input(f"{WHITE}Masukkan Port (1/2/1): {RESET}").strip()
     onu_id = input(f"{WHITE}Masukkan Nomor ONU (1): {RESET}").strip()
     
@@ -970,7 +970,7 @@ def reset_onu():
         print(f"\n{YELLOW}{output}{RESET}")
         
         # Menggunakan warna kuning pada (y/n)
-        tanya = f"{RED}>>> Reset ONU {port}:{onu_id} ini? {YELLOW}(y/n){RED}: {RESET}"
+        tanya = f"{CYAN}>>> Reset ONU {port}:{onu_id} ini? {YELLOW}(y/n){RED}: {RESET}"
         if input(tanya).lower() == 'y':
             print(f"{CYAN}[*] Sedang memproses reset ONU...{RESET}")
             # Perintah menghapus (reset) ONU dari database OLT

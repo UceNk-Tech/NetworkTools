@@ -620,57 +620,47 @@ def check_optical_power_fast():
     onu_id = input(f"{WHITE}NO ONU: {RESET}").strip()
     target = f"{port}:{onu_id}"
     
-    # Tambahkan perintah diagnosis SFP sebagai pancingan data
+    # PERBAIKAN: Gunakan format perintah yang benar untuk ZTE C300
     if brand == 'fiberhome':
         cmds = ["terminal length 0", f"show onu optical-power {port} {onu_id}"]
-    else: # ZTE
+    else: # ZTE C300
         cmds = [
-            "terminal length 0", "enable", 
+            "terminal length 0", 
+            "enable", 
             f"show gpon onu state gpon-olt_{port} {onu_id}",
-            f"show pon optical-power gpon-onu_{target}",
-            f"show pon optical-transceiver-diagnosis gpon-olt_{port}" # <-- Pancingan SFP
+            # Perintah alternatif jika perintah spesifik ditolak:
+            f"show pon optical-power gpon-onu_{target}", 
+            f"show pon optical-power gpon-olt_{port}" # Lihat satu port sekalian jika target ditolak
         ]
     
-    print(f"\n{CYAN}[*] Menarik data dari SFP OLT (Tunggu 2 detik)...{RESET}")
+    print(f"\n{CYAN}[*] Menghubungkan & Menjalankan Perintah...{RESET}")
     output = telnet_olt_execute(creds, cmds)
     
+    # Debugging: Jika kamu mau lihat error asli dari OLT, buka komen line di bawah:
+    # print(f"DEBUG OLT: {output}") 
+
     print(f"\n{WHITE}HASIL DIAGNOSA ONU {target}:{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
     if output:
+        # Logika parsing tetap sama seperti sebelumnya
         lines = output.splitlines()
         found_power = False
         
+        # Cek baris per baris
         for line in lines:
             l_low = line.lower()
-            if target in line and any(x in l_low for x in ["working", "online"]):
-                print(f"{GREEN}[✓] STATUS ONU: ONLINE (WORKING){RESET}")
-                break
-
-        print(f"\n{CYAN}RINCIAN REDAMAN / OPTICAL POWER:{RESET}")
-        for line in lines:
-            l_low = line.lower()
-            if any(x in l_low for x in ["dbm", "rx", "tx", "power"]):
-                # Cari pola angka desimal
+            if "dbm" in l_low or "working voltage" in l_low:
                 matches = re.findall(r"(-?\d+\.\d+)", line)
                 if matches:
                     val = float(matches[0])
-                    # Analisis Sinyal
-                    if val < -27.0:
-                        color, label = RED, "[SINYAL DROP/LEMAH]"
-                    elif val > -8.0:
-                        color, label = YELLOW, "[OVERLOAD/TERLALU KUAT]"
-                    else:
-                        color, label = GREEN, "[SINYAL NORMAL]"
-                        
-                    print(f"{color}>>> {line.strip()} {label}{RESET}")
+                    color = RED if val < -27.0 else GREEN
+                    print(f"{color}>>> {line.strip()}{RESET}")
                     found_power = True
 
         if not found_power:
-            print(f"{YELLOW}[!] OLT masih mengembalikan nilai N/A.{RESET}")
-            print(f"{WHITE}[i] Coba ketik manual di OLT: show pon optical-power gpon-onu_{target}{RESET}")
-    
-    print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
+            print(f"{RED}[!] OLT Menolak Perintah (Invalid Command).{RESET}")
+            print(f"{WHITE}[i] Coba ganti ke: show pon optical-power gpon-olt_{port}{RESET}")
 
 def port_vlan(): 
     c = get_credentials("olt")

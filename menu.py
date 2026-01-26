@@ -832,7 +832,7 @@ def config_onu_logic():
         print(f" 3. {GREEN}Registrasi ZTE (PPPoE){RESET}")
         print(f" 4. {GREEN}Registrasi FH (Hotspot){RESET}")
         print(f" 5. {GREEN}Registrasi FH (PPPoE){RESET}")
-        print(f" 6. {CYAN}Cek Detail Power Optik Unconfigured (Tabel){RESET}") 
+        print(f" 6. {CYAN}Cek Detail Power Optik Unconfigured{RESET}") 
         print(f" 0. {YELLOW}Keluar/Kembali{RESET}")
         
         opt = input(f"\n{YELLOW}Pilih (0-6): {RESET}")

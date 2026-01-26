@@ -615,32 +615,62 @@ def check_optical_power_fast():
     if not creds: 
         print(f"{YELLOW}[!] Profile OLT belum aktif.{RESET}")
         return
+    
     brand = creds.get('brand', 'zte').lower()
     print(f"\n{CYAN}=== CEK STATUS & POWER OPTIK ONU ==={RESET}")
     port = input(f"{WHITE}Masukkan Port (contoh 1/2/1): {RESET}").strip()
     onu_id = input(f"{WHITE}NO ONU: {RESET}").strip()
     target = f"{port}:{onu_id}"
     
-    cmds = ["terminal length 0", f"show onu optical-power {port} {onu_id}"] if brand == 'fiberhome' else ["terminal length 0", "enable", f"show gpon onu state gpon-olt_{port} {onu_id}", f"show pon optical-power gpon-onu_{target}", f"show gpon onu detail-info gpon-onu_{target}"]
+    # Perintah fokus ke Optical Power
+    if brand == 'fiberhome':
+        cmds = ["terminal length 0", f"show onu optical-power {port} {onu_id}"]
+    else: # ZTE
+        cmds = [
+            "terminal length 0", 
+            "enable", 
+            f"show gpon onu state gpon-olt_{port} {onu_id}", 
+            f"show pon optical-power gpon-onu_{target}"
+        ]
     
-    print(f"\n{CYAN}[*] Menghubungkan...{RESET}")
+    print(f"\n{CYAN}[*] Menghubungkan ke OLT...{RESET}")
     output = telnet_olt_execute(creds, cmds)
-    print(f"\n{WHITE}HASIL DIAGNOSA UNTUK ONU {onu_id}:{RESET}")
+    
+    print(f"\n{WHITE}HASIL DIAGNOSA POWER OPTIK ONU {target}:{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
     if output:
-        found_data = False
-        for line in output.splitlines():
-            line_clean = line.strip(); l_low = line_clean.lower()
-            if any(x in l_low for x in ["show ", "terminal length", "enable"]): continue
-            if any(x in l_low for x in ["offline", "dyinggasp", "los", "logging"]):
-                print(f"{YELLOW}[!] STATUS ONU: OFFLINE ({line_clean}){RESET}"); found_data = True
-            elif "working" in l_low:
-                print(f"{GREEN}[✓] STATUS ONU: ONLINE (WORKING){RESET}"); found_data = True
-            elif "dbm" in l_low:
-                print(f"{YELLOW if 'not online' in l_low else GREEN}>>> {line_clean}{RESET}"); found_data = True
-            elif any(x in l_low for x in ["channel", "multicast", "authpass", "time", "cause", "phase"]):
-                print(f"    {line_clean}"); found_data = True
+        lines = output.splitlines()
+        # 1. Cek Status Online/Offline dulu (ZTE)
+        for line in lines:
+            l_low = line.lower()
+            if f"{port}:{onu_id}" in line and any(x in l_low for x in ["working", "online"]):
+                print(f"{GREEN}[✓] STATUS ONU: ONLINE (WORKING){RESET}")
+            elif f"{port}:{onu_id}" in line and any(x in l_low for x in ["offline", "los", "dyinggasp"]):
+                # Hanya tangkap status utama, bukan tabel history
+                if "time" not in l_low and "cause" not in l_low:
+                    print(f"{RED}[!] STATUS ONU: OFFLINE ({line.strip()}){RESET}")
+
+        # 2. Ambil data Redaman (Parsing Khusus)
+        print(f"\n{CYAN}RINCIAN REDAMAN:{RESET}")
+        for line in lines:
+            l_low = line.lower()
+            # Cari baris yang mengandung 'dbm' tapi abaikan baris perintah/header
+            if "dbm" in l_low and "show" not in l_low and "rx" in l_low:
+                # Highlight warna berdasarkan standar redaman (<-27dBm itu buruk)
+                if "-" in line:
+                    try:
+                        # Ekstrak angka untuk deteksi warna
+                        val = float(re.search(r"(-?\d+\.\d+)", line).group(1))
+                        color = RED if val < -27.0 else GREEN
+                        print(f"{color}>>> {line.strip()}{RESET}")
+                    except:
+                        print(f"{YELLOW}>>> {line.strip()}{RESET}")
+                else:
+                    print(f"{WHITE}>>> {line.strip()}{RESET}")
+    else:
+        print(f"{RED}[!] Gagal mengambil data dari OLT.{RESET}")
+        
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 
 def port_vlan(): 

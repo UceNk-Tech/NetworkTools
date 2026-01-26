@@ -1361,7 +1361,7 @@ def ping_traceroute_tool(): # Menu 24
 
 def dns_tools(): # Menu 25
     print(f"\n{CYAN}=== DNS LOOKUP TOOLS ==={RESET}")
-    domain = input(f"{WHITE}Masukkan Domain (contoh google.com atau mikhmon.online): {RESET}").strip()
+    domain = input(f"{WHITE}Masukkan Domain (contoh google.com): {RESET}").strip()
     
     if not domain:
         print(f"{YELLOW}[!] Domain tidak boleh kosong.{RESET}")
@@ -1374,20 +1374,34 @@ def dns_tools(): # Menu 25
     print(" 0. Kembali")
     
     opt = input(f"\n{YELLOW}Pilih Opsi: {RESET}").strip()
+    if opt == '0' or not opt: return
 
-    print(f"\n{CYAN}[*] Mengambil data DNS untuk {domain}...{RESET}\n")
+    print(f"\n{CYAN}[*] Mengambil data DNS untuk {domain}...{RESET}")
     
+    # Mapping tipe record
+    type_map = {'1': 'A', '2': 'NS', '3': 'ANY'}
+    record_type = type_map.get(opt, 'A')
+
     try:
-        if opt == '1':
-            os.system(f"nslookup -type=A {domain}")
-        elif opt == '2':
-            os.system(f"nslookup -type=NS {domain}")
-        elif opt == '3':
-            os.system(f"dig {domain} ANY +short || nslookup -type=any {domain}")
+        # Menggunakan Cloudflare DNS-over-HTTPS API (Lebih cepat & pasti ada)
+        headers = {'accept': 'application/dns-json'}
+        url = f"https://cloudflare-dns.com/query?name={domain}&type={record_type}"
+        
+        resp = requests.get(url, headers=headers, timeout=10)
+        data = resp.json()
+
+        if "Answer" in data:
+            print(f"\n{GREEN}HASIL LOOKUP ({record_type}):{RESET}")
+            print(f"{WHITE}{'-'*45}{RESET}")
+            for ans in data['Answer']:
+                # Tipe DNS balik ke nama (A=1, NS=2, MX=15, TXT=16)
+                rtype = "A" if ans['type'] == 1 else "NS" if ans['type'] == 2 else "DATA"
+                print(f" {YELLOW}[{rtype}]{RESET} {ans['data']}")
         else:
-            return
+            print(f"{RED}[!] Record tidak ditemukan atau domain salah.{RESET}")
+
     except Exception as e:
-        print(f"{YELLOW}[!] Gagal melakukan lookup: {e}{RESET}")
+        print(f"{RED}[!] Gagal melakukan lookup: {e}{RESET}")
 
     print(f"\n{MAGENTA}--------------------------------------------------{RESET}")
 

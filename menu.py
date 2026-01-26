@@ -903,20 +903,50 @@ def reset_onu():
             print(f"{GREEN}[✓] ONU Berhasil dihapus.{RESET}")
     else: print(f"{RED}[!] Data tidak ditemukan.{RESET}")
 
-def delete_onu(): 
+def restart_onu(): 
     creds = get_credentials("olt")
-    if not creds: return
-    print(f"\n{RED}=== DELETE ONU (FAST TABLE VIEW) ==={RESET}")
-    port = input(f"{WHITE}Port (1/2/1): {RESET}").strip()
-    onu_id = input(f"{WHITE}NO ONU: {RESET}").strip()
+    if not creds: 
+        print(f"{RED}[!] Profile OLT belum diset.{RESET}")
+        return
+        
+    print(f"\n{YELLOW}=== RESTART/REBOOT ONU ==={RESET}")
+    port = input(f"{WHITE}Port (contoh 1/2/1): {RESET}").strip()
+    onu_id = input(f"{WHITE}Nomor ONU: {RESET}").strip()
+    
+    # Cek dulu apakah ONU-nya ada/online
+    print(f"{CYAN}[*] Mengecek status ONU {port}:{onu_id}...{RESET}")
     output = telnet_olt_execute(creds, [f"show gpon onu state gpon-olt_{port} {onu_id}"])
+    
     if output:
-        print(f"\n{WHITE}HASIL CEK ONU:{RESET}")
+        found = False
         for line in output.splitlines():
-            if f"{port}:{onu_id}" in line: print(f"{YELLOW}{line}{RESET}")
-        if input(f"{YELLOW}Konfirmasi Hapus? (y/n): {RESET}").lower() == 'y':
-            telnet_olt_execute(creds, ["conf t", f"interface gpon-olt_{port}", f"no onu {onu_id}", "end", "write"])
-            print(f"{GREEN}[✓] ONU {port}:{onu_id} Terhapus.{RESET}")
+            if f"{port}:{onu_id}" in line:
+                print(f"\n{WHITE}INFO ONU:{RESET}")
+                print(f"{YELLOW}{line}{RESET}")
+                found = True
+        
+        if not found:
+            print(f"{RED}[!] ONU tidak ditemukan pada port tersebut.{RESET}")
+            return
+
+        confirm = input(f"\n{RED}>>> Restart ONU ini sekarang? (y/n): {RESET}").lower()
+        if confirm == 'y':
+            print(f"{CYAN}[*] Mengirim perintah reboot...{RESET}")
+            # Perintah ZTE untuk reboot ONU
+            commands = [
+                "conf t",
+                f"pon-onu-mng gpon-onu_{port}:{onu_id}",
+                "reboot",
+                "exit",
+                "end"
+            ]
+            telnet_olt_execute(creds, commands)
+            print(f"{GREEN}[✓] Perintah Reboot berhasil dikirim ke ONU {port}:{onu_id}.{RESET}")
+            print(f"{WHITE}[!] ONU akan offline sekitar 1-2 menit untuk proses booting.{RESET}")
+        else:
+            print(f"{MAGENTA}[-] Restart dibatalkan.{RESET}")
+    else:
+        print(f"{RED}[!] Gagal terhubung ke OLT.{RESET}")
 
 def check_optical_power_fast():
     creds = get_credentials("olt")
@@ -1473,8 +1503,8 @@ def show_menu():
     print(f"\n{CYAN}--- OLT TOOLS ---{RESET}")
     print("9.  Lihat ONU Terdaftar              14. Port & VLAN Config")
     print("10. Konfigurasi ONU (ZTE/FH)         15. Alarm & Event Viewer")
-    print("11. Reset ONU                        16. Backup & Restore OLT")
-    print("12. Delete ONU                       17. Traffic Report per PON")
+    print("11. Restart ONU                        16. Backup & Restore OLT")
+    print("12. Reset/Delete ONU                       17. Traffic Report per PON")
     print("13. Cek Status Power Optic           18. Auto Audit Script")
     print(f"\n{CYAN}--- NETWORK TOOLS ---{RESET}")
     print("19. Speedtest                        23. WhatMyIP")
@@ -1498,8 +1528,8 @@ def main():
         elif c == '8': log_viewer_mikrotik()
         elif c == '9': list_onu()
         elif c == '10': config_onu_logic()
+        elif c == '11': restart_onu()
         elif c == '11': reset_onu()
-        elif c == '12': delete_onu()
         elif c == '13': check_optical_power_fast()
         elif c == '14': port_vlan()
         elif c == '15': alarm_event_viewer()

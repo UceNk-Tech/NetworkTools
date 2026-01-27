@@ -1554,7 +1554,7 @@ def show_menu():
     os.system('echo "==================================================================" | lolcat 2>/dev/null')
     os.system('echo "                           MIKROTIK TOOLS                         " | lolcat 2>/dev/null')
     os.system('echo "==================================================================" | lolcat 2>/dev/null')
-    print("1.  Mikhmon Server                    5. Bandwidth Usage Report")
+    os.system('echo "1.  Mikhmon Server                    5. Bandwidth Usage Report " | lolcat 2>/dev/null')
     print("2.  Total User Aktif Hotspot          6. Backup & Restore MikroTik")
     print("3.  Cek DHCP Alert (Rogue)            7. SNMP Monitoring")
     print("4.  Hapus Script Mikhmon              8. Log Viewer MikroTik")

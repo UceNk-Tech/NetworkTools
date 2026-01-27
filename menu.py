@@ -1550,7 +1550,9 @@ def show_menu():
     os.system('echo "=================================================================" | lolcat 2>/dev/null')
     os.system('neofetch --ascii_distro hacker 2>/dev/null')
     
-    print(f"\n{WHITE}Profile Aktif: {GREEN}{prof}{RESET}")
+    os.system('echo "=================================================================" | lolcat 2>/dev/null')
+            print(f"\n{WHITE}Profile Aktif: {GREEN}{prof}{RESET}")
+    os.system('echo "=================================================================" | lolcat 2>/dev/null')
     
     print(f"{CYAN}--- MIKROTIK TOOLS ---{RESET}")
     print("1.  Mikhmon Server                    5. Bandwidth Usage Report")

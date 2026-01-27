@@ -860,7 +860,7 @@ def config_onu_logic():
                     if 128 in used_ints: test_id = str(max(used_ints) + 1)
 
             print(f"{CYAN}[+] Memulai Diagnosa Cepat untuk SN: {found_sn}{RESET}")
-            print(f"{CYAN}[+] Pinjam jalur ONU ID {test_id} sementara untuk Cek...{RESET}") 
+            print(f"{CYAN}[+] Meminjam no ONU  {test_id} untuk Cek...{RESET}") 
             
             cmds = [
                 "conf t",

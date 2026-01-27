@@ -784,17 +784,57 @@ def list_onu():
         
     p = input(f"{WHITE}Input Port (contoh 1/2/1): {RESET}")
     brand = creds.get('brand', 'zte').lower()
-    print(f"\n{CYAN}[+] Mengambil daftar semua ONU di port {p}...{RESET}")
+    print(f"\n{CYAN}[+] Mengambil daftar & nama ONU di port {p}...{RESET}")
     
     if brand == 'zte':
-        cmds = ["terminal length 0", "end", f"show pon onu information gpon-olt_{p}"]
+        # Kita ambil info status dan deskripsi sekaligus
+        cmds = [
+            "terminal length 0", 
+            f"show pon onu information gpon-olt_{p}",
+            f"show pon onu description gpon-olt_{p}",
+            "end"
+        ]
     else:
-        cmds = ["terminal length 0", "end", f"show onu status port {p}"]
+        cmds = ["terminal length 0", f"show onu status port {p}", "end"]
         
     output = telnet_olt_execute(creds, cmds)
+    
     if output:
+        lines = output.splitlines()
+        
+        # Filter baris sampah dulu
+        clean_lines = [l for l in lines if "The password is not strong" not in l and "ZXAN#" not in l and "---" not in l]
+        
+        # Pisahkan output deskripsi dan output status
+        # Kita cari baris yang mengandung ONU ID (format x/x/x:x)
+        descriptions = {}
+        status_lines = []
+        
+        for line in clean_lines:
+            # Cari baris deskripsi (biasanya ada di bagian bawah setelah perintah kedua)
+            if ":" in line and any(char.isalpha() for char in line):
+                # Logika sederhana: jika baris punya ":" dan teks, kemungkinan deskripsi atau status
+                parts = line.split()
+                if len(parts) >= 2:
+                    onu_id = parts[0]
+                    # Jika kolom kedua adalah nama/deskripsi
+                    desc = parts[1]
+                    descriptions[onu_id] = desc
+            
+            # Simpan baris yang terlihat seperti baris status (mengandung 'working' atau 'phase')
+            if "working" in line or "phase" in line or "off-line" in line:
+                status_lines.append(line)
+
         print(f"\n{WHITE}==== DAFTAR ONU TERDAFTAR (PORT {p}) ===={RESET}")
-        print(f"{WHITE}{output}{RESET}")
+        
+        for s_line in status_lines:
+            parts = s_line.split()
+            if parts:
+                onu_id = parts[0]
+                # Ambil nama dari dictionary descriptions, kalau tidak ada kosongkan
+                nama = descriptions.get(onu_id, "NoName")
+                # Gabungkan Nama di depan baris status
+                print(f"{WHITE}{nama} {s_line}{RESET}")
     else:
         print(f"{RED}[!] Gagal mengambil data atau port kosong.{RESET}")
 

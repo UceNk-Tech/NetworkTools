@@ -1552,7 +1552,7 @@ def show_menu():
     os.system('echo "============================ NOC TOOLS ===========================" | lolcat 2>/dev/null')
     print(f"\n{WHITE}Profile Aktif: {GREEN}{prof}{RESET}")
     os.system('echo "==================================================================" | lolcat 2>/dev/null')
-    os.system('echo "                           MIKROTIK TOOLS                         | lolcat 2>/dev/null')
+    os.system('echo "                           MIKROTIK TOOLS                         " | lolcat 2>/dev/null')
     os.system('echo "==================================================================" | lolcat 2>/dev/null')
     print("1.  Mikhmon Server                    5. Bandwidth Usage Report")
     print("2.  Total User Aktif Hotspot          6. Backup & Restore MikroTik")

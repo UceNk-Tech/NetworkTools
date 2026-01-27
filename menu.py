@@ -1555,26 +1555,26 @@ def show_menu():
     
     print(f"\n{YELLOW}=== MIKROTIK TOOLS ===")
 
-    os.system('echo "1.  Mikhmon Server                    5. Bandwidth Usage Report   " | lolcat 2>/dev/null')
-    os.system('echo "2.  Total User Aktif Hotspot          6. Backup & Restore MikroTik" | lolcat 2>/dev/null')
-    os.system('echo "3.  Cek DHCP Alert (Rogue)            7. SNMP Monitoring          " | lolcat 2>/dev/null')
-    os.system('echo "4.  Hapus Script Mikhmon              8. Log Viewer MikroTik      " | lolcat 2>/dev/null')
+    print(f"\n{CYAN} 1.  Mikhmon Server                    5. Bandwidth Usage Report   ")
+    print(f"\n{CYAN} 2.  Total User Aktif Hotspot          6. Backup & Restore MikroTik")
+    print(f"\n{CYAN} 3.  Cek DHCP Alert (Rogue)            7. SNMP Monitoring          ")
+    print(f"\n{CYAN} 4.  Hapus Script Mikhmon              8. Log Viewer MikroTik      ")
 
     print(f"\n{YELLOW}=== OLT TOOLS ===")
 
-    os.system('echo "9.  Lihat ONU Terdaftar              14. Port & VLAN Config       " | lolcat 2>/dev/null')
-    os.system('echo "10. Konfigurasi ONU (ZTE/FH)         15. Alarm & Event Viewer     " | lolcat 2>/dev/null')
-    os.system('echo "11. Restart ONU                      16. Backup & Restore OLT     " | lolcat 2>/dev/null')
-    os.system('echo "12. Reset/Delete ONU                 17. Traffic Report per PON   " | lolcat 2>/dev/null')
-    os.system('echo "13. Cek Power Optic (Redaman)        18. Auto Audit Script        " | lolcat 2>/dev/null')
+    print(f"\n{CYAN} 9.  Lihat ONU Terdaftar              14. Port & VLAN Config       ")
+    print(f"\n{CYAN} 10. Konfigurasi ONU (ZTE/FH)         15. Alarm & Event Viewer     ")
+    print(f"\n{CYAN} 11. Restart ONU                      16. Backup & Restore OLT     ")
+    print(f"\n{CYAN} 12. Reset/Delete ONU                 17. Traffic Report per PON   ")
+    print(f"\n{CYAN} 13. Cek Power Optic (Redaman)        18. Auto Audit Script        ")
 
     print(f"\n{YELLOW}=== NETWORK TOOLS ===")
 
-    os.system('echo "19. Speedtest                        23. WhatMyIP                 " | lolcat 2>/dev/null')
-    os.system('echo "20. Nmap Scan                        24. Ping & Traceroute        " | lolcat 2>/dev/null')
-    os.system('echo "21. MAC Lookup                       25. DNS Tools                " | lolcat 2>/dev/null')
-    os.system('echo "22. Port Scaner                      26. Update-Tools             " | lolcat 2>/dev/null')
-    print(f"\n{YELLOW}99. Profile Setting{RESET}\n{MAGENTA}0. Exit{RESET}")
+    print(f"\n{CYAN} 19. Speedtest                        23. WhatMyIP                 ")
+    print(f"\n{CYAN} 20. Nmap Scan                        24. Ping & Traceroute        ")
+    print(f"\n{CYAN} 21. MAC Lookup                       25. DNS Tools                ")
+    print(f"\n{CYAN} 22. Port Scaner                      26. Update-Tools             ")
+    print(f"\n{CYAN} 99. Profile Setting{RESET}\n{MAGENTA}0. Exit{RESET}")
     os.system('echo "====================== github.com/UceNk-Tech =====================" | lolcat 2>/dev/null')
 
 

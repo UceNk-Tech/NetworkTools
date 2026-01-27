@@ -1544,14 +1544,14 @@ def update_tools_auto(): # Menu 26
 def show_menu():
     v = load_vault(); prof = v.get("active_profile", "Ucenk")
     os.system('clear')
-    os.system('echo "=================================================================" | lolcat 2>/dev/null')
+    os.system('echo "==================================================================" | lolcat 2>/dev/null')
     os.system('figlet -f slant "Ucenk D-Tech" | lolcat 2>/dev/null')
     os.system('echo "        Premium Network Management System - Author: Ucenk" | lolcat 2>/dev/null')
-    os.system('echo "=================================================================" | lolcat 2>/dev/null')
+    os.system('echo "==================================================================" | lolcat 2>/dev/null')
     os.system('neofetch --ascii_distro hacker 2>/dev/null')
-    os.system('echo "========================== NOC TOOLS ============================" | lolcat 2>/dev/null')
+    os.system('echo "============================ NOC TOOLS ===========================" | lolcat 2>/dev/null')
     print(f"\n{WHITE}Profile Aktif: {GREEN}{prof}{RESET}")
-    os.system('echo "=================================================================" | lolcat 2>/dev/null')
+    os.system('echo "==================================================================" | lolcat 2>/dev/null')
 
     os.system('echo "========================= MIKROTIK TOOLS =========================" | lolcat 2>/dev/null')
     print("1.  Mikhmon Server                    5. Bandwidth Usage Report")

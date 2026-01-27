@@ -1552,25 +1552,25 @@ def show_menu():
     os.system('echo "============================ NOC TOOLS ===========================" | lolcat 2>/dev/null')
     print(f"\n{WHITE}                      Profile Aktif: {GREEN}{prof}{RESET}")
     os.system('echo "==================================================================" | lolcat 2>/dev/null')
-    
-    print(f"\n{YELLOW}                            === MIKROTIK ===                     ")
-    
+    os.system('echo "                           ==================                     " | lolcat 2>/dev/null')
+    print(f"\n{YELLOW}                          ||   MIKROTIK   ||                      ")
+    os.system('echo "                           ==================                     " | lolcat 2>/dev/null')
     os.system('echo "1.  Mikhmon Server                    5. Bandwidth Usage Report   " | lolcat 2>/dev/null')
     os.system('echo "2.  Total User Aktif Hotspot          6. Backup & Restore MikroTik" | lolcat 2>/dev/null')
     os.system('echo "3.  Cek DHCP Alert (Rogue)            7. SNMP Monitoring          " | lolcat 2>/dev/null')
     os.system('echo "4.  Hapus Script Mikhmon              8. Log Viewer MikroTik      " | lolcat 2>/dev/null')
-
-    print(f"\n{YELLOW}                              === OLT ===                        ")
-    os.system('echo "==================================================================" | lolcat 2>/dev/null')
+    os.system('echo "                           ==================                     " | lolcat 2>/dev/null')
+    print(f"\n{YELLOW}                          ||      OLT     ||                      ")
+    os.system('echo "                           ==================                     " | lolcat 2>/dev/null')
 
     os.system('echo "9.  Lihat ONU Terdaftar              14. Port & VLAN Config       " | lolcat 2>/dev/null')
     os.system('echo "10. Konfigurasi ONU (ZTE/FH)         15. Alarm & Event Viewer     " | lolcat 2>/dev/null')
     os.system('echo "11. Restart ONU                      16. Backup & Restore OLT     " | lolcat 2>/dev/null')
     os.system('echo "12. Reset/Delete ONU                 17. Traffic Report per PON   " | lolcat 2>/dev/null')
     os.system('echo "13. Cek Power Optic (Redaman)        18. Auto Audit Script        " | lolcat 2>/dev/null')
-
-    print(f"\n{YELLOW}                           === NETWORK  ===                      ")
-    os.system('echo "==================================================================" | lolcat 2>/dev/null')
+    os.system('echo "                           ==================                     " | lolcat 2>/dev/null')
+    print(f"\n{YELLOW}                          ||    NETWORK   ||                     ")
+    os.system('echo "                           ==================                     " | lolcat 2>/dev/null')
 
     os.system('echo "19. Speedtest                        23. WhatMyIP                 " | lolcat 2>/dev/null')
     os.system('echo "20. Nmap Scan                        24. Ping & Traceroute        " | lolcat 2>/dev/null')

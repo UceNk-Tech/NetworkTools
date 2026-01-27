@@ -784,37 +784,52 @@ def list_onu():
         
     p = input(f"{WHITE}Input Port (contoh 1/2/1): {RESET}")
     brand = creds.get('brand', 'zte').lower()
-    print(f"\n{CYAN}[+] Mengambil daftar ONU di port {p}...{RESET}")
+    print(f"\n{CYAN}[+] Mengambil daftar & nama ONU di port {p}...{RESET}")
     
     if brand == 'zte':
-        # Kita gunakan command ini karena biasanya kolom 'Name' ada di sini
-        cmds = ["terminal length 0", "end", f"show pon onu information gpon-olt_{p}"]
+        # Kita ambil dua data: status (information) dan nama (description)
+        cmds = [
+            "terminal length 0", 
+            f"show pon onu information gpon-olt_{p}",
+            f"show pon onu description gpon-olt_{p}",
+            "end"
+        ]
     else:
-        cmds = ["terminal length 0", "end", f"show onu status port {p}"]
+        cmds = ["terminal length 0", f"show onu status port {p}", "end"]
         
     output = telnet_olt_execute(creds, cmds)
     if output:
-        print(f"\n{WHITE}==== DAFTAR ONU TERDAFTAR (PORT {p}) ===={RESET}")
-        
         lines = output.splitlines()
+        
+        # 1. Ambil Nama/Description dulu dan simpan di dictionary
+        name_map = {}
         for line in lines:
-            # Filter baris yang tidak diinginkan
-            if any(x in line for x in ["The password is not strong", "ZXAN#", "---", "ONU-ID"]):
-                continue
-            
-            # Mencari baris yang mengandung data ONU (biasanya diawali ID seperti 1/2/2:52)
-            if ":" in line and (p in line):
+            if ":" in line and p in line:
                 parts = line.split()
-                # Di ZTE, urutan kolom biasanya: ONU-ID, Name, State, dst.
-                # Kita coba ambil Name di kolom kedua (index 1)
+                # Pada 'show pon onu description', biasanya formatnya: ID, Name, Description
                 if len(parts) >= 2:
                     onu_id = parts[0]
-                    name = parts[1] # Ini akan mengambil 'yatduda'
-                    
-                    # Kita susun ulang: Nama dulu, baru sisa barisnya
-                    # Kita buang bagian ID di awal karena sudah diganti posisi atau bisa tetap ada
-                    rest_of_line = " ".join(parts[0:]) 
-                    print(f"{WHITE}{name} {rest_of_line}{RESET}")
+                    name = parts[1]
+                    # Kita simpan jika ini adalah bagian dari output description
+                    if "working" not in line and "phase" not in line:
+                        name_map[onu_id] = name
+
+        print(f"\n{WHITE}==== DAFTAR ONU TERDAFTAR (PORT {p}) ===={RESET}")
+        
+        # 2. Cetak baris status dengan Nama di depannya
+        for line in lines:
+            # Sembunyikan pesan password dan prompt OLT
+            if any(x in line for x in ["The password is not strong", "ZXAN#", "---", "ONU-ID", "Description"]):
+                continue
+            
+            # Cari baris yang berisi status ONU (mengandung 'working' atau 'phase')
+            if ":" in line and any(status in line for status in ["working", "phase", "off-line"]):
+                parts = line.split()
+                onu_id = parts[0]
+                nama_onu = name_map.get(onu_id, "NoName") # Ambil nama dari map tadi
+                
+                # Gabungkan: Nama + Baris aslinya
+                print(f"{WHITE}{nama_onu} {line.strip()}{RESET}")
     else:
         print(f"{RED}[!] Gagal mengambil data atau port kosong.{RESET}")
 

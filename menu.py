@@ -1561,6 +1561,7 @@ def show_menu():
     os.system('echo "4.  Hapus Script Mikhmon              8. Log Viewer MikroTik      " | lolcat 2>/dev/null')
 
     print(f"\n{YELLOW}                              === OLT ===                        ")
+    os.system('echo "==================================================================" | lolcat 2>/dev/null')
 
     os.system('echo "9.  Lihat ONU Terdaftar              14. Port & VLAN Config       " | lolcat 2>/dev/null')
     os.system('echo "10. Konfigurasi ONU (ZTE/FH)         15. Alarm & Event Viewer     " | lolcat 2>/dev/null')
@@ -1568,7 +1569,8 @@ def show_menu():
     os.system('echo "12. Reset/Delete ONU                 17. Traffic Report per PON   " | lolcat 2>/dev/null')
     os.system('echo "13. Cek Power Optic (Redaman)        18. Auto Audit Script        " | lolcat 2>/dev/null')
 
-    print(f"\n{YELLOW}                             === NETWORK  ===                    ")
+    print(f"\n{YELLOW}                           === NETWORK  ===                      ")
+    os.system('echo "==================================================================" | lolcat 2>/dev/null')
 
     os.system('echo "19. Speedtest                        23. WhatMyIP                 " | lolcat 2>/dev/null')
     os.system('echo "20. Nmap Scan                        24. Ping & Traceroute        " | lolcat 2>/dev/null')

@@ -1556,7 +1556,7 @@ def show_menu():
     print(f"\n{YELLOW}=== MIKROTIK TOOLS ===")
 
     print(f"\n{CYAN} 1.  Mikhmon Server                    5. Bandwidth Usage Report   ")
-    print(f"\n{CYAN} 2.  Total User Aktif Hotspot          6. Backup & Restore MikroTik")
+    print(f"\n{CYAN} 2.  User Aktif Hotspot                6. Backup & Restore MikroTik")
     print(f"\n{CYAN} 3.  Cek DHCP Alert (Rogue)            7. SNMP Monitoring          ")
     print(f"\n{CYAN} 4.  Hapus Script Mikhmon              8. Log Viewer MikroTik      ")
 

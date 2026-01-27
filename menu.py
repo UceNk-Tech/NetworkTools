@@ -476,41 +476,7 @@ def log_viewer_mikrotik():
     except Exception as e:
         print(f"{YELLOW}[!] Gagal mengambil log: {e}{RESET}")
 
-# --- OLT TOOLS (9-14) ---
-def list_onu(): 
-    creds = get_credentials("olt")
-    if not creds: 
-        print(f"{RED}[!] Profile OLT belum diset.{RESET}")
-        return
-        
-    p = input(f"{WHITE}Input Port (contoh 1/2/1): {RESET}").strip()
-    brand = creds.get('brand', 'zte').lower()
-    print(f"\n{CYAN}[+] Mengambil daftar lengkap ONU di port {p}...{RESET}")
-    
-    if brand == 'zte':
-        cmds = ["terminal length 0", "enable", f"show pon onu information gpon-olt_{p}"]
-    else:
-        cmds = ["terminal length 0", f"show onu status port {p}"]
-        
-    output = telnet_olt_execute(creds, cmds)
-    
-    if output:
-        print(f"\n{WHITE}==== DAFTAR ONU TERDAFTAR (PORT {p}) ===={RESET}")
-        print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
-        
-        lines = output.splitlines()
-        found_any = False
-        for line in lines:
-            if p in line or "OnuIndex" in line or "Admin State" in line:
-                print(f"{WHITE}{line}{RESET}")
-                found_any = True
-        
-        if not found_any:
-            print(f"{WHITE}{output}{RESET}")
-            
-        print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
-    else:
-        print(f"{RED}[!] Gagal mengambil data atau port kosong.{RESET}")
+
 # --- MIKROTIK TOOLS (1-8) ---
 def run_mikhmon(): 
     print(f"\n{CYAN}[+] Menyiapkan Mikhmon Server...{RESET}")
@@ -784,52 +750,27 @@ def list_onu():
         
     p = input(f"{WHITE}Input Port (contoh 1/2/1): {RESET}")
     brand = creds.get('brand', 'zte').lower()
-    print(f"\n{CYAN}[+] Mengambil daftar & nama ONU di port {p}...{RESET}")
+    print(f"\n{CYAN}[+] Mengambil daftar semua ONU di port {p}...{RESET}")
     
     if brand == 'zte':
-        # Kita ambil dua data: status (information) dan nama (description)
-        cmds = [
-            "terminal length 0", 
-            f"show pon onu information gpon-olt_{p}",
-            f"show pon onu description gpon-olt_{p}",
-            "end"
-        ]
+        cmds = ["terminal length 0", "end", f"show pon onu information gpon-olt_{p}"]
     else:
-        cmds = ["terminal length 0", f"show onu status port {p}", "end"]
+        cmds = ["terminal length 0", "end", f"show onu status port {p}"]
         
     output = telnet_olt_execute(creds, cmds)
     if output:
+        # --- Bagian Revisi: Membersihkan Output ---
         lines = output.splitlines()
-        
-        # 1. Ambil Nama/Description dulu dan simpan di dictionary
-        name_map = {}
-        for line in lines:
-            if ":" in line and p in line:
-                parts = line.split()
-                # Pada 'show pon onu description', biasanya formatnya: ID, Name, Description
-                if len(parts) >= 2:
-                    onu_id = parts[0]
-                    name = parts[1]
-                    # Kita simpan jika ini adalah bagian dari output description
-                    if "working" not in line and "phase" not in line:
-                        name_map[onu_id] = name
+        filtered_lines = [
+            line for line in lines 
+            if "The password is not strong" not in line 
+            and "ZXAN#" not in line
+        ]
+        clean_output = "\n".join(filtered_lines).strip()
+        # ------------------------------------------
 
         print(f"\n{WHITE}==== DAFTAR ONU TERDAFTAR (PORT {p}) ===={RESET}")
-        
-        # 2. Cetak baris status dengan Nama di depannya
-        for line in lines:
-            # Sembunyikan pesan password dan prompt OLT
-            if any(x in line for x in ["The password is not strong", "ZXAN#", "---", "ONU-ID", "Description"]):
-                continue
-            
-            # Cari baris yang berisi status ONU (mengandung 'working' atau 'phase')
-            if ":" in line and any(status in line for status in ["working", "phase", "off-line"]):
-                parts = line.split()
-                onu_id = parts[0]
-                nama_onu = name_map.get(onu_id, "NoName") # Ambil nama dari map tadi
-                
-                # Gabungkan: Nama + Baris aslinya
-                print(f"{WHITE}{nama_onu} {line.strip()}{RESET}")
+        print(f"{WHITE}{clean_output}{RESET}")
     else:
         print(f"{RED}[!] Gagal mengambil data atau port kosong.{RESET}")
 

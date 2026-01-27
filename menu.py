@@ -1570,7 +1570,7 @@ def show_menu():
     print(f"\n{YELLOW}                       === NETWORK TOOLS ===                      ")
     os.system('echo "==================================================================" | lolcat 2>/dev/null')
     os.system('echo "19. Speedtest                        23. WhatMyIP                 " | lolcat 2>/dev/null')
-    os.system('echo"20. Nmap Scan                        24. Ping & Traceroute         " | lolcat 2>/dev/null')
+    os.system('echo" 20. Nmap Scan                        24. Ping & Traceroute        " | lolcat 2>/dev/null')
     os.system('echo "21. MAC Lookup                       25. DNS Tools                " | lolcat 2>/dev/null')
     os.system('echo "22. Port Scaner                      26. Update-Tools             " | lolcat 2>/dev/null')
     print(f"\n{YELLOW}99. Profile Setting{RESET}\n{MAGENTA}0. Exit{RESET}")

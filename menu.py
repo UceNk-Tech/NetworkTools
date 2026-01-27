@@ -1565,7 +1565,7 @@ def show_menu():
     os.system('echo "10. Konfigurasi ONU (ZTE/FH)         15. Alarm & Event Viewer     " | lolcat 2>/dev/null')
     os.system('echo "11. Restart ONU                      16. Backup & Restore OLT     " | lolcat 2>/dev/null')
     os.system('echo "12. Reset/Delete ONU                 17. Traffic Report per PON   " | lolcat 2>/dev/null')
-    os.system('echo "13. Cek Power Optic (Redaman)        18. Auto Audit Script")
+    os.system('echo "13. Cek Power Optic (Redaman)        18. Auto Audit Script        " | lolcat 2>/dev/null')
     os.system('echo "==================================================================" | lolcat 2>/dev/null')
     print(f"\n{YELLOW}                       === NETWORK TOOLS ===                      ")
     os.system('echo "==================================================================" | lolcat 2>/dev/null')

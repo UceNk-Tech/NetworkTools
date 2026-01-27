@@ -1554,29 +1554,27 @@ def show_menu():
     print(f"\n{WHITE}Profile Aktif: {GREEN}{prof}{RESET}")
     os.system('echo "=================================================================" | lolcat 2>/dev/null')
 
-    print(f"{CYAN}                       --- MIKROTIK TOOLS ---{RESET}")
-    os.system('echo "=================================================================" | lolcat 2>/dev/null')
+    os.system('echo "========================= MIKROTIK TOOLS =========================" | lolcat 2>/dev/null')
     print("1.  Mikhmon Server                    5. Bandwidth Usage Report")
     print("2.  Total User Aktif Hotspot          6. Backup & Restore MikroTik")
     print("3.  Cek DHCP Alert (Rogue)            7. SNMP Monitoring")
     print("4.  Hapus Script Mikhmon              8. Log Viewer MikroTik")
-    os.system('echo "=================================================================" | lolcat 2>/dev/null')
-    print(f"\n{CYAN}                        --- OLT TOOLS ---{RESET}")
-    os.system('echo "=================================================================" | lolcat 2>/dev/null')
+    os.system('echo "============================ OLT TOOLS ===========================" | lolcat 2>/dev/null')
     print("9.  Lihat ONU Terdaftar              14. Port & VLAN Config")
     print("10. Konfigurasi ONU (ZTE/FH)         15. Alarm & Event Viewer")
     print("11. Restart ONU                      16. Backup & Restore OLT")
     print("12. Reset/Delete ONU                 17. Traffic Report per PON")
     print("13. Cek Power Optic (Redaman)        18. Auto Audit Script")
-    os.system('echo "=================================================================" | lolcat 2>/dev/null')
-    print(f"\n{CYAN}                      --- NETWORK TOOLS ---{RESET}")
-    os.system('echo "=================================================================" | lolcat 2>/dev/null')
+    os.system('echo "========================== NETWORK TOOLS =========================" | lolcat 2>/dev/null')
     print("19. Speedtest                        23. WhatMyIP")
     print("20. Nmap Scan                        24. Ping & Traceroute")
     print("21. MAC Lookup                       25. DNS Tools")
     print("22. Port Scaner                      26. Update-Tools")
     print(f"\n{YELLOW}99. Profile Setting{RESET}\n{MAGENTA}0. Exit{RESET}")
-    os.system('echo "=================================================================" | lolcat 2>/dev/null')
+    os.system('echo "==================== github.com/UceNk-Tech =======================" | lolcat 2>/dev/null')
+
+
+
 
 
 def main():

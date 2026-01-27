@@ -1551,7 +1551,7 @@ def show_menu():
     os.system('neofetch --ascii_distro hacker 2>/dev/null')
     
     os.system('echo "=================================================================" | lolcat 2>/dev/null')
-            print(f"\n{WHITE}Profile Aktif: {GREEN}{prof}{RESET}")
+    print(f"\n{WHITE}Profile Aktif: {GREEN}{prof}{RESET}")
     os.system('echo "=================================================================" | lolcat 2>/dev/null')
     
     print(f"{CYAN}--- MIKROTIK TOOLS ---{RESET}")

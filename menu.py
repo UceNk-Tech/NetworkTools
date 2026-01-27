@@ -861,18 +861,7 @@ def config_onu_logic():
             print(f"{CYAN}[+] Memulai Diagnosa Cepat untuk SN: {found_sn}{RESET}")
             print(f"{CYAN}[+] Meminjam no ONU  {test_id} untuk Cek...{RESET}") 
             
-            cmds = [
-                "conf t",
-                f"interface gpon-olt_{p}",
-                f"onu {test_id} type ALL sn {found_sn}",
-                "exit",
-                "terminal length 0",
-                f"show pon power attenuation gpon-onu_{p}:{test_id}",
-                "conf t",
-                f"interface gpon-olt_{p}",
-                f"no onu {test_id}",
-                "end"
-            ]
+            cmds = ["conf t", f"interface gpon-olt_{p}", f"onu {test_id} type ALL sn {found_sn}", "exit", "terminal length 0", f"show pon power attenuation gpon-onu_{p}:{test_id}", "conf t", f"interface gpon-olt_{p}", f"no onu {test_id}", "end"]
             output = telnet_olt_execute(creds, cmds)
             
             print(f"\n{WHITE}DETAIL POWER & ATTENUATION ONU (PRE-CONFIG):{RESET}")
@@ -883,16 +872,13 @@ def config_onu_logic():
                 for line in lines:
                     if "OLT" in line and "ONU" in line: show_table = True
                     if any(x in line for x in ["ZXAN", "conf t", "exit", "no onu", "terminal length", "end"]): show_table = False
-                    
                     if show_table and line.strip() and "% The password" not in line:
                         print(f"{YELLOW}{line}{RESET}")
-
                 for line in lines:
                     if "down" in line.lower() and "Rx" in line:
                         m = re.findall(r"Rx\s*:\s*(-?\d+\.\d+)", line)
                         if m:
-                            rx = float(m[0])
-                            color = GREEN if rx > -25.0 else YELLOW if rx > -27.0 else RED
+                            rx = float(m[0]); color = GREEN if rx > -25.0 else YELLOW if rx > -27.0 else RED
                             print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
                             print(f"{WHITE}Hasil Analisa (Rx ONU): {color}{rx} dBm{RESET}")
             else:
@@ -905,30 +891,27 @@ def config_onu_logic():
             onu_id = input(f"{WHITE}Masukkan ID ONU (misal 16): {RESET}").strip()
             sn = input(f"{WHITE}Masukkan SN ONU [{found_sn}]: {RESET}").strip() or found_sn
             name = input(f"{WHITE}Nama Pelanggan: {RESET}").strip().replace(" ", "_")
-            vlan_hotspot = "133" # Default Hotspot
+            vlan_h = "133"
             cmds = []
             
             if opt == '2': # ZTE HOTSPOT
                 vlan = input(f"{WHITE}VLAN Hotspot: {RESET}").strip()
                 cmds = ["conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL sn {sn}", "exit", f"interface gpon-onu_{p}:{onu_id}", f"name {name}", "tcont 1 profile server", "gemport 1 tcont 1", "exit", f"service-port {onu_id} vport 1 gpon-onu_{p}:{onu_id} user-vlan {vlan} vlan {vlan}", f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {vlan}", f"vlan port wifi_0/1 mode tag vlan {vlan}", f"vlan port eth_0/1 mode tag vlan {vlan}", "security-mgmt 1 state enable mode forward protocol web", "end", "write"]
             elif opt == '3': # ZTE HOTSPOT + PPPOE
-                vlan_pppoe = input(f"{WHITE}VLAN PPPoE: {RESET}").strip()
-                user = input(f"{WHITE}User PPPoE: {RESET}").strip()
-                pw = input(f"{WHITE}Pass PPPoE: {RESET}").strip()
-                ssid_h = input(f"{WHITE}Nama SSID Hotspot: {RESET}").strip()
-                # ID service port menggunakan pola unik agar tidak bentrok (onu_id dan onu_id + 500)
+                v_p = input(f"{WHITE}VLAN PPPoE: {RESET}").strip()
+                u = input(f"{WHITE}User PPPoE: {RESET}").strip(); pw = input(f"{WHITE}Pass PPPoE: {RESET}").strip()
+                ssid = input(f"{WHITE}Nama SSID Hotspot: {RESET}").strip()
                 sp1 = onu_id; sp2 = str(int(onu_id) + 500)
-                cmds = ["conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL sn {sn}", "exit", f"interface gpon-onu_{p}:{onu_id}", f"name {name}", "tcont 1 profile server", "tcont 2 profile server", "gemport 1 tcont 1", "gemport 2 tcont 2", "exit", f"service-port {sp1} vport 1 gpon-onu_{p}:{onu_id} user-vlan {vlan_pppoe} vlan {vlan_pppoe}", f"service-port {sp2} vport 2 gpon-onu_{p}:{onu_id} user-vlan {vlan_hotspot} vlan {vlan_hotspot}", f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {vlan_pppoe}", f"service 2 gemport 2 vlan {vlan_hotspot}", f"wan-ip 1 mode pppoe username {user} password {pw} vlan-profile pppoe-langgor host 1", "security-mgmt 212 state enable mode forward protocol web", "interface wifi wifi_0/2 state unlock", f"ssid ctrl wifi_0/2 name {ssid_h}", f"vlan port wifi_0/2 mode tag vlan {vlan_hotspot}", f"vlan port eth_0/1 mode tag vlan {vlan_pppoe}", "end", "write"]
+                cmds = ["conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL sn {sn}", "exit", f"interface gpon-onu_{p}:{onu_id}", f"name {name}", "tcont 1 profile server", "tcont 2 profile server", "gemport 1 tcont 1", "gemport 2 tcont 2", "exit", f"service-port {sp1} vport 1 gpon-onu_{p}:{onu_id} user-vlan {v_p} vlan {v_p}", f"service-port {sp2} vport 2 gpon-onu_{p}:{onu_id} user-vlan {vlan_h} vlan {vlan_h}", f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {v_p}", f"service 2 gemport 2 vlan {vlan_h}", f"wan-ip 1 mode pppoe username {u} password {pw} vlan-profile pppoe-langgor host 1", "security-mgmt 212 state enable mode forward protocol web", "interface wifi wifi_0/2 state unlock", f"ssid ctrl wifi_0/2 name {ssid}", f"vlan port wifi_0/2 mode tag vlan {vlan_h}", f"vlan port eth_0/1 mode tag vlan {v_p}", "end", "write"]
             elif opt == '4': # FH HOTSPOT
                 vlan = input(f"{WHITE}VLAN Hotspot: {RESET}").strip()
                 cmds = ["conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL sn {sn}", "exit", f"interface gpon-onu_{p}:{onu_id}", f"name {name}", "tcont 1 profile server", "gemport 1 tcont 1", "exit", f"service-port {onu_id} vport 1 gpon-onu_{p}:{onu_id} user-vlan {vlan} vlan {vlan}", f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {vlan}", f"vlan port wifi_0/1 mode tag vlan {vlan}", "end", "write"]
             elif opt == '5': # FH HOTSPOT + PPPOE
-                vlan_pppoe = input(f"{WHITE}VLAN PPPoE: {RESET}").strip()
-                user = input(f"{WHITE}User PPPoE: {RESET}").strip()
-                pw = input(f"{WHITE}Pass PPPoE: {RESET}").strip()
-                ssid_h = input(f"{WHITE}Nama SSID Hotspot: {RESET}").strip()
+                v_p = input(f"{WHITE}VLAN PPPoE: {RESET}").strip()
+                u = input(f"{WHITE}User PPPoE: {RESET}").strip(); pw = input(f"{WHITE}Pass PPPoE: {RESET}").strip()
+                ssid = input(f"{WHITE}Nama SSID Hotspot: {RESET}").strip()
                 sp1 = onu_id; sp2 = str(int(onu_id) + 500)
-                cmds = ["conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL sn {sn}", "exit", f"interface gpon-onu_{p}:{onu_id}", f"name {name}", "tcont 1 profile server", "tcont 2 profile server", "gemport 1 tcont 1", "gemport 2 tcont 2", "exit", f"service-port {sp1} vport 1 gpon-onu_{p}:{onu_id} user-vlan {vlan_pppoe} vlan {vlan_pppoe}", f"service-port {sp2} vport 2 gpon-onu_{p}:{onu_id} user-vlan {vlan_hotspot} vlan {vlan_hotspot}", f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {vlan_pppoe}", f"service 2 gemport 2 vlan {vlan_hotspot}", f"wan-ip 1 mode pppoe username {user} password {pw} vlan-profile pppoe-langgor host 1", "interface wifi wifi_0/2 state unlock", f"ssid ctrl wifi_0/2 name {ssid_h}", f"vlan port wifi_0/2 mode tag vlan {vlan_hotspot}", "end", "write"]
+                cmds = ["conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL sn {sn}", "exit", f"interface gpon-onu_{p}:{onu_id}", f"name {name}", "tcont 1 profile server", "tcont 2 profile server", "gemport 1 tcont 1", "gemport 2 tcont 2", "exit", f"service-port {sp1} vport 1 gpon-onu_{p}:{onu_id} user-vlan {v_p} vlan {v_p}", f"service-port {sp2} vport 2 gpon-onu_{p}:{onu_id} user-vlan {vlan_h} vlan {vlan_h}", f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {v_p}", f"service 2 gemport 2 vlan {vlan_h}", f"wan-ip 1 mode pppoe username {u} password {pw} vlan-profile pppoe-langgor host 1", "interface wifi wifi_0/2 state unlock", f"ssid ctrl wifi_0/2 name {ssid}", f"vlan port wifi_0/2 mode tag vlan {vlan_h}", "end", "write"]
 
             if cmds:
                 print(f"\n{CYAN}[*] Mengirim konfigurasi...{RESET}")

@@ -1572,7 +1572,7 @@ def show_menu():
 
     print(f"\n{CYAN} 19. Speedtest                        23. WhatMyIP                 ")
     print(f"\n{CYAN} 20. Nmap                             24. Ping & Traceroute        ")
-    print(f"\n{CYAN} 21. MAC Lookup                       25. DNS Tools                ")
+    print(f"\n{CYAN} 21. MAC Lookup                       25. DNS Checker              ")
     print(f"\n{CYAN} 22. Port Scaner                      26. Update-Tools             ")
     print(f"\n{GREEN} 99. Profile Setting{RESET}\n{YELLOW} 0 . Exit{RESET}")
     os.system('echo "======================= github.com/UceNk-Tech =====================" | lolcat 2>/dev/null')

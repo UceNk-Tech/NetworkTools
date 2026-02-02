@@ -1537,7 +1537,7 @@ def show_menu():
     v = load_vault(); prof = v.get("active_profile", "Ucenk")
     os.system('clear')
     os.system('echo "==================================================================" | lolcat 2>/dev/null')
-    os.system('figlet -f slant "Ucenk D-Tech" | lolcat 2>/dev/null')
+    os.system('figlet -f slant "ONE HOTSPOT" | lolcat 2>/dev/null')
     os.system('echo "        Premium Network Management System - Author: Ucenk" | lolcat 2>/dev/null')
     os.system('echo "==================================================================" | lolcat 2>/dev/null')
  

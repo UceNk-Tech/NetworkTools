@@ -226,20 +226,43 @@ def run_mikhmon():
         print(f"\n{YELLOW}[-] Server dimatikan.{RESET}")
 
 def mk_hotspot_active(): 
+    # Mengambil kredensial dari profil yang tersimpan
     c = get_credentials("mikrotik")
     if not c: 
         print(f"{RED}[!] Profile belum diset.{RESET}")
         return
+
     try:
-        pool = routeros_api.RouterOsApiPool(c['ip'], username=c['user'], password=c['pass'], plaintext_login=True)
+        # Inisialisasi koneksi ke RouterOS API
+        pool = routeros_api.RouterOsApiPool(
+            c['ip'], 
+            username=c['user'], 
+            password=c['pass'], 
+            plaintext_login=True
+        )
         api = pool.get_api()
+        
+        # Mengambil resource dari /ip/hotspot/active
         act = api.get_resource('/ip/hotspot/active').get()
+        
         print(f"\n{GREEN}>>> TOTAL USER AKTIF: {len(act)} {RESET}")
-        for user in act[:-50]: 
-            print(f" - {user.get('user')} | IP: {user.get('address')}")
+        print(f"{'No.':<4} | {'User':<15} | {'IP Address':<15} | {'Uptime':<10}")
+        print("-" * 55)
+
+        # Iterasi semua user tanpa limitasi slicing [:-50]
+        for index, user in enumerate(act, start=1):
+            user_name = user.get('user', 'Unknown')
+            ip_addr = user.get('address', '0.0.0.0')
+            uptime = user.get('uptime', '00:00:00')
+            
+            # Menampilkan data dengan format yang rapi
+            print(f"{index:<4} | {user_name:<15} | {ip_addr:<15} | {uptime:<10}")
+
+        # Menutup koneksi dengan aman
         pool.disconnect()
+
     except Exception as e: 
-        print(f"{RED}Error: {e}{RESET}")
+        print(f"{RED}[!] Error: {e}{RESET}")
 
 def cek_dhcp_rogue():
     creds = get_credentials("mikrotik")

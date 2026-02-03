@@ -233,22 +233,25 @@ def mk_hotspot_active(): # Menu 2
     try:
         pool = routeros_api.RouterOsApiPool(c['ip'], username=c['user'], password=c['pass'], plaintext_login=True)
         api = pool.get_api()
+        # Mengambil semua resource tanpa filter limit
         act = api.get_resource('/ip/hotspot/active').get()
         
         print(f"\n{GREEN}>>> TOTAL USER AKTIF: {len(act)} {RESET}")
         
-        # Header Tabel agar rapi
-        print(f"{WHITE}{'No':<4} | {'User':<15} | {'IP Address':<15} | {'Uptime':<10}{RESET}")
-        print("-" * 55)
+        # Header Tabel
+        print(f"{WHITE}{'No':<4} | {'User':<15} | {'IP Address':<15} | {'Uptime':<10} | {'MAC Address':<18}{RESET}")
+        print("-" * 75)
 
-        # Loop SEMUA user tanpa batasan slicing [:-50] atau [:10]
+        # Loop SEMUA user tanpa batasan [:]
         for i, user in enumerate(act, start=1):
             u_name = user.get('user', 'N/A')
-            u_ip = user.get('address', 'N/A')
+            u_ip   = user.get('address', 'N/A')
             u_time = user.get('uptime', '0s')
+            u_mac  = user.get('mac-address', 'N/A')
             
-            # Menampilkan semua data dengan format kolom yang rata
-            print(f" {i:<3} | {u_name:<15} | {u_ip:<15} | {u_time:<10}")
+            # Highlight warna hijau untuk pelanggan (bukan admin)
+            color = GREEN if u_name.lower() != 'admin' else YELLOW
+            print(f" {i:<3} | {color}{u_name:<15}{RESET} | {u_ip:<15} | {CYAN}{u_time:<10}{RESET} | {u_mac:<18}")
             
         pool.disconnect()
     except Exception as e: 

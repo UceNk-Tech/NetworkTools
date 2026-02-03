@@ -44,7 +44,7 @@ if [ ! -d "$HOME/mikhmonv3" ]; then
     git clone https://github.com/laksa19/mikhmonv3.git ~/mikhmonv3 || echo "Skip download, folder exist."
 fi
 
-# 6. Konfigurasi .zshrc (Optimal agar Otomatis Running)
+# 6. Konfigurasi .zshrc (Agar Otomatis Menjalankan Menu)
 echo -e "${CYAN}[+] Configuring .zshrc...${NC}"
 cat > "$HOME/.zshrc" << 'ZZZ'
 export ZSH="$HOME/.oh-my-zsh"
@@ -54,7 +54,7 @@ source $ZSH/oh-my-zsh.sh
 # Custom Prompt Ucenk D-Tech
 PROMPT='%F{green}[Ucenk %F{cyan}D-Tech%F{white}]%F{yellow} ~ $ %f'
 
-# Jalankan Menu Otomatis Setiap Kali Buka Termux
+# Jalankan Menu Otomatis
 if [ -f "$HOME/NetworkTools/menu.py" ]; then
     python3 "$HOME/NetworkTools/menu.py"
 fi
@@ -65,22 +65,21 @@ alias update='bash $HOME/NetworkTools/update.sh'
 alias mikhmon='python3 -c "import sys; sys.path.append(\"$HOME/NetworkTools\"); from menu import run_mikhmon; run_mikhmon()"'
 ZZZ
 
-# 7. Finalisasi Permission
+# 7. Konfigurasi .bashrc (Cadangan agar Bash langsung panggil ZSH)
+echo -e "${CYAN}[+] Ensuring ZSH is the default shell...${NC}"
+echo "exec zsh" > "$HOME/.bashrc"
+
+# 8. Finalisasi Permission
 echo -e "${CYAN}[+] Setting Permissions...${NC}"
 chmod +x ~/NetworkTools/*.py 2>/dev/null || true
 
-# --- BAGIAN PENTING: PAKSA PINDAH SHELL ---
-if [ "$SHELL" != "/data/data/com.termux/files/usr/bin/zsh" ]; then
-    echo -e "${YELLOW}[+] Switching Default Shell to ZSH...${NC}"
-    chsh -s zsh
-fi
+# Paksa ganti shell
+chsh -s zsh || true
 
 echo -e "\n${GREEN}==============================================="
 echo -e "  SETUP BERHASIL! SEMUA TOOLS SIAP DIGUNAKAN."
-echo -e "  Ketik 'exit' dan buka lagi Termux untuk auto-start."
+echo -e "  Keluar dan masuk lagi ke Termux."
 echo -e "===============================================${NC}"
 
-# Jalankan menu sekarang juga tanpa nunggu restart
-if [ -f "$HOME/NetworkTools/menu.py" ]; then
-    exec zsh -l
-fi
+# Langsung jalankan ZSH sekarang agar menu muncul
+exec zsh

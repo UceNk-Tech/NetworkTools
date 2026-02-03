@@ -19,7 +19,6 @@ pkg update && pkg upgrade -y
 pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap -y
 
 # 2. Install Library Python Wajib
-# Menambahkan 'requests' untuk fitur Brand Lookup di menu DHCP Rogue
 echo -e "${CYAN}[+] Installing Python Libraries (Requests, RouterOS, etc)...${NC}"
 pip install lolcat routeros-api speedtest-cli requests --break-system-packages
 
@@ -45,7 +44,7 @@ if [ ! -d "$HOME/mikhmonv3" ]; then
     git clone https://github.com/laksa19/mikhmonv3.git ~/mikhmonv3 || echo "Skip download, folder exist."
 fi
 
-# 6. Konfigurasi .zshrc (Optimal)
+# 6. Konfigurasi .zshrc (Optimal agar Otomatis Running)
 echo -e "${CYAN}[+] Configuring .zshrc...${NC}"
 cat > "$HOME/.zshrc" << 'ZZZ'
 export ZSH="$HOME/.oh-my-zsh"
@@ -55,28 +54,33 @@ source $ZSH/oh-my-zsh.sh
 # Custom Prompt Ucenk D-Tech
 PROMPT='%F{green}[Ucenk %F{cyan}D-Tech%F{white}]%F{yellow} ~ $ %f'
 
-# Jalankan Menu Otomatis
+# Jalankan Menu Otomatis Setiap Kali Buka Termux
 if [ -f "$HOME/NetworkTools/menu.py" ]; then
-    python "$HOME/NetworkTools/menu.py"
+    python3 "$HOME/NetworkTools/menu.py"
 fi
 
 # Alias shortcut
-alias menu='python $HOME/NetworkTools/menu.py'
+alias menu='python3 $HOME/NetworkTools/menu.py'
 alias update='bash $HOME/NetworkTools/update.sh'
-alias mikhmon='python -c "import sys; sys.path.append(\"$HOME/NetworkTools\"); from menu import run_mikhmon; run_mikhmon()"'
+alias mikhmon='python3 -c "import sys; sys.path.append(\"$HOME/NetworkTools\"); from menu import run_mikhmon; run_mikhmon()"'
 ZZZ
 
 # 7. Finalisasi Permission
 echo -e "${CYAN}[+] Setting Permissions...${NC}"
 chmod +x ~/NetworkTools/*.py 2>/dev/null || true
 
-# Switch Shell ke ZSH
+# --- BAGIAN PENTING: PAKSA PINDAH SHELL ---
 if [ "$SHELL" != "/data/data/com.termux/files/usr/bin/zsh" ]; then
+    echo -e "${YELLOW}[+] Switching Default Shell to ZSH...${NC}"
     chsh -s zsh
 fi
 
 echo -e "\n${GREEN}==============================================="
 echo -e "  SETUP BERHASIL! SEMUA TOOLS SIAP DIGUNAKAN."
-echo -e "  DHCP Rogue & Brand Lookup AKTIF."
-echo -e "  Buka ulang Termux untuk melihat hasilnya."
+echo -e "  Ketik 'exit' dan buka lagi Termux untuk auto-start."
 echo -e "===============================================${NC}"
+
+# Jalankan menu sekarang juga tanpa nunggu restart
+if [ -f "$HOME/NetworkTools/menu.py" ]; then
+    exec zsh -l
+fi

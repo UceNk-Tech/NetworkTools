@@ -241,7 +241,7 @@ def mk_hotspot_active(): # Menu 2
         print(f"{WHITE}{'No':<4} | {'User':<15} | {'IP Address':<15} | {'Uptime':<10}{RESET}")
         print("-" * 55)
 
-        # Loop SEMUA user tanpa batasan slicing
+        # Loop SEMUA user tanpa batasan slicing [:-50] atau [:10]
         for i, user in enumerate(act, start=1):
             u_name = user.get('user', 'N/A')
             u_ip = user.get('address', 'N/A')

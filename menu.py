@@ -1410,7 +1410,7 @@ def main():
         elif c == '16': backup_restore_olt()
         elif c == '17': traffic_report_pon()
         elif c == '18': auto_audit_olt()    
-        elif c == '19':os.system("speedtest-cli")
+        elif c == '19': os.system("speedtest-cli")
         elif c == '20': nmap_scan_tool()
         elif c == '21': mac_lookup_tool()
         elif c == '22': port_scanner_tool()

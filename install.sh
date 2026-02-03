@@ -1,8 +1,7 @@
 #!/bin/bash
 # ==========================================
 # Installer Otomatis Ucenk D-Tech Pro v3.2
-# Support: Multi-Profile & Rogue DHCP Check
-# REVISI: Official Speedtest CLI (Fix Unknown ISP)
+# REVISI: Jalur Pip Speedtest (Anti e_type & Unknown ISP)
 # ==========================================
 set -e
 
@@ -15,24 +14,22 @@ NC='\033[0m'
 echo -e "${CYAN}[+] Memulai Setup Lingkungan Ucenk D-Tech...${NC}"
 
 # 1. Update & Install System Packages
-echo -e "${CYAN}[+] Installing System Packages (PHP, Git, Python, Nmap)...${NC}"
-pkg update && pkg upgrade -y
+echo -e "${CYAN}[+] Checking System Packages...${NC}"
+# Kita gunakan || true agar jika repo lama error, script tetap jalan ke tahap pip
+pkg update -y || echo -e "${YELLOW}[!] Repo lama terdeteksi, melanjutkan...${NC}"
 pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap wget tar -y
 
-# 2. Install Speedtest CLI (REVISI SAPUJAGAT)
-echo -e "${CYAN}[+] Updating Repository & Installing Speedtest...${NC}"
-pkg update -y
-
-# Coba install via pkg (Nama paket di beberapa repo adalah 'speedtest-cli')
-if pkg install speedtest-cli -y; then
-    echo -e "${GREEN}[✓] Berhasil install via pkg.${NC}"
-else
-    echo -e "${YELLOW}[!] pkg tidak ketemu, mencoba jalur pip...${NC}"
-    pip install speedtest-cli --break-system-packages
-fi
-
-# Hapus file 'speedtest' hantu yang bikin error e_type: 2
+# 2. Install Speedtest CLI (REVISI TOTAL)
+echo -e "${CYAN}[+] Membersihkan file hantu & instalasi lama...${NC}"
+# Hapus file binary yang bikin error "unexpected e_type: 2"
 rm -f $PREFIX/bin/speedtest
+rm -f $PREFIX/bin/speedtest-cli
+
+echo -e "${CYAN}[+] Installing Speedtest CLI via Pip...${NC}"
+# Menggunakan pip karena lebih universal untuk HP 32-bit maupun 64-bit
+pip install speedtest-cli --break-system-packages
+
+echo -e "${GREEN}[✓] Speedtest-cli berhasil terpasang.${NC}"
 
 # 3. Install Library Python
 echo -e "${CYAN}[+] Installing Python Libraries...${NC}"
@@ -46,7 +43,7 @@ fi
 
 ZSH_PLUGINS="$HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions"
 if [ ! -d "$ZSH_PLUGINS" ]; then
-    git clone https://github.com/zsh-users/zsh-autosuggestions "$ZSH_PLUGINS" || true
+    git clone https://github.com/zsh-users/zsh-users/zsh-autosuggestions "$ZSH_PLUGINS" || true
 fi
 
 # 5. Setup Struktur Folder
@@ -66,7 +63,8 @@ if [ -f "$HOME/NetworkTools/menu.py" ]; then
 fi
 
 alias menu='python $HOME/NetworkTools/menu.py'
-alias speedtest='speedtest --accept-license --accept-gdpr'
+# Gunakan alias ke speedtest-cli agar tidak pusing versi
+alias speedtest='speedtest-cli --secure'
 ZZZ
 
 # 7. Finalisasi
@@ -74,5 +72,5 @@ chmod +x ~/NetworkTools/*.py 2>/dev/null || true
 
 echo -e "\n${GREEN}==============================================="
 echo -e "  SETUP BERHASIL! ISP SEKARANG AKAN TERDETEKSI."
-echo -e "  Silakan restart Termux Anda."
+echo -e "  Gunakan Menu 19 untuk mencoba."
 echo -e "===============================================${NC}"

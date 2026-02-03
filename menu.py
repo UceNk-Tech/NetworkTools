@@ -705,74 +705,23 @@ def config_onu_logic():
 
 
 
-def restart_onu(): # Menu 11
-    creds = get_credentials("olt")
-    if not creds: 
-        print(f"{RED}[!] Profile OLT belum diset.{RESET}")
-        return
-        
-    brand = creds.get('brand', 'zte').lower()
-    print(f"\n{YELLOW}=== RESTART/REBOOT ONU ({brand.upper()}) ==={RESET}")
-    port = input(f"{WHITE}Port (contoh 1/2/1): {RESET}").strip()
-    onu_id = input(f"{WHITE}Nomor ONU: {RESET}").strip()
-    
-    print(f"{CYAN}[*] Mengambil detail informasi ONU {port}:{onu_id}...{RESET}")
-    
-    commands = []
-    if brand == 'zte':
-        # Mengambil info detail dan alasan offline terakhir
-        commands = [
-            "terminal length 0",
-            f"show gpon onu detail-info gpon-olt_{port} {onu_id}",
-            f"show gpon onu last-offline-reason gpon-olt_{port} {onu_id}"
-        ]
-    else: # Fiberhome
-        commands = [
-            f"show onu info port {port} onu {onu_id}",
-            f"show onu optic_info port {port} onu {onu_id}"
-        ]
-        
-    output = telnet_olt_execute(creds, commands)
-    
-    if output:
-        # Membersihkan output telnet agar rapi (menghilangkan baris perintah)
-        print(f"\n{MAGENTA}================ DETAIL INFORMASI ONU ================{RESET}")
-        clean_output = ""
-        for line in output.splitlines():
-            # Filter baris yang mengandung prompt atau perintah echo telnet
-            if any(x in line for x in ["ZXAN", "conf t", "show ", "pon-onu-mng"]):
-                continue
-            clean_output += line + "\n"
-        
-        print(f"{WHITE}{clean_output.strip()}{RESET}")
-        print(f"{MAGENTA}======================================================{RESET}")
+Pilih Nomor: 11
 
-        confirm = input(f"\n{RED}>>> Restart ONU ini sekarang? (y/n): {RESET}").lower()
-        if confirm == 'y':
-            print(f"{CYAN}[*] Mengirim perintah reboot...{RESET}")
-            
-            reboot_cmds = []
-            if brand == 'zte':
-                reboot_cmds = [
-                    "conf t",
-                    f"pon-onu-mng gpon-onu_{port}:{onu_id}",
-                    "reboot",
-                    "yes",
-                    "exit",
-                    "end"
-                ]
-            elif brand == 'fiberhome':
-                reboot_cmds = [
-                    f"reboot onu port {port} onu {onu_id}",
-                    "y"
-                ]
-            
-            telnet_olt_execute(creds, reboot_cmds)
-            print(f"{GREEN}[✓] Perintah Reboot BERHASIL dikirim ke ONU {port}:{onu_id}.{RESET}")
-        else:
-            print(f"{MAGENTA}[-] Restart dibatalkan.{RESET}")
-    else:
-        print(f"{RED}[!] Gagal mengambil data dari OLT.{RESET}")
+=== RESTART/REBOOT ONU (ZTE) ===
+Port (contoh 1/2/1): 1/3/1
+Nomor ONU: 116
+[*] Mengambil detail informasi ONU 1/3/1:116...
+
+================ DETAIL INFORMASI ONU ================
+% The password is not strong, please change the password.
+
+                               ^
+%Error 20202: Invalid input detected at '^' marker.Invalid parameter
+                   ^
+%Error 20200: Invalid input detected at '^' marker.Invalid command
+======================================================
+
+>>> Restart ONU ini sekarang? (y/n):
 
 def reset_onu(): 
     creds = get_credentials("olt")

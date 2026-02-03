@@ -235,7 +235,7 @@ def mk_hotspot_active():
         api = pool.get_api()
         act = api.get_resource('/ip/hotspot/active').get()
         print(f"\n{GREEN}>>> TOTAL USER AKTIF: {len(act)} {RESET}")
-        for user in act[:50]: 
+        for user in act[:-50]: 
             print(f" - {user.get('user')} | IP: {user.get('address')}")
         pool.disconnect()
     except Exception as e: 

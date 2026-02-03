@@ -705,7 +705,7 @@ def config_onu_logic():
 
 
 
-def restart_onu(): # Menu 11 - REVISI SYNTAX ZTE
+def restart_onu(): # Menu 11 - REVISI TOTAL (IKUT LOGIKA MENU 12)
     creds = get_credentials("olt")
     if not creds: 
         print(f"{RED}[!] Profile OLT belum diset.{RESET}")
@@ -716,48 +716,35 @@ def restart_onu(): # Menu 11 - REVISI SYNTAX ZTE
     port = input(f"{WHITE}Port (contoh 1/3/1): {RESET}").strip()
     onu_id = input(f"{WHITE}Nomor ONU: {RESET}").strip()
     
-    print(f"{CYAN}[*] Mengambil detail informasi (Safe Mode)...{RESET}")
+    print(f"{CYAN}[*] Mohon tunggu, sedang mendapatkan informasi ONU...{RESET}")
     
-    commands = []
+    # Menyamakan syntax dengan Menu 12 yang sudah terbukti jalan
     if brand == 'zte':
-        # Perbaikan Syntax: Beberapa OLT ZTE butuh 'show gpon onu base-info' 
-        # atau harus spesifik menyebutkan interface gpon-olt
-        commands = [
-            "terminal length 0",
-            f"show gpon onu detail-info gpon-olt_{port} {onu_id}",
-            f"show gpon onu last-offline-reason gpon-olt_{port} {onu_id}"
+        check_cmds = [
+            "terminal length 0", 
+            "end", 
+            f"show gpon onu detail-info gpon-onu_{port}:{onu_id}"
         ]
     else: # Fiberhome
-        commands = [
-            f"show onu info port {port} onu {onu_id}"
+        check_cmds = [
+            "terminal length 0", 
+            "end", 
+            f"show onu info port {port} ont {onu_id}"
         ]
         
-    output = telnet_olt_execute(creds, commands)
+    output = telnet_olt_execute(creds, check_cmds)
     
-    # JIKA ERROR (seperti log kamu tadi), kita coba syntax alternatif
-    if "%Error" in output or "Invalid input" in output:
-        print(f"{YELLOW}[!] Syntax detail-info gagal, mencoba syntax alternatif...{RESET}")
-        alt_cmd = [f"show gpon onu state gpon-olt_{port} {onu_id}"]
-        output = telnet_olt_execute(creds, alt_cmd)
-    
-    if output:
-        print(f"\n{MAGENTA}================ DETAIL INFORMASI ONU ================{RESET}")
-        for line in output.splitlines():
-            # Filter baris sampah/error agar tidak tampil lagi
-            if any(x in line for x in ["ZXAN", "conf t", "show ", "Invalid", "marker", "^", "strong"]):
-                continue
-            if line.strip():
-                print(f"{WHITE}{line.strip()}{RESET}")
-        print(f"\n{MAGENTA}======================================================{RESET}")
-
-        confirm = input(f"\n{RED}>>> Konfirmasi: Restart ONU ini? (y/n): {RESET}").lower()
+    if output and "Invalid" not in output:
+        # Menampilkan output detail seperti di menu 12
+        print(f"\n{YELLOW}{output}{RESET}")
+        
+        confirm = input(f"\n{RED}>>> Konfirmasi: Restart ONU ini? {YELLOW}(y/n): {RESET}").lower()
         if confirm == 'y':
             print(f"{CYAN}[*] Mengirim perintah reboot...{RESET}")
             
             reboot_cmds = []
             if brand == 'zte':
-                # Masuk ke mode mng dulu, jika gagal reboot lewat sini, 
-                # OLT tertentu pakai 'reset' bukan 'reboot'
+                # Masuk ke mode management untuk reboot
                 reboot_cmds = [
                     "conf t",
                     f"pon-onu-mng gpon-onu_{port}:{onu_id}",
@@ -767,20 +754,17 @@ def restart_onu(): # Menu 11 - REVISI SYNTAX ZTE
                     "end"
                 ]
             elif brand == 'fiberhome':
-                reboot_cmds = [f"reboot onu port {port} onu {onu_id}", "y"]
+                reboot_cmds = [
+                    f"reboot onu port {port} onu {onu_id}",
+                    "y"
+                ]
             
-            res_reboot = telnet_olt_execute(creds, reboot_cmds)
-            
-            if "Error" in res_reboot or "Invalid" in res_reboot:
-                 # Jika reboot gagal, coba syntax alternatif 'reset'
-                 print(f"{YELLOW}[!] Perintah 'reboot' gagal, mencoba 'reset'...{RESET}")
-                 telnet_olt_execute(creds, ["conf t", f"pon-onu-mng gpon-onu_{port}:{onu_id}", "reset", "yes"])
-            
-            print(f"{GREEN}[✓] Selesai. Silakan cek status ONU secara berkala.{RESET}")
+            telnet_olt_execute(creds, reboot_cmds)
+            print(f"{GREEN}[✓] Perintah Reboot BERHASIL dikirim ke ONU {port}:{onu_id}.{RESET}")
         else:
-            print(f"{MAGENTA}[-] Batal.{RESET}")
+            print(f"{MAGENTA}[-] Restart dibatalkan.{RESET}")
     else:
-        print(f"{RED}[!] Gagal mengambil data.{RESET}")
+        print(f"{RED}[!] Data tidak ditemukan atau syntax tidak dikenali OLT.{RESET}")
 
 def reset_onu(): 
     creds = get_credentials("olt")

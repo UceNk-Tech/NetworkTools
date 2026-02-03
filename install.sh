@@ -1,11 +1,10 @@
 #!/bin/bash
 # ==========================================
 # Installer Otomatis Ucenk D-Tech Pro v3.2
-# REVISI: FIX SOURCES.LIST & MANUAL BYPASS
-# OWNER: UCENK D-TECH
+# REVISI FINAL: BYPASS GPG ERROR & SYMLINK FIX
 # ==========================================
 
-# Matikan mode berhenti jika error
+# Jangan berhenti jika ada error repo
 set +e 
 
 GREEN='\033[0;32m'
@@ -16,47 +15,39 @@ NC='\033[0m'
 
 echo -e "${CYAN}[+] Memulai Setup Lingkungan Ucenk D-Tech...${NC}"
 
-# 1. FIX REPOSITORY (Memulihkan Jantung Termux)
-echo -e "${CYAN}[+] Memperbaiki Konfigurasi Repositori yang Hilang...${NC}"
-mkdir -p $PREFIX/etc/apt/
-# Kita buat ulang file sources.list karena tadi terdeteksi "No such file"
-echo "deb https://packages.termux.org/apt/termux-main stable main" > $PREFIX/etc/apt/sources.list
+# 1. Update & Install System Packages (Abaikan Error GPG)
+echo -e "${CYAN}[+] Checking System Packages...${NC}"
+# Kita tidak pakai pkg upgrade agar tidak sangkut di error GPG
+pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap wget tar -y || true
 
-# Update database paket
-apt update -y || true
-
-# 2. Install System Packages
-echo -e "${CYAN}[+] Installing System Packages (PHP, Git, Python, Nmap)...${NC}"
-apt install php git figlet curl python psmisc inetutils neofetch zsh nmap wget tar -y || true
-
-# 3. FIX SPEEDTEST (ANTI E_TYPE & ANTI UNABLE)
+# 2. Fix Speedtest (MENGGUNAKAN FILE YANG SUDAH KAMU DOWNLOAD)
 echo -e "${CYAN}[+] Membersihkan Alias & Binary Rusak...${NC}"
-# Hapus alias lama yang bikin error
+# Hapus alias yang tadi error saat ls/file
 unalias speedtest 2>/dev/null || true
-# Hapus binary penyebab e_type: 2
 rm -f $PREFIX/bin/speedtest
-rm -f $PREFIX/bin/speedtest-cli
 
-echo -e "${CYAN}[+] Mengunduh Speedtest Manual dari GitHub...${NC}"
-# Jalur manual agar tidak kena "Unable to locate"
-curl -k -L https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py -o $PREFIX/bin/speedtest-cli
+# Jika file belum ada, download ulang secara aman
+if [ ! -f "$PREFIX/bin/speedtest-cli" ]; then
+    echo -e "${CYAN}[+] Mengunduh ulang script Speedtest...${NC}"
+    curl -k -L https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py -o $PREFIX/bin/speedtest-cli
+fi
+
 chmod +x $PREFIX/bin/speedtest-cli
-# Buat symlink agar perintah 'speedtest' bisa dipanggil
+# Buat link agar bisa dipanggil dengan nama 'speedtest'
 ln -sf $PREFIX/bin/speedtest-cli $PREFIX/bin/speedtest
 
-echo -e "${GREEN}[✓] Speedtest Berhasil Terpasang Manual.${NC}"
+echo -e "${GREEN}[✓] Speedtest dipasang manual (Bypass Package Manager).${NC}"
 
-# 4. Install Library Python
+# 3. Install Library Python
 echo -e "${CYAN}[+] Installing Python Libraries...${NC}"
 pip install lolcat routeros-api requests --break-system-packages || true
 
-# 5. Setup Oh My Zsh
+# 4. Setup Oh My Zsh
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
-    echo -e "${CYAN}[+] Setting up Oh My Zsh...${NC}"
     sh -c "$(curl -k -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 fi
 
-# 6. Konfigurasi .zshrc
+# 5. Konfigurasi .zshrc
 echo -e "${CYAN}[+] Configuring .zshrc...${NC}"
 cat > "$HOME/.zshrc" << 'ZZZ'
 export ZSH="$HOME/.oh-my-zsh"
@@ -70,15 +61,15 @@ if [ -f "$HOME/NetworkTools/menu.py" ]; then
 fi
 
 alias menu='python $HOME/NetworkTools/menu.py'
-# Alias yang benar tanpa menabrak sistem
-alias speedtest='speedtest-cli --secure'
+# Pastikan alias memanggil python3 untuk menghindari error ELF
+alias speedtest='python3 $PREFIX/bin/speedtest-cli --secure'
 ZZZ
 
-# 7. Finalisasi
+# 6. Finalisasi
 chmod +x ~/NetworkTools/*.py 2>/dev/null || true
 
 echo -e "\n${GREEN}==============================================="
-echo -e "  SETUP BERHASIL! REPO & SPEEDTEST DIPERBAIKI."
-echo -e "  Silakan ketik: source ~/.zshrc"
-echo -e "  Lalu coba Menu 19."
+echo -e "  SETUP SELESAI! BYPASS GPG BERHASIL."
+echo -e "  Ketik: source ~/.zshrc"
+echo -e "  Lalu ketik: speedtest"
 echo -e "===============================================${NC}"

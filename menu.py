@@ -225,44 +225,34 @@ def run_mikhmon():
     except KeyboardInterrupt: 
         print(f"\n{YELLOW}[-] Server dimatikan.{RESET}")
 
-def mk_hotspot_active(): 
-    # Mengambil kredensial dari profil yang tersimpan
+def mk_hotspot_active(): # Menu 2
     c = get_credentials("mikrotik")
     if not c: 
         print(f"{RED}[!] Profile belum diset.{RESET}")
         return
-
     try:
-        # Inisialisasi koneksi ke RouterOS API
-        pool = routeros_api.RouterOsApiPool(
-            c['ip'], 
-            username=c['user'], 
-            password=c['pass'], 
-            plaintext_login=True
-        )
+        pool = routeros_api.RouterOsApiPool(c['ip'], username=c['user'], password=c['pass'], plaintext_login=True)
         api = pool.get_api()
-        
-        # Mengambil resource dari /ip/hotspot/active
         act = api.get_resource('/ip/hotspot/active').get()
         
         print(f"\n{GREEN}>>> TOTAL USER AKTIF: {len(act)} {RESET}")
-        print(f"{'No.':<4} | {'User':<15} | {'IP Address':<15} | {'Uptime':<10}")
+        
+        # Header Tabel agar rapi
+        print(f"{WHITE}{'No':<4} | {'User':<15} | {'IP Address':<15} | {'Uptime':<10}{RESET}")
         print("-" * 55)
 
-        # Iterasi semua user tanpa limitasi slicing [:-50]
-        for index, user in enumerate(act, start=1):
-            user_name = user.get('user', 'Unknown')
-            ip_addr = user.get('address', '0.0.0.0')
-            uptime = user.get('uptime', '00:00:00')
+        # Loop SEMUA user tanpa batasan slicing
+        for i, user in enumerate(act, start=1):
+            u_name = user.get('user', 'N/A')
+            u_ip = user.get('address', 'N/A')
+            u_time = user.get('uptime', '0s')
             
-            # Menampilkan data dengan format yang rapi
-            print(f"{index:<4} | {user_name:<15} | {ip_addr:<15} | {uptime:<10}")
-
-        # Menutup koneksi dengan aman
+            # Menampilkan semua data dengan format kolom yang rata
+            print(f" {i:<3} | {u_name:<15} | {u_ip:<15} | {u_time:<10}")
+            
         pool.disconnect()
-
     except Exception as e: 
-        print(f"{RED}[!] Error: {e}{RESET}")
+        print(f"{RED}Error: {e}{RESET}")
 
 def cek_dhcp_rogue():
     creds = get_credentials("mikrotik")

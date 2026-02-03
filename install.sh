@@ -19,25 +19,23 @@ echo -e "${CYAN}[+] Installing System Packages (PHP, Git, Python, Nmap)...${NC}"
 pkg update && pkg upgrade -y
 pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap wget tar -y
 
-# 2. Install Official Ookla Speedtest CLI (PENTING: Fix ISP Unknown)
+# 2. Install Official Ookla Speedtest CLI (Fix e_type error)
 echo -e "${CYAN}[+] Installing Official Ookla Speedtest CLI...${NC}"
-ARCH=$(uname -m)
-if [[ "$ARCH" == "aarch64" ]]; then
+# Cek arsitektur dengan lebih detail
+BIT=$(getprop ro.product.cpu.abi)
+if [[ "$BIT" == *"arm64-v8a"* ]]; then
     SPEED_URL="https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-aarch64.tgz"
-elif [[ "$ARCH" == "armv7l" || "$ARCH" == "armv8l" ]]; then
+elif [[ "$BIT" == *"armeabi-v7a"* ]]; then
     SPEED_URL="https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-armel.tgz"
 else
     SPEED_URL="https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-x86_64.tgz"
 fi
 
-# Download dan pasang binary speedtest resmi dengan proteksi langkah
-echo -e "${YELLOW}[*] Downloading for architecture: $ARCH...${NC}"
 curl -L $SPEED_URL -o speedtest.tgz
 tar -xzvf speedtest.tgz speedtest
 chmod +x speedtest
 mv -f speedtest $PREFIX/bin/
-rm -f speedtest.tgz speedtest.md5 speedtest.5 # Hapus file sampah bawaan tar
-echo -e "${GREEN}[✓] Speedtest CLI Resmi berhasil terpasang di $PREFIX/bin/speedtest${NC}"
+rm -f speedtest.tgz
 
 # 3. Install Library Python
 echo -e "${CYAN}[+] Installing Python Libraries...${NC}"

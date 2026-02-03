@@ -19,13 +19,16 @@ echo -e "${CYAN}[+] Installing System Packages (PHP, Git, Python, Nmap)...${NC}"
 pkg update && pkg upgrade -y
 pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap wget tar -y
 
-# 2. Install Official Speedtest CLI (Solusi Pasti Jalan)
-echo -e "${CYAN}[+] Installing Speedtest CLI via Package Manager...${NC}"
-# Hapus file binary lama yang bikin error e_type
+# 2. Install Speedtest CLI (TOTAL CLEANUP & FIX)
+echo -e "${CYAN}[+] Membersihkan sisa Speedtest lama...${NC}"
 rm -f $PREFIX/bin/speedtest
-# Install langsung via repo Termux (Sistem akan pilihkan arsitektur yang cocok)
+rm -f $PREFIX/bin/speedtest-cli
+pip uninstall speedtest-cli -y || true
+
+echo -e "${CYAN}[+] Installing Speedtest CLI via Official Repo...${NC}"
 pkg install speedtest-cli -y
-echo -e "${GREEN}[✓] Speedtest CLI berhasil terpasang via PKG.{NC}"
+echo -e "${GREEN}[✓] Speedtest terpasang. Mengetes kecocokan...${NC}"
+speedtest-cli --version || echo -e "${RED}[!] Masih ada kendala arsitektur.${NC}"
 
 # 3. Install Library Python
 echo -e "${CYAN}[+] Installing Python Libraries...${NC}"

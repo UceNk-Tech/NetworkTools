@@ -17,37 +17,24 @@ echo -e "${CYAN}[+] Memulai Setup Lingkungan Ucenk D-Tech...${NC}"
 echo -e "${CYAN}[+] Checking System Packages...${NC}"
 pkg update -y || true
 
-# 2. Install Speedtest CLI (HARD-INSTALL: Jalur Manual .deb)
-echo -e "${CYAN}[+] Menjalankan Prosedur Hard-Install Speedtest...${NC}"
+# 2. Install Speedtest CLI (JALUR NINJA - BYPASS SYSTEM)
+echo -e "${CYAN}[+] Menjalankan Prosedur Bypass Instalasi...${NC}"
 
-# Bersihkan sisa-sisa file hantu yang bikin e_type error
+# 1. Hapus semua file binary yang bikin error e_type: 2
 rm -f $PREFIX/bin/speedtest
 rm -f $PREFIX/bin/speedtest-cli
 
-# Deteksi arsitektur untuk mengambil file yang tepat secara manual
-ARCH=$(uname -m)
-if [[ "$ARCH" == "aarch64" ]]; then
-    # Download file .deb resmi dari mirror yang masih aktif
-    curl -L https://mirror.leaseweb.com/termux/termux-main/pool/main/s/speedtest-cli/speedtest-cli_2.1.3_all.deb -o speedtest.deb
-elif [[ "$ARCH" == "armv7l" || "$ARCH" == "arm" ]]; then
-    curl -L https://mirror.leaseweb.com/termux/termux-main/pool/main/s/speedtest-cli/speedtest-cli_2.1.3_all.deb -o speedtest.deb
-else
-    # Fallback ke versi universal jika arsitektur tidak dikenal
-    curl -L https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py -o $PREFIX/bin/speedtest-cli
-    chmod +x $PREFIX/bin/speedtest-cli
-fi
+# 2. Download script Python langsung dari GitHub resmi sivel/speedtest-cli
+echo -e "${CYAN}[+] Mendownload script langsung dari sumber resmi...${NC}"
+curl -L https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py -o $PREFIX/bin/speedtest-cli
 
-# Pasang file .deb jika berhasil didownload
-if [ -f "speedtest.deb" ]; then
-    echo -e "${CYAN}[+] Memasang paket .deb secara manual...${NC}"
-    dpkg -i --force-all speedtest.deb
-    rm speedtest.deb
-fi
+# 3. Beri izin eksekusi (Kunci utama agar bisa dijalankan)
+chmod +x $PREFIX/bin/speedtest-cli
 
-# Pastikan symlink benar agar Menu 19 tidak bingung
+# 4. Buat symlink agar bisa dipanggil dengan nama 'speedtest' juga
 ln -sf $PREFIX/bin/speedtest-cli $PREFIX/bin/speedtest
 
-echo -e "${GREEN}[✓] Hard-Install Selesai. Sistem tidak lagi butuh repositori.${NC}"
+echo -e "${GREEN}[✓] Speedtest terpasang manual di $PREFIX/bin/speedtest-cli${NC}"
 
 
 # 3. Install Library Python

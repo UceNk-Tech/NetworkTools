@@ -1353,7 +1353,7 @@ def mac_lookup_tool(): # Menu 21
         print(f"\n{GREEN}[✓] HASIL (Local): {vendor}{RESET}")
     else:
         vendor = get_brand(mac)
-        print(f"\n{GREEN}[✓] HASIL (Online): {vendor}{RESET}")
+        print(f"\n{GREEN}[✓] VENDOR: {vendor}{RESET}")
     print(f"{MAGENTA}--------------------------------------------------{RESET}")
 
 

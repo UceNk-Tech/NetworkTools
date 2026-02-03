@@ -1413,12 +1413,12 @@ def main():
         elif c == '19':
             os.system('clear')
             print(f"{CYAN}=== SPEEDTEST REAL-TIME ==={RESET}")
-            # Cek apakah speedtest resmi ada, jika tidak pakai yang biasa
-            check_official = os.popen("which speedtest").read()
-            if check_official:
+            # Cek di folder bin Termux
+            if os.path.exists("/data/data/com.termux/files/usr/bin/speedtest"):
                 os.system("speedtest --accept-license --accept-gdpr")
             else:
-                print(f"{YELLOW}[!] Versi resmi belum terpasang, menjalankan versi standar...{RESET}")
+                print(f"{YELLOW}[!] Speedtest resmi belum terpasang di /usr/bin/ {RESET}")
+                os.system("speedtest-cli")
                 os.system("speedtest-cli")
         elif c == '20': nmap_scan_tool()
         elif c == '21': mac_lookup_tool()

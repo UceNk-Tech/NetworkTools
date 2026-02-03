@@ -30,13 +30,14 @@ else
     SPEED_URL="https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-x86_64.tgz"
 fi
 
-# Download dan pasang binary speedtest resmi
+# Download dan pasang binary speedtest resmi dengan proteksi langkah
+echo -e "${YELLOW}[*] Downloading for architecture: $ARCH...${NC}"
 curl -L $SPEED_URL -o speedtest.tgz
 tar -xzvf speedtest.tgz speedtest
-mv speedtest $PREFIX/bin/
-rm speedtest.tgz
-chmod +x $PREFIX/bin/speedtest
-echo -e "${GREEN}[✓] Speedtest CLI Resmi berhasil terpasang.${NC}"
+chmod +x speedtest
+mv -f speedtest $PREFIX/bin/
+rm -f speedtest.tgz speedtest.md5 speedtest.5 # Hapus file sampah bawaan tar
+echo -e "${GREEN}[✓] Speedtest CLI Resmi berhasil terpasang di $PREFIX/bin/speedtest${NC}"
 
 # 3. Install Library Python
 echo -e "${CYAN}[+] Installing Python Libraries...${NC}"

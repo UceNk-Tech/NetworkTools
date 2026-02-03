@@ -333,43 +333,69 @@ def hapus_laporan_mikhmon():
     except Exception:
         print(f"{RED}[!] Gagal Konek. Cek API MikroTik.{RESET}")
 
-def bandwidth_usage_report(): 
+def bandwidth_usage_report(): # Menu 5 - LIVE TRAFFIC
     creds = get_credentials("mikrotik")
     if not creds:
         print(f"{YELLOW}[!] Profile MikroTik belum diset.{RESET}")
         return
 
     print(f"\n{CYAN}[+] Menghubungkan ke MikroTik {creds['ip']}...{RESET}")
-    print(f"{WHITE}[*] Mengambil data traffic (Tekan Ctrl+C untuk berhenti)...{RESET}\n")
+    print(f"{WHITE}[*] Live Monitoring Aktif. Tekan Ctrl+C untuk berhenti.{RESET}\n")
     
     try:
         pool = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], plaintext_login=True)
         api = pool.get_api()
         resource = api.get_resource('/interface')
 
-        print(f"{MAGENTA}{'INTERFACE':<20} {'TX (Upload)':<15} {'RX (Download)':<15}{RESET}")
-        print(f"{WHITE}" + "-"*52 + f"{RESET}")
+        # Fungsi pembantu format kecepatan
+        def format_speed(bps):
+            if bps >= 1000000: return f"{round(bps/1000000, 2)} Mbps"
+            if bps >= 1000: return f"{round(bps/1000, 2)} Kbps"
+            return f"{int(bps)} bps"
 
-        for _ in range(1): 
-            interfaces = resource.get()
-            for iface in interfaces:
-                name = iface.get('name')
-                tx_bps = int(iface.get('tx-byte', 0)) * 8
-                rx_bps = int(iface.get('rx-byte', 0)) * 8
-                
-                def format_speed(bps):
-                    if bps > 1000000: return f"{round(bps/1000000, 2)} Mbps"
-                    if bps > 1000: return f"{round(bps/1000, 2)} Kbps"
-                    return f"{bps} bps"
-
-                if iface.get('running') == 'true':
-                    print(f"{CYAN}{name:<20}{RESET} {YELLOW}{format_speed(tx_bps):<15}{RESET} {GREEN}{format_speed(rx_bps):<15}{RESET}")
+        # Simpan data byte awal untuk kalkulasi selisih (delta)
+        prev_data = {}
         
-        pool.disconnect()
+        while True:
+            interfaces = resource.get()
+            current_time = time.time()
+            
+            # Membersihkan layar agar terlihat seperti dashboard live
+            os.system('clear')
+            print(f"{MAGENTA}================== LIVE TRAFFIC MONITOR =================={RESET}")
+            print(f"{WHITE}Profile: {GREEN}{creds['ip']}{RESET} | {YELLOW}Ctrl+C untuk keluar{RESET}")
+            print(f"{MAGENTA}----------------------------------------------------------{RESET}")
+            print(f"{WHITE}{'INTERFACE':<20} {'TX (Upload)':<15} {'RX (Download)':<15}{RESET}")
+            print(f"{WHITE}" + "-"*52 + f"{RESET}")
+
+            for iface in interfaces:
+                # Filter hanya port Ethernet/SFP yang aktif (running)
+                if iface.get('type') in ['ether', 'sfp', 'vlan'] and iface.get('running') == 'true':
+                    name = iface.get('name')
+                    # Ambil total byte kumulatif
+                    tx_byte = int(iface.get('tx-byte', 0))
+                    rx_byte = int(iface.get('rx-byte', 0))
+
+                    if name in prev_data:
+                        # Hitung selisih byte lalu konversi ke bit (x8)
+                        last_tx, last_rx, last_time = prev_data[name]
+                        interval = current_time - last_time
+                        
+                        tx_bps = ((tx_byte - last_tx) * 8) / interval
+                        rx_bps = ((rx_byte - last_rx) * 8) / interval
+
+                        print(f"{CYAN}{name:<20}{RESET} {YELLOW}{format_speed(tx_bps):<15}{RESET} {GREEN}{format_speed(rx_bps):<15}{RESET}")
+
+                    # Update data sebelumnya
+                    prev_data[name] = (tx_byte, rx_byte, current_time)
+
+            time.sleep(1.5) # Interval refresh (bisa diubah sesuai keinginan)
+            
     except KeyboardInterrupt:
-        print(f"\n{YELLOW}[-] Monitoring dihentikan.{RESET}")
+        print(f"\n{YELLOW}[-] Monitoring Live dihentikan.{RESET}")
+        if 'pool' in locals(): pool.disconnect()
     except Exception as e:
-        print(f"{YELLOW}[!] Error: {e}{RESET}")
+        print(f"{RED}[!] Error: {e}{RESET}")
 
 def backup_restore_mikrotik(): 
     creds = get_credentials("mikrotik")

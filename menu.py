@@ -1410,7 +1410,16 @@ def main():
         elif c == '16': backup_restore_olt()
         elif c == '17': traffic_report_pon()
         elif c == '18': auto_audit_olt()    
-        elif c == '19': os.system("speedtest --accept-license --accept-gdpr")
+        elif c == '19':
+            os.system('clear')
+            print(f"{CYAN}=== SPEEDTEST REAL-TIME ==={RESET}")
+            # Cek apakah speedtest resmi ada, jika tidak pakai yang biasa
+            check_official = os.popen("which speedtest").read()
+            if check_official:
+                os.system("speedtest --accept-license --accept-gdpr")
+            else:
+                print(f"{YELLOW}[!] Versi resmi belum terpasang, menjalankan versi standar...{RESET}")
+                os.system("speedtest-cli")
         elif c == '20': nmap_scan_tool()
         elif c == '21': mac_lookup_tool()
         elif c == '22': port_scanner_tool()

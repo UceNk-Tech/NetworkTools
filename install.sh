@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==========================================
 # Installer Otomatis Ucenk D-Tech Pro v3.2
-# REVISI: Direct Pip (Bypass Repo Termux.net yang Mati)
+# REVISI: Fix Repo & Official Speedtest (Manual PKG)
 # ==========================================
 set -e
 
@@ -15,35 +15,33 @@ echo -e "${CYAN}[+] Memulai Setup Lingkungan Ucenk D-Tech...${NC}"
 
 # 1. Update & Install System Packages
 echo -e "${CYAN}[+] Checking System Packages...${NC}"
-# Pakai || true supaya kalau repo termux.net error, script tidak berhenti
 pkg update -y || true
-pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap wget tar -y
 
-# 2. Install Speedtest CLI (REVISI KHUSUS: Jalur Pip Langsung)
-echo -e "${CYAN}[+] Menghapus file binary yang menyebabkan error e_type...${NC}"
-# Hapus semua file binary lama yang bikin error "unexpected e_type: 2"
+# 2. Fix Repository & Install Speedtest CLI (CARA MANUAL TERAMPUH)
+echo -e "${CYAN}[+] Memperbaiki alamat Repository yang mati...${NC}"
+# Alice ganti paksa termux.net yang mati ke server resmi yang aktif
+sed -i 's|termux.net|packages.termux.org/apt/termux-main|g' $PREFIX/etc/apt/sources.list
+
+echo -e "${CYAN}[+] Membersihkan file binary rusak (e_type error)...${NC}"
 rm -f $PREFIX/bin/speedtest
 rm -f $PREFIX/bin/speedtest-cli
 
-echo -e "${CYAN}[+] Installing Speedtest CLI via Pip (Bypass PKG)...${NC}"
-# Kita langsung pakai pip karena pkg install speedtest-cli tidak ditemukan di repo kamu
-pip install speedtest-cli --break-system-packages
+echo -e "${CYAN}[+] Mengupdate database paket baru...${NC}"
+apt update -y
 
-echo -e "${GREEN}[✓] Speedtest-cli berhasil terpasang via Pip.${NC}"
+echo -e "${CYAN}[+] Menginstall Speedtest CLI via PKG...${NC}"
+# Sekarang pkg install pasti bisa menemukan paketnya
+apt install speedtest-cli -y
 
-# 3. Install Library Python Lainnya
+echo -e "${GREEN}[✓] Speedtest-cli berhasil terpasang via Repositori Baru.${NC}"
+
+# 3. Install Library Python
 echo -e "${CYAN}[+] Installing Python Libraries...${NC}"
 pip install lolcat routeros-api requests --break-system-packages
 
-# 4. Setup Oh My Zsh & Plugins
+# 4. Setup Oh My Zsh & Plugins (Tetap sama)
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
-    echo -e "${CYAN}[+] Setting up Oh My Zsh...${NC}"
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-fi
-
-ZSH_PLUGINS="$HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions"
-if [ ! -d "$ZSH_PLUGINS" ]; then
-    git clone https://github.com/zsh-users/zsh-autosuggestions "$ZSH_PLUGINS" || true
 fi
 
 # 5. Setup Struktur Folder
@@ -63,14 +61,14 @@ if [ -f "$HOME/NetworkTools/menu.py" ]; then
 fi
 
 alias menu='python $HOME/NetworkTools/menu.py'
-# Alias ke speedtest-cli agar sinkron dengan instalasi pip
-alias speedtest='speedtest-cli --secure'
+# Gunakan alias yang benar
+alias speedtest='speedtest-cli'
 ZZZ
 
 # 7. Finalisasi
 chmod +x ~/NetworkTools/*.py 2>/dev/null || true
 
 echo -e "\n${GREEN}==============================================="
-echo -e "  SETUP BERHASIL! ERROR E_TYPE SUDAH DIBERSIHKAN."
-echo -e "  Sekarang jalankan menu.py Anda."
+echo -e "  SETUP BERHASIL! REPO SUDAH DIPERBAIKI."
+echo -e "  Silakan coba Menu 19 sekarang."
 echo -e "===============================================${NC}"

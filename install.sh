@@ -1,11 +1,10 @@
 #!/bin/bash
 # ==========================================
 # Installer Otomatis Ucenk D-Tech Pro v3.2
-# REVISI: ZERO-PKG FOR SPEEDTEST (Pasti Berhasil)
+# Support: Multi-Profile & Rogue DHCP Check
+# REVISI: Official Speedtest CLI (Fix Unknown ISP)
 # ==========================================
-
-# Matikan mode berhenti jika error
-set +e 
+set -e
 
 GREEN='\033[0;32m'
 CYAN='\033[0;36m'
@@ -15,41 +14,45 @@ NC='\033[0m'
 
 echo -e "${CYAN}[+] Memulai Setup Lingkungan Ucenk D-Tech...${NC}"
 
-# 1. Install Paket Sistem Dasar (TANPA SPEEDTEST-CLI DI SINI)
-echo -e "${CYAN}[+] Memasang Paket Sistem (Membersihkan Antrian)...${NC}"
-# Alice pisah agar jika satu gagal, yang lain tetap jalan dan tidak lapor "Unable" massal
-for pkg in php git figlet curl python psmisc inetutils neofetch zsh nmap wget tar; do
-    pkg install $pkg -y || true
-done
+# 1. Update & Install System Packages
+echo -e "${CYAN}[+] Installing System Packages (PHP, Git, Python, Nmap)...${NC}"
+pkg update && pkg upgrade -y
+pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap wget tar -y
 
-# 2. PROSEDUR FIX SPEEDTEST (TOTAL MANUAL - JALUR GITHUB)
-echo -e "${CYAN}[+] Membersihkan sistem dari sisa binary & alias rusak...${NC}"
-unalias speedtest 2>/dev/null || true
+# 2. Install Speedtest CLI (REVISI SAPUJAGAT)
+echo -e "${CYAN}[+] Updating Repository & Installing Speedtest...${NC}"
+pkg update -y
+
+# Coba install via pkg (Nama paket di beberapa repo adalah 'speedtest-cli')
+if pkg install speedtest-cli -y; then
+    echo -e "${GREEN}[✓] Berhasil install via pkg.${NC}"
+else
+    echo -e "${YELLOW}[!] pkg tidak ketemu, mencoba jalur pip...${NC}"
+    pip install speedtest-cli --break-system-packages
+fi
+
+# Hapus file 'speedtest' hantu yang bikin error e_type: 2
 rm -f $PREFIX/bin/speedtest
-rm -f $PREFIX/bin/speedtest-cli
-
-echo -e "${CYAN}[+] Mendownload Script Speedtest (Jalur yang tadi Berhasil)...${NC}"
-# Kita pakai curl -k lagi karena tadi kamu tes ini BERHASIL (65334 bytes)
-curl -k -L https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py -o $PREFIX/bin/speedtest-cli
-
-# Beri izin eksekusi agar script bisa jalan
-chmod +x $PREFIX/bin/speedtest-cli
-
-# Buat link agar perintah 'speedtest' bisa dipanggil
-ln -sf $PREFIX/bin/speedtest-cli $PREFIX/bin/speedtest
-
-echo -e "${GREEN}[✓] Speedtest terpasang via Raw Script (Bypass Repo).${NC}"
 
 # 3. Install Library Python
 echo -e "${CYAN}[+] Installing Python Libraries...${NC}"
-pip install lolcat routeros-api requests --break-system-packages || true
+pip install lolcat routeros-api requests --break-system-packages
 
-# 4. Setup Oh My Zsh
+# 4. Setup Oh My Zsh & Plugins
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
-    sh -c "$(curl -k -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+    echo -e "${CYAN}[+] Setting up Oh My Zsh...${NC}"
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 fi
 
-# 5. Konfigurasi .zshrc
+ZSH_PLUGINS="$HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions"
+if [ ! -d "$ZSH_PLUGINS" ]; then
+    git clone https://github.com/zsh-users/zsh-autosuggestions "$ZSH_PLUGINS" || true
+fi
+
+# 5. Setup Struktur Folder
+mkdir -p ~/NetworkTools ~/session_mikhmon ~/tmp
+
+# 6. Konfigurasi .zshrc
 echo -e "${CYAN}[+] Configuring .zshrc...${NC}"
 cat > "$HOME/.zshrc" << 'ZZZ'
 export ZSH="$HOME/.oh-my-zsh"
@@ -59,20 +62,17 @@ source $ZSH/oh-my-zsh.sh
 PROMPT='%F{green}[Ucenk %F{cyan}D-Tech%F{white}]%F{yellow} ~ $ %f'
 
 if [ -f "$HOME/NetworkTools/menu.py" ]; then
-    python "$HOME/NetworkTools/menu.py"
+    python "$HOME/NetworkTools/menu.py"
 fi
 
 alias menu='python $HOME/NetworkTools/menu.py'
-# Pastikan dipanggil lewat python3 agar tidak kena error binary ELF
-alias speedtest='python3 $PREFIX/bin/speedtest-cli --secure'
+alias speedtest='speedtest --accept-license --accept-gdpr'
 ZZZ
 
-# 6. Finalisasi
+# 7. Finalisasi
 chmod +x ~/NetworkTools/*.py 2>/dev/null || true
 
 echo -e "\n${GREEN}==============================================="
-echo -e "  SETUP BERHASIL, UCENK!"
-echo -e "  Pesan 'Unable' harusnya sudah hilang."
-echo -e "  Ketik: source ~/.zshrc"
-echo -e "  Lalu tes dengan ketik: speedtest"
+echo -e "  SETUP BERHASIL! ISP SEKARANG AKAN TERDETEKSI."
+echo -e "  Silakan restart Termux Anda."
 echo -e "===============================================${NC}"

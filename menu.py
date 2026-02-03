@@ -333,66 +333,59 @@ def hapus_laporan_mikhmon():
     except Exception:
         print(f"{RED}[!] Gagal Konek. Cek API MikroTik.{RESET}")
 
-def bandwidth_usage_report(): # Menu 5 - LIVE TRAFFIC
+def bandwidth_usage_report(): # Menu 5 - LIVE TRAFFIC (NO CLEAR SCREEN)
     creds = get_credentials("mikrotik")
     if not creds:
         print(f"{YELLOW}[!] Profile MikroTik belum diset.{RESET}")
         return
 
-    print(f"\n{CYAN}[+] Menghubungkan ke MikroTik {creds['ip']}...{RESET}")
-    print(f"{WHITE}[*] Live Monitoring Aktif. Tekan Ctrl+C untuk berhenti.{RESET}\n")
+    print(f"\n{CYAN}[+] Monitoring Live Traffic MikroTik: {creds['ip']}{RESET}")
+    print(f"{WHITE}[*] Tekan Ctrl+C untuk berhenti dan kembali ke menu.{RESET}\n")
     
     try:
         pool = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], plaintext_login=True)
         api = pool.get_api()
         resource = api.get_resource('/interface')
 
-        # Fungsi pembantu format kecepatan
         def format_speed(bps):
             if bps >= 1000000: return f"{round(bps/1000000, 2)} Mbps"
             if bps >= 1000: return f"{round(bps/1000, 2)} Kbps"
             return f"{int(bps)} bps"
 
-        # Simpan data byte awal untuk kalkulasi selisih (delta)
         prev_data = {}
-        
+        print(f"{MAGENTA}{'TIME':<10} | {'INTERFACE':<15} | {'TX (UP)':<12} | {'RX (DOWN)':<12}{RESET}")
+        print("-" * 55)
+
         while True:
             interfaces = resource.get()
             current_time = time.time()
-            
-            # Membersihkan layar agar terlihat seperti dashboard live
-            os.system('clear')
-            print(f"{MAGENTA}================== LIVE TRAFFIC MONITOR =================={RESET}")
-            print(f"{WHITE}Profile: {GREEN}{creds['ip']}{RESET} | {YELLOW}Ctrl+C untuk keluar{RESET}")
-            print(f"{MAGENTA}----------------------------------------------------------{RESET}")
-            print(f"{WHITE}{'INTERFACE':<20} {'TX (Upload)':<15} {'RX (Download)':<15}{RESET}")
-            print(f"{WHITE}" + "-"*52 + f"{RESET}")
+            timestamp = datetime.now().strftime("%H:%M:%S")
 
             for iface in interfaces:
-                # Filter hanya port Ethernet/SFP yang aktif (running)
-                if iface.get('type') in ['ether', 'sfp', 'vlan'] and iface.get('running') == 'true':
+                # Filter port fisik (ethernet/sfp) yang sedang aktif
+                if iface.get('type') in ['ether', 'sfp'] and iface.get('running') == 'true':
                     name = iface.get('name')
-                    # Ambil total byte kumulatif
                     tx_byte = int(iface.get('tx-byte', 0))
                     rx_byte = int(iface.get('rx-byte', 0))
 
                     if name in prev_data:
-                        # Hitung selisih byte lalu konversi ke bit (x8)
                         last_tx, last_rx, last_time = prev_data[name]
                         interval = current_time - last_time
                         
+                        # Hitung delta traffic
                         tx_bps = ((tx_byte - last_tx) * 8) / interval
                         rx_bps = ((rx_byte - last_rx) * 8) / interval
 
-                        print(f"{CYAN}{name:<20}{RESET} {YELLOW}{format_speed(tx_bps):<15}{RESET} {GREEN}{format_speed(rx_bps):<15}{RESET}")
+                        # Print ke bawah tanpa menghapus layar
+                        print(f"{WHITE}{timestamp:<10}{RESET} | {CYAN}{name:<15}{RESET} | {YELLOW}{format_speed(tx_bps):<12}{RESET} | {GREEN}{format_speed(rx_bps):<12}{RESET}")
 
-                    # Update data sebelumnya
                     prev_data[name] = (tx_byte, rx_byte, current_time)
 
-            time.sleep(1.5) # Interval refresh (bisa diubah sesuai keinginan)
+            # Jeda waktu antar update (2 detik agar tidak terlalu cepat memenuhi layar)
+            time.sleep(2)
             
     except KeyboardInterrupt:
-        print(f"\n{YELLOW}[-] Monitoring Live dihentikan.{RESET}")
+        print(f"\n{YELLOW}[-] Monitoring selesai. Kembali ke menu utama...{RESET}")
         if 'pool' in locals(): pool.disconnect()
     except Exception as e:
         print(f"{RED}[!] Error: {e}{RESET}")

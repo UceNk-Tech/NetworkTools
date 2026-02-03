@@ -333,13 +333,13 @@ def hapus_laporan_mikhmon():
     except Exception:
         print(f"{RED}[!] Gagal Konek. Cek API MikroTik.{RESET}")
 
-def bandwidth_usage_report(): # Menu 5 - LIVE TRAFFIC (NO CLEAR SCREEN)
+def bandwidth_usage_report(): # Menu 5 - LIVE TRAFFIC (UPDATE DI TEMPAT)
     creds = get_credentials("mikrotik")
     if not creds:
         print(f"{YELLOW}[!] Profile MikroTik belum diset.{RESET}")
         return
 
-    print(f"\n{CYAN}[+] Monitoring Live Traffic MikroTik: {creds['ip']}{RESET}")
+    print(f"\n{CYAN}[+] Monitoring Live Traffic Ethernet: {creds['ip']}{RESET}")
     print(f"{WHITE}[*] Tekan Ctrl+C untuk berhenti dan kembali ke menu.{RESET}\n")
     
     try:
@@ -353,43 +353,58 @@ def bandwidth_usage_report(): # Menu 5 - LIVE TRAFFIC (NO CLEAR SCREEN)
             return f"{int(bps)} bps"
 
         prev_data = {}
-        print(f"{MAGENTA}{'TIME':<10} | {'INTERFACE':<15} | {'TX (UP)':<12} | {'RX (DOWN)':<12}{RESET}")
-        print("-" * 55)
+        first_run = True
+        num_interfaces = 0
 
         while True:
-            interfaces = resource.get()
+            # Filter hanya port fisik ethernet/sfp
+            all_interfaces = resource.get()
+            active_eth = [i for i in all_interfaces if i.get('type') in ['ether', 'sfp']]
+            
             current_time = time.time()
-            timestamp = datetime.now().strftime("%H:%M:%S")
+            
+            # Jika bukan baris pertama, naikkan kursor sebanyak jumlah interface + header
+            if not first_run:
+                # Naik sebanyak jumlah interface yang ditampilkan + 2 baris header
+                sys.stdout.write(f"\033[{num_interfaces + 2}F")
 
-            for iface in interfaces:
-                # Filter port fisik (ethernet/sfp) yang sedang aktif
-                if iface.get('type') in ['ether', 'sfp'] and iface.get('running') == 'true':
-                    name = iface.get('name')
-                    tx_byte = int(iface.get('tx-byte', 0))
-                    rx_byte = int(iface.get('rx-byte', 0))
+            # Cetak Header
+            print(f"{MAGENTA}{'INTERFACE':<20} | {'TX (UPLOAD)':<15} | {'RX (DOWNLOAD)':<15}{RESET}")
+            print(f"{WHITE}{'-'*55}{RESET}")
 
-                    if name in prev_data:
-                        last_tx, last_rx, last_time = prev_data[name]
-                        interval = current_time - last_time
-                        
-                        # Hitung delta traffic
-                        tx_bps = ((tx_byte - last_tx) * 8) / interval
-                        rx_bps = ((rx_byte - last_rx) * 8) / interval
+            count = 0
+            for iface in active_eth:
+                name = iface.get('name')
+                tx_byte = int(iface.get('tx-byte', 0))
+                rx_byte = int(iface.get('rx-byte', 0))
 
-                        # Print ke bawah tanpa menghapus layar
-                        print(f"{WHITE}{timestamp:<10}{RESET} | {CYAN}{name:<15}{RESET} | {YELLOW}{format_speed(tx_bps):<12}{RESET} | {GREEN}{format_speed(rx_bps):<12}{RESET}")
+                if name in prev_data:
+                    last_tx, last_rx, last_time = prev_data[name]
+                    interval = current_time - last_time
+                    
+                    tx_bps = ((tx_byte - last_tx) * 8) / interval
+                    rx_bps = ((rx_byte - last_rx) * 8) / interval
 
-                    prev_data[name] = (tx_byte, rx_byte, current_time)
+                    # \033[K digunakan untuk menghapus sisa karakter di baris tersebut agar tidak tumpang tindih
+                    print(f"{CYAN}{name:<20}{RESET} | {YELLOW}{format_speed(tx_bps):<15}{RESET} | {GREEN}{format_speed(rx_bps):<15}{RESET}\033[K")
+                else:
+                    # Tampilan awal saat data delta belum ada
+                    print(f"{CYAN}{name:<20}{RESET} | {YELLOW}{'0 bps':<15}{RESET} | {GREEN}{'0 bps':<15}{RESET}\033[K")
+                
+                prev_data[name] = (tx_byte, rx_byte, current_time)
+                count += 1
 
-            # Jeda waktu antar update (2 detik agar tidak terlalu cepat memenuhi layar)
-            time.sleep(2)
+            num_interfaces = count
+            first_run = False
+            sys.stdout.flush()
+            time.sleep(1.5)
             
     except KeyboardInterrupt:
-        print(f"\n{YELLOW}[-] Monitoring selesai. Kembali ke menu utama...{RESET}")
+        # Pindahkan kursor ke paling bawah setelah selesai agar tidak menimpa saat balik ke menu
+        print(f"\n\n{YELLOW}[-] Monitoring dihentikan. Kembali ke menu utama...{RESET}")
         if 'pool' in locals(): pool.disconnect()
     except Exception as e:
-        print(f"{RED}[!] Error: {e}{RESET}")
-
+        print(f"\n{RED}[!] Error: {e}{RESET}")
 def backup_restore_mikrotik(): 
     creds = get_credentials("mikrotik")
     if not creds:

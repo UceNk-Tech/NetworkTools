@@ -1,8 +1,8 @@
 #!/bin/bash
 # ==========================================
-# Installer Otomatis Ucenk D-Tech Pro v3.3
+# Installer Otomatis Ucenk D-Tech Pro v3.4
 # Author: Ucenk
-# Fitur: Speedtest Fix, Instant Launch, Silent
+# Fitur: Total Silent Speedtest & Instant Launch
 # ==========================================
 set -e
 
@@ -22,9 +22,25 @@ pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap wget -
 echo -e "${CYAN}[+] Installing Python Libraries & Fixing Speedtest...${NC}"
 pip install lolcat routeros-api requests --break-system-packages
 
-# Download binary speedtest langsung ke folder sistem Termux agar bisa dipanggil python
-# Menggunakan source sivel/speedtest.py yang stabil
-wget -qO $PREFIX/bin/speedtest-cli https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py
+# Download binary speedtest
+wget -qO $PREFIX/bin/speedtest-raw https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py
+chmod +x $PREFIX/bin/speedtest-raw
+
+# TRIK MAUT: Membuat wrapper agar peringatan hilang secara permanen
+cat > $PREFIX/bin/speedtest-cli << 'EOF'
+#!/data/data/com.termux/files/usr/bin/python3
+import warnings
+import os
+import sys
+
+# Abaikan semua peringatan deprecation
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+# Jalankan speedtest yang asli
+os.environ['PYTHONWARNINGS'] = 'ignore'
+os.execv('/data/data/com.termux/files/usr/bin/python3', ['python3', '-W', 'ignore', '/data/data/com.termux/files/usr/bin/speedtest-raw'] + sys.argv[1:])
+EOF
+
 chmod +x $PREFIX/bin/speedtest-cli
 ln -sf $PREFIX/bin/speedtest-cli $PREFIX/bin/speedtest 2>/dev/null || true
 
@@ -34,16 +50,15 @@ if [ ! -d "$HOME/.oh-my-zsh" ]; then
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 fi
 
-# 4. Matikan Banner Termux (MOTD) agar loading instan
+# 4. Matikan Banner Termux
 touch $HOME/.hushlogin
 
-# 5. Konfigurasi .zshrc (Setting Tampilan & Auto-Run Menu)
+# 5. Konfigurasi .zshrc
 echo -e "${CYAN}[+] Configuring .zshrc...${NC}"
 cat > "$HOME/.zshrc" << 'ZZZ'
-# Jalankan menu di awal agar tidak ada jeda loading plugin
+# Jalankan menu di awal
 if [ -f "$HOME/NetworkTools/menu.py" ]; then
     clear
-    # Menjalankan menu python
     python3 "$HOME/NetworkTools/menu.py"
 fi
 
@@ -57,13 +72,11 @@ PROMPT='%F{green}[Ucenk %F{cyan}D-Tech%F{white}]%F{yellow} ~ $ %f'
 # Alias shortcut
 alias menu='python3 $HOME/NetworkTools/menu.py'
 alias update='bash $HOME/NetworkTools/update.sh'
-# Fix DeprecationWarning agar tampilan bersih di menu 19
-alias speedtest-cli='python3 -W ignore $PREFIX/bin/speedtest-cli'
-alias speedtest='python3 -W ignore $PREFIX/bin/speedtest-cli'
+alias speedtest='speedtest-cli'
 alias mikhmon='python3 -c "import sys; sys.path.append(\"$HOME/NetworkTools\"); from menu import run_mikhmon; run_mikhmon()"'
 ZZZ
 
-# 6. Paksa Bash panggil ZSH (Agar PERMANEN sejak awal)
+# 6. Paksa Bash panggil ZSH
 echo "exec zsh" > "$HOME/.bashrc"
 chsh -s zsh || true
 
@@ -72,8 +85,7 @@ chmod +x ~/NetworkTools/*.py 2>/dev/null || true
 
 echo -e "\n${GREEN}==============================================="
 echo -e "  SETUP SELESAI! UCENK D-TECH SIAP PAKAI."
-echo -e "  Langsung otomatis masuk ke ZSH & Menu."
+echo -e "  Peringatan Deprecated Sudah Dibungkam."
 echo -e "===============================================${NC}"
 
-# Masuk ke ZSH sekarang juga
 exec zsh

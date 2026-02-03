@@ -705,23 +705,82 @@ def config_onu_logic():
 
 
 
-Pilih Nomor: 11
+def restart_onu(): # Menu 11 - REVISI SYNTAX ZTE
+    creds = get_credentials("olt")
+    if not creds: 
+        print(f"{RED}[!] Profile OLT belum diset.{RESET}")
+        return
+        
+    brand = creds.get('brand', 'zte').lower()
+    print(f"\n{YELLOW}=== RESTART/REBOOT ONU ({brand.upper()}) ==={RESET}")
+    port = input(f"{WHITE}Port (contoh 1/3/1): {RESET}").strip()
+    onu_id = input(f"{WHITE}Nomor ONU: {RESET}").strip()
+    
+    print(f"{CYAN}[*] Mengambil detail informasi (Safe Mode)...{RESET}")
+    
+    commands = []
+    if brand == 'zte':
+        # Perbaikan Syntax: Beberapa OLT ZTE butuh 'show gpon onu base-info' 
+        # atau harus spesifik menyebutkan interface gpon-olt
+        commands = [
+            "terminal length 0",
+            f"show gpon onu detail-info gpon-olt_{port} {onu_id}",
+            f"show gpon onu last-offline-reason gpon-olt_{port} {onu_id}"
+        ]
+    else: # Fiberhome
+        commands = [
+            f"show onu info port {port} onu {onu_id}"
+        ]
+        
+    output = telnet_olt_execute(creds, commands)
+    
+    # JIKA ERROR (seperti log kamu tadi), kita coba syntax alternatif
+    if "%Error" in output or "Invalid input" in output:
+        print(f"{YELLOW}[!] Syntax detail-info gagal, mencoba syntax alternatif...{RESET}")
+        alt_cmd = [f"show gpon onu state gpon-olt_{port} {onu_id}"]
+        output = telnet_olt_execute(creds, alt_cmd)
+    
+    if output:
+        print(f"\n{MAGENTA}================ DETAIL INFORMASI ONU ================{RESET}")
+        for line in output.splitlines():
+            # Filter baris sampah/error agar tidak tampil lagi
+            if any(x in line for x in ["ZXAN", "conf t", "show ", "Invalid", "marker", "^", "strong"]):
+                continue
+            if line.strip():
+                print(f"{WHITE}{line.strip()}{RESET}")
+        print(f"\n{MAGENTA}======================================================{RESET}")
 
-=== RESTART/REBOOT ONU (ZTE) ===
-Port (contoh 1/2/1): 1/3/1
-Nomor ONU: 116
-[*] Mengambil detail informasi ONU 1/3/1:116...
-
-================ DETAIL INFORMASI ONU ================
-% The password is not strong, please change the password.
-
-                               ^
-%Error 20202: Invalid input detected at '^' marker.Invalid parameter
-                   ^
-%Error 20200: Invalid input detected at '^' marker.Invalid command
-======================================================
-
->>> Restart ONU ini sekarang? (y/n):
+        confirm = input(f"\n{RED}>>> Konfirmasi: Restart ONU ini? (y/n): {RESET}").lower()
+        if confirm == 'y':
+            print(f"{CYAN}[*] Mengirim perintah reboot...{RESET}")
+            
+            reboot_cmds = []
+            if brand == 'zte':
+                # Masuk ke mode mng dulu, jika gagal reboot lewat sini, 
+                # OLT tertentu pakai 'reset' bukan 'reboot'
+                reboot_cmds = [
+                    "conf t",
+                    f"pon-onu-mng gpon-onu_{port}:{onu_id}",
+                    "reboot",
+                    "yes",
+                    "exit",
+                    "end"
+                ]
+            elif brand == 'fiberhome':
+                reboot_cmds = [f"reboot onu port {port} onu {onu_id}", "y"]
+            
+            res_reboot = telnet_olt_execute(creds, reboot_cmds)
+            
+            if "Error" in res_reboot or "Invalid" in res_reboot:
+                 # Jika reboot gagal, coba syntax alternatif 'reset'
+                 print(f"{YELLOW}[!] Perintah 'reboot' gagal, mencoba 'reset'...{RESET}")
+                 telnet_olt_execute(creds, ["conf t", f"pon-onu-mng gpon-onu_{port}:{onu_id}", "reset", "yes"])
+            
+            print(f"{GREEN}[✓] Selesai. Silakan cek status ONU secara berkala.{RESET}")
+        else:
+            print(f"{MAGENTA}[-] Batal.{RESET}")
+    else:
+        print(f"{RED}[!] Gagal mengambil data.{RESET}")
 
 def reset_onu(): 
     creds = get_credentials("olt")

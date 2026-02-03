@@ -755,7 +755,7 @@ def restart_onu(): # Menu 11
             
         print(f"{MAGENTA}======================================================{RESET}")
         
-        confirm = input(f"\n{RED}>>> Konfirmasi: Restart ONU ini? {YELLOW}(y/n): {RESET}").lower()
+        confirm = input(f"\n{CYAN}>>> Konfirmasi: Restart ONU ini? {YELLOW}(y/n): {RESET}").lower()
         if confirm == 'y':
             print(f"{CYAN}[*] Mengirim perintah reboot...{RESET}")
             

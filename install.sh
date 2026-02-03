@@ -18,9 +18,12 @@ echo -e "${CYAN}[+] Installing System Packages...${NC}"
 pkg update && pkg upgrade -y
 pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap -y
 
-# 2. Install Library Python
+# 2. Install Library Python & Fix Speedtest
 echo -e "${CYAN}[+] Installing Python Libraries...${NC}"
 pip install lolcat routeros-api speedtest-cli requests --break-system-packages
+
+# Membuat shortcut agar speedtest-cli bisa dipanggil langsung (Fix menu 19)
+ln -sf $PREFIX/bin/speedtest-cli $PREFIX/bin/speedtest 2>/dev/null || true
 
 # 3. Setup Oh My Zsh
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
@@ -28,7 +31,7 @@ if [ ! -d "$HOME/.oh-my-zsh" ]; then
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 fi
 
-# 4. Matikan Banner Termux
+# 4. Matikan Banner Termux (Menghilangkan sisa tampilan default)
 touch $HOME/.hushlogin
 
 # 5. Konfigurasi .zshrc
@@ -50,15 +53,16 @@ PROMPT='%F{green}[Ucenk %F{cyan}D-Tech%F{white}]%F{yellow} ~ $ %f'
 # Alias shortcut
 alias menu='python3 $HOME/NetworkTools/menu.py'
 alias update='bash $HOME/NetworkTools/update.sh'
+alias speedtest='speedtest-cli'
 alias mikhmon='python3 -c "import sys; sys.path.append(\"$HOME/NetworkTools\"); from menu import run_mikhmon; run_mikhmon()"'
 ZZZ
 
-# 6. Bash ZSH
-
+# 6. Paksa Bash panggil ZSH (Agar Permanen & Otomatis)
 echo "exec zsh" > "$HOME/.bashrc"
 chsh -s zsh || true
 
 # 7. Finalisasi Permission
+echo -e "${CYAN}[+] Setting Permissions...${NC}"
 chmod +x ~/NetworkTools/*.py 2>/dev/null || true
 
 echo -e "\n${GREEN}==============================================="
@@ -66,4 +70,5 @@ echo -e "  SETUP SELESAI! UCENK D-TECH SIAP PAKAI."
 echo -e "  Sekarang sistem akan otomatis masuk ke ZSH."
 echo -e "===============================================${NC}"
 
+# Langsung jalankan ZSH sekarang juga
 exec zsh

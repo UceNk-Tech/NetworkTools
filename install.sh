@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==========================================
 # Installer Otomatis Ucenk D-Tech Pro v3.2
-# REVISI: Jalur Pip (Solusi Repo Termux.net Mati)
+# REVISI: Direct Pip (Bypass Repo Termux.net yang Mati)
 # ==========================================
 set -e
 
@@ -15,18 +15,18 @@ echo -e "${CYAN}[+] Memulai Setup Lingkungan Ucenk D-Tech...${NC}"
 
 # 1. Update & Install System Packages
 echo -e "${CYAN}[+] Checking System Packages...${NC}"
-# Kita abaikan error pkg update karena repo termux.net sudah mati
+# Pakai || true supaya kalau repo termux.net error, script tidak berhenti
 pkg update -y || true
 pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap wget tar -y
 
-# 2. Install Speedtest CLI (FIX TOTAL)
-echo -e "${CYAN}[+] Membersihkan file binary yang rusak...${NC}"
-# Hapus binary 'speedtest' yang bikin error "unexpected e_type: 2"
+# 2. Install Speedtest CLI (REVISI KHUSUS: Jalur Pip Langsung)
+echo -e "${CYAN}[+] Menghapus file binary yang menyebabkan error e_type...${NC}"
+# Hapus semua file binary lama yang bikin error "unexpected e_type: 2"
 rm -f $PREFIX/bin/speedtest
 rm -f $PREFIX/bin/speedtest-cli
 
-echo -e "${CYAN}[+] Installing Speedtest CLI via Pip...${NC}"
-# Jalur ini pasti berhasil selama Python terinstall
+echo -e "${CYAN}[+] Installing Speedtest CLI via Pip (Bypass PKG)...${NC}"
+# Kita langsung pakai pip karena pkg install speedtest-cli tidak ditemukan di repo kamu
 pip install speedtest-cli --break-system-packages
 
 echo -e "${GREEN}[✓] Speedtest-cli berhasil terpasang via Pip.${NC}"
@@ -63,8 +63,8 @@ if [ -f "$HOME/NetworkTools/menu.py" ]; then
 fi
 
 alias menu='python $HOME/NetworkTools/menu.py'
-# Gunakan alias ke speedtest-cli agar aman
-alias speedtest='speedtest-cli'
+# Alias ke speedtest-cli agar sinkron dengan instalasi pip
+alias speedtest='speedtest-cli --secure'
 ZZZ
 
 # 7. Finalisasi
@@ -72,5 +72,5 @@ chmod +x ~/NetworkTools/*.py 2>/dev/null || true
 
 echo -e "\n${GREEN}==============================================="
 echo -e "  SETUP BERHASIL! ERROR E_TYPE SUDAH DIBERSIHKAN."
-echo -e "  Silakan jalankan ulang menu.py Anda."
+echo -e "  Sekarang jalankan menu.py Anda."
 echo -e "===============================================${NC}"

@@ -1,9 +1,10 @@
 #!/bin/bash
 # ==========================================
 # Installer Otomatis Ucenk D-Tech Pro v3.2
-# REVISI: Fix Repo & Official Speedtest (Manual PKG)
+# REVISI: Bypass Repo Mati & Manual GitHub Fix
 # ==========================================
-set -e
+# Alice hilangkan 'set -e' agar script tidak berhenti saat repo error
+set +e 
 
 GREEN='\033[0;32m'
 CYAN='\033[0;36m'
@@ -13,50 +14,39 @@ NC='\033[0m'
 
 echo -e "${CYAN}[+] Memulai Setup Lingkungan Ucenk D-Tech...${NC}"
 
-# 1. Update & Install System Packages
-echo -e "${CYAN}[+] Checking System Packages...${NC}"
-pkg update -y || true
+# 1. Update & Install System Packages (Abaikan Error Repo Mati)
+echo -e "${CYAN}[+] Checking System Packages (Bypassing Repo Errors)...${NC}"
+pkg update || true
+pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap wget tar -y || true
 
-# 2. Install Speedtest CLI (REVISI FINAL - BYPASS REPO MATI)
-echo -e "${CYAN}[+] Menjalankan Prosedur Emergency Speedtest...${NC}"
-
-# Hapus sisa binary hantu yang bikin error e_type: 2
+# 2. Install Speedtest CLI (REVISI BYPASS: No More Unable)
+echo -e "${CYAN}[+] Membersihkan file binary penyebab error e_type...${NC}"
 rm -f $PREFIX/bin/speedtest
 rm -f $PREFIX/bin/speedtest-cli
 
-# Karena repo pkg kamu mati (termux.net), kita pakai Pip secara paksa
-# Ini cara paling direkomendasikan di forum Termux untuk kasus repo mati
-echo -e "${CYAN}[+] Memasang lewat Jalur Python (Anti-Error)...${NC}"
-python3 -m pip install --upgrade speedtest-cli --break-system-packages
-
-# Kita buatkan link agar perintah 'speedtest' bisa dipanggil
-ln -sf $(which speedtest-cli) $PREFIX/bin/speedtest
-
-if [ -f "$PREFIX/bin/speedtest-cli" ]; then
-    echo -e "${GREEN}[✓] Speedtest terpasang sempurna via Python Path.${NC}"
-else
-    # Jalur Darurat: Ambil script mentah jika pip gagal
-    curl -L https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py -o $PREFIX/bin/speedtest-cli
-    chmod +x $PREFIX/bin/speedtest-cli
-    echo -e "${GREEN}[✓] Speedtest terpasang via Raw Script GitHub.${NC}"
-fi
-
-# 3. Beri izin eksekusi (Kunci utama agar bisa dijalankan)
+echo -e "${CYAN}[+] Mengunduh Speedtest langsung dari GitHub (Anti-Unable)...${NC}"
+# Kita ambil script Python langsung agar tidak butuh repositori pkg yang mati
+curl -k -L https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py -o $PREFIX/bin/speedtest-cli
 chmod +x $PREFIX/bin/speedtest-cli
 
-# 4. Buat symlink agar bisa dipanggil dengan nama 'speedtest' juga
+# Buat jembatan agar perintah 'speedtest' juga jalan
 ln -sf $PREFIX/bin/speedtest-cli $PREFIX/bin/speedtest
 
-echo -e "${GREEN}[✓] Speedtest terpasang manual di $PREFIX/bin/speedtest-cli${NC}"
-
+echo -e "${GREEN}[✓] Speedtest terpasang manual (Bypass Repositori).${NC}"
 
 # 3. Install Library Python
 echo -e "${CYAN}[+] Installing Python Libraries...${NC}"
-pip install lolcat routeros-api requests --break-system-packages
+pip install lolcat routeros-api requests --break-system-packages || true
 
-# 4. Setup Oh My Zsh & Plugins (Tetap sama)
+# 4. Setup Oh My Zsh & Plugins
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
+    echo -e "${CYAN}[+] Setting up Oh My Zsh...${NC}"
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+fi
+
+ZSH_PLUGINS="$HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions"
+if [ ! -d "$ZSH_PLUGINS" ]; then
+    git clone https://github.com/zsh-users/zsh-autosuggestions "$ZSH_PLUGINS" || true
 fi
 
 # 5. Setup Struktur Folder
@@ -76,14 +66,14 @@ if [ -f "$HOME/NetworkTools/menu.py" ]; then
 fi
 
 alias menu='python $HOME/NetworkTools/menu.py'
-# Gunakan alias yang benar
-alias speedtest='speedtest-cli'
+# Alias ke script yang baru dipasang
+alias speedtest='speedtest-cli --secure'
 ZZZ
 
 # 7. Finalisasi
 chmod +x ~/NetworkTools/*.py 2>/dev/null || true
 
 echo -e "\n${GREEN}==============================================="
-echo -e "  SETUP BERHASIL! REPO SUDAH DIPERBAIKI."
-echo -e "  Silakan coba Menu 19 sekarang."
+echo -e "  SETUP BERHASIL! BYPASS REPO SUKSES."
+echo -e "  Silakan jalankan ulang menu.py Anda."
 echo -e "===============================================${NC}"

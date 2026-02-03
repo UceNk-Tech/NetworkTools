@@ -333,7 +333,7 @@ def hapus_laporan_mikhmon():
     except Exception:
         print(f"{RED}[!] Gagal Konek. Cek API MikroTik.{RESET}")
 
-def bandwidth_usage_report(): # Menu 5 - LIVE TRAFFIC (UPDATE DI TEMPAT)
+def bandwidth_usage_report(): # Menu 5 - LIVE TRAFFIC
     creds = get_credentials("mikrotik")
     if not creds:
         print(f"{YELLOW}[!] Profile MikroTik belum diset.{RESET}")
@@ -1362,7 +1362,7 @@ def show_menu():
     
     print(f"\n{YELLOW}=== MIKROTIK TOOLS ===")
 
-    print(f"\n{CYAN} 1.  Mikhmon Server                    5. Bandwidth Usage Report   ")
+    print(f"\n{CYAN} 1.  Mikhmon Server                    5. Live Traffic Monitoring  ")
     print(f"\n{CYAN} 2.  Active Hotspot Users              6. MikroTik Backup & Restore")
     print(f"\n{CYAN} 3.  DHCP Alert (Rogue)                7. SNMP Monitoring          ")
     print(f"\n{CYAN} 4.  Remove Mikhmon Script             8. MikroTik Log Viewer       ")

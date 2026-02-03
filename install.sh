@@ -13,16 +13,17 @@ NC='\033[0m'
 
 echo -e "${CYAN}[+] Memulai Setup Lingkungan Ucenk D-Tech...${NC}"
 
-# 1. Update & Install Dependencies (Termasuk wget untuk fix speedtest)
+# 1. Update & Install Dependencies
 echo -e "${CYAN}[+] Installing System Packages...${NC}"
 pkg update && pkg upgrade -y
 pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap wget -y
 
-# 2. Install Library Python & FORCE FIX SPEEDTEST (Anti Inaccessible)
+# 2. Install Library Python & FORCE FIX SPEEDTEST
 echo -e "${CYAN}[+] Installing Python Libraries & Fixing Speedtest...${NC}"
 pip install lolcat routeros-api requests --break-system-packages
 
 # Download binary speedtest langsung ke folder sistem Termux agar bisa dipanggil python
+# Menggunakan source sivel/speedtest.py yang stabil
 wget -qO $PREFIX/bin/speedtest-cli https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py
 chmod +x $PREFIX/bin/speedtest-cli
 ln -sf $PREFIX/bin/speedtest-cli $PREFIX/bin/speedtest 2>/dev/null || true
@@ -42,6 +43,7 @@ cat > "$HOME/.zshrc" << 'ZZZ'
 # Jalankan menu di awal agar tidak ada jeda loading plugin
 if [ -f "$HOME/NetworkTools/menu.py" ]; then
     clear
+    # Menjalankan menu python
     python3 "$HOME/NetworkTools/menu.py"
 fi
 
@@ -55,7 +57,9 @@ PROMPT='%F{green}[Ucenk %F{cyan}D-Tech%F{white}]%F{yellow} ~ $ %f'
 # Alias shortcut
 alias menu='python3 $HOME/NetworkTools/menu.py'
 alias update='bash $HOME/NetworkTools/update.sh'
-alias speedtest='speedtest-cli'
+# Fix DeprecationWarning agar tampilan bersih di menu 19
+alias speedtest-cli='python3 -W ignore $PREFIX/bin/speedtest-cli'
+alias speedtest='python3 -W ignore $PREFIX/bin/speedtest-cli'
 alias mikhmon='python3 -c "import sys; sys.path.append(\"$HOME/NetworkTools\"); from menu import run_mikhmon; run_mikhmon()"'
 ZZZ
 

@@ -19,27 +19,13 @@ echo -e "${CYAN}[+] Installing System Packages (PHP, Git, Python, Nmap)...${NC}"
 pkg update && pkg upgrade -y
 pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap wget tar -y
 
-# 2. Install Official Ookla Speedtest CLI (Fix e_type error)
-echo -e "${CYAN}[+] Installing Official Ookla Speedtest CLI...${NC}"
-# Deteksi arsitektur berdasarkan kapasitas LONG_BIT sistem
-OS_BIT=$(getconf LONG_BIT)
-
-if [ "$OS_BIT" == "64" ]; then
-    echo -e "${YELLOW}[*] Sistem 64-bit terdeteksi (aarch64)...${NC}"
-    SPEED_URL="https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-aarch64.tgz"
-else
-    echo -e "${YELLOW}[*] Sistem 32-bit terdeteksi (armel)...${NC}"
-    SPEED_URL="https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-armel.tgz"
-fi
-
-# Proses pembersihan dan instalasi binary
-rm -f $PREFIX/bin/speedtest # Hapus binary lama yang mungkin corrupt/salah tipe
-curl -L $SPEED_URL -o speedtest.tgz
-tar -xzvf speedtest.tgz speedtest
-chmod +x speedtest
-mv -f speedtest $PREFIX/bin/
-rm -f speedtest.tgz speedtest.md5 speedtest.5 # Bersihkan file sampah extra
-echo -e "${GREEN}[✓] Speedtest CLI Resmi berhasil terpasang.${NC}"
+# 2. Install Official Speedtest CLI (Solusi Pasti Jalan)
+echo -e "${CYAN}[+] Installing Speedtest CLI via Package Manager...${NC}"
+# Hapus file binary lama yang bikin error e_type
+rm -f $PREFIX/bin/speedtest
+# Install langsung via repo Termux (Sistem akan pilihkan arsitektur yang cocok)
+pkg install speedtest-cli -y
+echo -e "${GREEN}[✓] Speedtest CLI berhasil terpasang via PKG.{NC}"
 
 # 3. Install Library Python
 echo -e "${CYAN}[+] Installing Python Libraries...${NC}"

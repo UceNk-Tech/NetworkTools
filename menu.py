@@ -1411,15 +1411,8 @@ def main():
         elif c == '17': traffic_report_pon()
         elif c == '18': auto_audit_olt()    
         elif c == '19':
-            print(f"\n{CYAN}--- Menjalankan Speedtest (Stay on Screen) ---{RESET}")
-            # Versi pkg biasanya tidak butuh --accept-license, 
-            # tapi kita tambahkan try-except agar aman
-            try:
-                # Coba jalankan versi binary
-                os.system("speedtest")
-            except:
-                # Jika gagal, balik ke standar
-                os.system("speedtest-cli --simple")
+            print(f"\n{CYAN}--- Menjalankan Speedtest ---{RESET}")
+            os.system("speedtest-cli --simple")
         elif c == '20': nmap_scan_tool()
         elif c == '21': mac_lookup_tool()
         elif c == '22': port_scanner_tool()

@@ -705,7 +705,7 @@ def config_onu_logic():
 
 
 
-def restart_onu(): # Menu 11 - REVISI TOTAL (IKUT LOGIKA MENU 12)
+def restart_onu(): # Menu 11
     creds = get_credentials("olt")
     if not creds: 
         print(f"{RED}[!] Profile OLT belum diset.{RESET}")

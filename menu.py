@@ -235,7 +235,7 @@ def mk_hotspot_active():
         api = pool.get_api()
         act = api.get_resource('/ip/hotspot/active').get()
         print(f"\n{GREEN}>>> TOTAL USER AKTIF: {len(act)} {RESET}")
-        for user in act[:10]: 
+        for user in act[:50]: 
             print(f" - {user.get('user')} | IP: {user.get('address')}")
         pool.disconnect()
     except Exception as e: 
@@ -448,12 +448,12 @@ def log_viewer_mikrotik():
         print(f"{YELLOW}[!] Profile MikroTik belum aktif.{RESET}")
         return
 
-    print(f"\n{CYAN}=== LOG VIEWER MIKROTIK (15 Baris Terakhir) ==={RESET}")
+    print(f"\n{CYAN}=== LOG VIEWER MIKROTIK ==={RESET}")
     try:
         pool = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], plaintext_login=True)
         api = pool.get_api()
         logs = api.get_resource('/log').get()
-        last_logs = logs[-15:]
+        last_logs = logs[-50:]
 
         print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
         for l in last_logs:
@@ -713,12 +713,12 @@ def log_viewer_mikrotik():
         print(f"{YELLOW}[!] Profile MikroTik belum aktif.{RESET}")
         return
 
-    print(f"\n{CYAN}=== LOG VIEWER MIKROTIK (15 Baris Terakhir) ==={RESET}")
+    print(f"\n{CYAN}=== LOG VIEWER MIKROTIK==={RESET}")
     try:
         pool = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], plaintext_login=True)
         api = pool.get_api()
         logs = api.get_resource('/log').get()
-        last_logs = logs[-15:]
+        last_logs = logs[-50:]
 
         print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
         for l in last_logs:
@@ -811,8 +811,8 @@ def config_onu_logic():
         print(f" 1. {YELLOW}Scan ONU ID Kosong (Cari nomor kosong){RESET}")
         print(f" 2. {GREEN}Registrasi ZTE (Hotspot){RESET}")
         print(f" 3. {GREEN}Registrasi ZTE (Hotspot+PPPoE){RESET}")
-        print(f" 4. {GREEN}Registrasi FH (Hotspot){RESET}")
-        print(f" 5. {GREEN}Registrasi FH (Hotspot+PPPoE){RESET}")
+        print(f" 4. {GREEN}Registrasi FH  (Hotspot){RESET}")
+        print(f" 5. {GREEN}Registrasi FH  (Hotspot+PPPoE){RESET}")
         print(f" 6. {CYAN}Cek Detail Power Optik Unconfigured{RESET}") 
         print(f" 0. {YELLOW}Keluar/Kembali{RESET}")
         
@@ -839,7 +839,7 @@ def config_onu_logic():
                         for chunk in chunks: print(f"{WHITE}    {', '.join(chunk)}{RESET}")
                     else:
                         print(f"{YELLOW}[i] Tidak ada nomor Kosong (ID 1 sampai {max_id} terisi).{RESET}")
-                    print(f"\n{GREEN}[+] SARAN ID BARU: {max_id + 1}{RESET}")
+                    print(f"\n{GREEN}[+] SARAN ONU ID BARU: {max_id + 1}{RESET}")
                     print(f"{MAGENTA}--------------------------------------------------{RESET}")
             continue
 
@@ -1337,8 +1337,8 @@ def nmap_scan_tool(): # Menu 20
 
 
 def mac_lookup_tool(): # Menu 21
-    print(f"\n{CYAN}=== MAC LOOKUP / VENDOR CHECK ==={RESET}")
-    mac = input(f"{WHITE}Masukkan MAC Address (contoh AA:BB:CC): {RESET}").strip()
+    print(f"\n{CYAN}=== MAC LOOKUP ==={RESET}")
+    mac = input(f"{WHITE}MAC Address: {RESET}").strip()
     
     if not mac:
         print(f"{YELLOW}[!] MAC tidak boleh kosong.{RESET}")
@@ -1358,7 +1358,7 @@ def mac_lookup_tool(): # Menu 21
 
 
 def port_scanner_tool(): # Menu 22
-    print(f"\n{CYAN}=== PORT SCANNER (SPECIFIC TARGET) ==={RESET}")
+    print(f"\n{CYAN}=== PORT SCANNER ==={RESET}")
     target = input(f"{WHITE}Masukkan IP Target: {RESET}").strip()
     
     if not target:
@@ -1440,7 +1440,7 @@ def ping_traceroute_tool(): # Menu 24
 
 def dns_tools(): # Menu 25
     print(f"\n{CYAN}=== DNS LOOKUP TOOLS ==={RESET}")
-    domain = input(f"{WHITE}Masukkan Domain (contoh google.com): {RESET}").strip()
+    domain = input(f"{WHITE}Domain (contoh google.com): {RESET}").strip()
     
     if not domain:
         print(f"{YELLOW}[!] Domain tidak boleh kosong.{RESET}")
@@ -1511,7 +1511,7 @@ def update_tools_auto(): # Menu 26
     print(f"{WHITE}[*] Membersihkan cache git lokal...{RESET}")
     try:
         os.system("git fetch --all")
-        print(f"{CYAN}[*] Menarik kode terbaru dari GitHub...{RESET}")
+        print(f"{CYAN}[*] Mendapatkan kode terbaru dari GitHub...{RESET}")
         
         # Coba paksa sinkronisasi ke branch main atau master
         result = os.popen("git reset --hard origin/main 2>&1").read()
@@ -1522,7 +1522,7 @@ def update_tools_auto(): # Menu 26
             # Jika main gagal, coba master
             result_master = os.popen("git reset --hard origin/master 2>&1").read()
             if "HEAD is now at" in result_master:
-                print(f"\n{GREEN}[✓] BERHASIL! Kode sudah paling baru (Master).{RESET}")
+                print(f"\n{GREEN}[✓] BERHASIL! Kode sudah paling baru.{RESET}")
             else:
                 print(f"{RED}[!] Gagal sinkronisasi. Cek koneksi internet atau URL repo.{RESET}")
                 print(f"{WHITE}Log: {result_master.strip()}{RESET}")

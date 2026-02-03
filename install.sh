@@ -49,6 +49,7 @@ ln -sf $PREFIX/bin/speedtest-cli $PREFIX/bin/speedtest
 
 echo -e "${GREEN}[✓] Hard-Install Selesai. Sistem tidak lagi butuh repositori.${NC}"
 
+
 # 3. Install Library Python
 echo -e "${CYAN}[+] Installing Python Libraries...${NC}"
 pip install lolcat routeros-api requests --break-system-packages

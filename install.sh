@@ -1,8 +1,8 @@
 #!/bin/bash
 # ==========================================
-# Installer Otomatis Ucenk D-Tech Pro v3.2
+# Installer Otomatis Ucenk D-Tech Pro v3.3
 # Author: Ucenk
-# Optimization: Instant Launch & Path Fix
+# Fitur: Speedtest Fix, Instant Launch, Silent
 # ==========================================
 set -e
 
@@ -13,19 +13,19 @@ NC='\033[0m'
 
 echo -e "${CYAN}[+] Memulai Setup Lingkungan Ucenk D-Tech...${NC}"
 
-# 1. Update & Install Dependencies
+# 1. Update & Install Dependencies (Termasuk wget untuk fix speedtest)
 echo -e "${CYAN}[+] Installing System Packages...${NC}"
 pkg update && pkg upgrade -y
 pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap wget -y
 
-# 2. Install Library Python & FORCE FIX PATH
-echo -e "${CYAN}[+] Installing Python Libraries & Fixing Path...${NC}"
-pip install lolcat routeros-api speedtest-cli requests --break-system-packages
+# 2. Install Library Python & FORCE FIX SPEEDTEST (Anti Inaccessible)
+echo -e "${CYAN}[+] Installing Python Libraries & Fixing Speedtest...${NC}"
+pip install lolcat routeros-api requests --break-system-packages
 
-# Memasukkan path bin python ke sistem agar perintah 'speedtest-cli' ditemukan
-mkdir -p $PREFIX/bin
-ln -sf $HOME/.local/bin/speedtest-cli $PREFIX/bin/speedtest-cli 2>/dev/null || true
-ln -sf $HOME/.local/bin/speedtest-cli $PREFIX/bin/speedtest 2>/dev/null || true
+# Download binary speedtest langsung ke folder sistem Termux agar bisa dipanggil python
+wget -qO $PREFIX/bin/speedtest-cli https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py
+chmod +x $PREFIX/bin/speedtest-cli
+ln -sf $PREFIX/bin/speedtest-cli $PREFIX/bin/speedtest 2>/dev/null || true
 
 # 3. Setup Oh My Zsh
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
@@ -33,15 +33,12 @@ if [ ! -d "$HOME/.oh-my-zsh" ]; then
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 fi
 
-# 4. Matikan Banner Termux
+# 4. Matikan Banner Termux (MOTD) agar loading instan
 touch $HOME/.hushlogin
 
-# 5. Konfigurasi .zshrc
-echo -e "${CYAN}[+] Configuring .zshrc (Instant Auto-run)...${NC}"
+# 5. Konfigurasi .zshrc (Setting Tampilan & Auto-Run Menu)
+echo -e "${CYAN}[+] Configuring .zshrc...${NC}"
 cat > "$HOME/.zshrc" << 'ZZZ'
-# Tambahkan path manual agar perintah python terdeteksi
-export PATH="$HOME/.local/bin:$PATH"
-
 # Jalankan menu di awal agar tidak ada jeda loading plugin
 if [ -f "$HOME/NetworkTools/menu.py" ]; then
     clear
@@ -62,19 +59,17 @@ alias speedtest='speedtest-cli'
 alias mikhmon='python3 -c "import sys; sys.path.append(\"$HOME/NetworkTools\"); from menu import run_mikhmon; run_mikhmon()"'
 ZZZ
 
-# 6. Paksa Bash panggil ZSH
+# 6. Paksa Bash panggil ZSH (Agar PERMANEN sejak awal)
 echo "exec zsh" > "$HOME/.bashrc"
 chsh -s zsh || true
 
 # 7. Finalisasi Permission
-echo -e "${CYAN}[+] Setting Permissions...${NC}"
 chmod +x ~/NetworkTools/*.py 2>/dev/null || true
 
 echo -e "\n${GREEN}==============================================="
 echo -e "  SETUP SELESAI! UCENK D-TECH SIAP PAKAI."
-echo -e "  Sekarang sistem akan otomatis masuk ke ZSH."
+echo -e "  Langsung otomatis masuk ke ZSH & Menu."
 echo -e "===============================================${NC}"
 
-# Jalankan dengan PATH yang benar sekarang juga
-export PATH="$HOME/.local/bin:$PATH"
+# Masuk ke ZSH sekarang juga
 exec zsh

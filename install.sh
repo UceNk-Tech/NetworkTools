@@ -17,16 +17,29 @@ echo -e "${CYAN}[+] Memulai Setup Lingkungan Ucenk D-Tech...${NC}"
 echo -e "${CYAN}[+] Checking System Packages...${NC}"
 pkg update -y || true
 
-# 2. Install Speedtest CLI (JALUR NINJA - BYPASS SYSTEM)
-echo -e "${CYAN}[+] Menjalankan Prosedur Bypass Instalasi...${NC}"
+# 2. Install Speedtest CLI (REVISI FINAL - BYPASS REPO MATI)
+echo -e "${CYAN}[+] Menjalankan Prosedur Emergency Speedtest...${NC}"
 
-# 1. Hapus semua file binary yang bikin error e_type: 2
+# Hapus sisa binary hantu yang bikin error e_type: 2
 rm -f $PREFIX/bin/speedtest
 rm -f $PREFIX/bin/speedtest-cli
 
-# 2. Download script Python langsung dari GitHub resmi sivel/speedtest-cli
-echo -e "${CYAN}[+] Mendownload script langsung dari sumber resmi...${NC}"
-curl -L https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py -o $PREFIX/bin/speedtest-cli
+# Karena repo pkg kamu mati (termux.net), kita pakai Pip secara paksa
+# Ini cara paling direkomendasikan di forum Termux untuk kasus repo mati
+echo -e "${CYAN}[+] Memasang lewat Jalur Python (Anti-Error)...${NC}"
+python3 -m pip install --upgrade speedtest-cli --break-system-packages
+
+# Kita buatkan link agar perintah 'speedtest' bisa dipanggil
+ln -sf $(which speedtest-cli) $PREFIX/bin/speedtest
+
+if [ -f "$PREFIX/bin/speedtest-cli" ]; then
+    echo -e "${GREEN}[✓] Speedtest terpasang sempurna via Python Path.${NC}"
+else
+    # Jalur Darurat: Ambil script mentah jika pip gagal
+    curl -L https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py -o $PREFIX/bin/speedtest-cli
+    chmod +x $PREFIX/bin/speedtest-cli
+    echo -e "${GREEN}[✓] Speedtest terpasang via Raw Script GitHub.${NC}"
+fi
 
 # 3. Beri izin eksekusi (Kunci utama agar bisa dijalankan)
 chmod +x $PREFIX/bin/speedtest-cli

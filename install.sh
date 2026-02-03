@@ -19,16 +19,20 @@ echo -e "${CYAN}[+] Installing System Packages (PHP, Git, Python, Nmap)...${NC}"
 pkg update && pkg upgrade -y
 pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap wget tar -y
 
-# 2. Install Speedtest CLI (TOTAL CLEANUP & FIX)
-echo -e "${CYAN}[+] Membersihkan sisa Speedtest lama...${NC}"
-rm -f $PREFIX/bin/speedtest
-rm -f $PREFIX/bin/speedtest-cli
-pip uninstall speedtest-cli -y || true
+# 2. Install Speedtest CLI (REVISI SAPUJAGAT)
+echo -e "${CYAN}[+] Updating Repository & Installing Speedtest...${NC}"
+pkg update -y
 
-echo -e "${CYAN}[+] Installing Speedtest CLI via Official Repo...${NC}"
-pkg install speedtest-cli -y
-echo -e "${GREEN}[✓] Speedtest terpasang. Mengetes kecocokan...${NC}"
-speedtest-cli --version || echo -e "${RED}[!] Masih ada kendala arsitektur.${NC}"
+# Coba install via pkg (Nama paket di beberapa repo adalah 'speedtest-cli')
+if pkg install speedtest-cli -y; then
+    echo -e "${GREEN}[✓] Berhasil install via pkg.${NC}"
+else
+    echo -e "${YELLOW}[!] pkg tidak ketemu, mencoba jalur pip...${NC}"
+    pip install speedtest-cli --break-system-packages
+fi
+
+# Hapus file 'speedtest' hantu yang bikin error e_type: 2
+rm -f $PREFIX/bin/speedtest
 
 # 3. Install Library Python
 echo -e "${CYAN}[+] Installing Python Libraries...${NC}"

@@ -316,7 +316,7 @@ def hapus_laporan_mikhmon():
             print(f"{YELLOW}[!] Terdeteksi {WHITE}{count}{YELLOW} script di {MAGENTA}{r_name}{RESET}")
             
             # PAKSA WARNA: Merah dulu, lalu Kuning, lalu Merah lagi
-            tanya = f"{RED}>>> Hapus semua script laporan ini? {YELLOW}(y/n){RED}: {RESET}"
+            tanya = f"{CYAN}>>> Hapus semua script laporan ini? {YELLOW}(y/n){RED}: {RESET}"
             confirm = input(tanya).lower()
             
             if confirm == 'y':

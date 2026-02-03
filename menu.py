@@ -716,54 +716,59 @@ def restart_onu(): # Menu 11
     port = input(f"{WHITE}Port (contoh 1/2/1): {RESET}").strip()
     onu_id = input(f"{WHITE}Nomor ONU: {RESET}").strip()
     
-    # 1. Cek status ONU sebelum eksekusi
-    print(f"{CYAN}[*] Mengecek status ONU {port}:{onu_id}...{RESET}")
+    print(f"{CYAN}[*] Mengambil detail informasi ONU {port}:{onu_id}...{RESET}")
+    
+    commands = []
     if brand == 'zte':
-        check_cmd = [f"show gpon onu state gpon-olt_{port} {onu_id}"]
+        # Mengambil info detail dan alasan offline terakhir
+        commands = [
+            "terminal length 0",
+            f"show gpon onu detail-info gpon-olt_{port} {onu_id}",
+            f"show gpon onu last-offline-reason gpon-olt_{port} {onu_id}"
+        ]
     else: # Fiberhome
-        check_cmd = [f"show onu current-state port {port} onu {onu_id}"]
+        commands = [
+            f"show onu info port {port} onu {onu_id}",
+            f"show onu optic_info port {port} onu {onu_id}"
+        ]
         
-    output = telnet_olt_execute(creds, check_cmd)
+    output = telnet_olt_execute(creds, commands)
     
     if output:
-        print(f"\n{WHITE}STATUS TERKINI:{RESET}")
-        # Menampilkan baris yang relevan saja
+        # Membersihkan output telnet agar rapi (menghilangkan baris perintah)
+        print(f"\n{MAGENTA}================ DETAIL INFORMASI ONU ================{RESET}")
+        clean_output = ""
         for line in output.splitlines():
-            if onu_id in line:
-                print(f"{YELLOW}{line.strip()}{RESET}")
+            # Filter baris yang mengandung prompt atau perintah echo telnet
+            if any(x in line for x in ["ZXAN", "conf t", "show ", "pon-onu-mng"]):
+                continue
+            clean_output += line + "\n"
+        
+        print(f"{WHITE}{clean_output.strip()}{RESET}")
+        print(f"{MAGENTA}======================================================{RESET}")
 
         confirm = input(f"\n{RED}>>> Restart ONU ini sekarang? (y/n): {RESET}").lower()
         if confirm == 'y':
-            print(f"{CYAN}[*] Mengirim perintah reboot ke {brand.upper()}...{RESET}")
+            print(f"{CYAN}[*] Mengirim perintah reboot...{RESET}")
             
-            commands = []
+            reboot_cmds = []
             if brand == 'zte':
-                # Perintah standar ZTE (beberapa tipe butuh 'yes' konfirmasi)
-                commands = [
+                reboot_cmds = [
                     "conf t",
                     f"pon-onu-mng gpon-onu_{port}:{onu_id}",
                     "reboot",
-                    "yes", # Konfirmasi jika ditanya "Are you sure?"
+                    "yes",
                     "exit",
                     "end"
                 ]
             elif brand == 'fiberhome':
-                # Perintah Fiberhome biasanya dilakukan di level privileged
-                # Perintah: reboot onu port <port> onu <id>
-                commands = [
+                reboot_cmds = [
                     f"reboot onu port {port} onu {onu_id}",
-                    "y", # Konfirmasi
+                    "y"
                 ]
             
-            # Eksekusi perintah
-            result = telnet_olt_execute(creds, commands)
-            
-            # Verifikasi apakah ada pesan error di log telnet
-            if "Invalid" in result or "Error" in result:
-                print(f"{RED}[!] OLT menolak perintah. Cek kembali hak akses user/syntax.{RESET}")
-            else:
-                print(f"{GREEN}[✓] Perintah Reboot dikirim ke {brand.upper()} ONU {port}:{onu_id}.{RESET}")
-                print(f"{WHITE}[!] ONU akan segera mati dan booting ulang.{RESET}")
+            telnet_olt_execute(creds, reboot_cmds)
+            print(f"{GREEN}[✓] Perintah Reboot BERHASIL dikirim ke ONU {port}:{onu_id}.{RESET}")
         else:
             print(f"{MAGENTA}[-] Restart dibatalkan.{RESET}")
     else:

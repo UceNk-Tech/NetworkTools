@@ -1,6 +1,8 @@
 #!/bin/bash
 # ==========================================
 # Installer Otomatis Ucenk D-Tech Pro v3.2
+# Author: Ucenk
+# Optimization: Instant Launch & Silent Login
 # ==========================================
 set -e
 
@@ -26,9 +28,18 @@ if [ ! -d "$HOME/.oh-my-zsh" ]; then
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 fi
 
-# 4. Konfigurasi .zshrc (Tampilan & Auto-Menu)
-echo -e "${CYAN}[+] Configuring .zshrc (Custom Prompt & Auto-run)...${NC}"
+# 4. Matikan Banner Termux
+touch $HOME/.hushlogin
+
+# 5. Konfigurasi .zshrc
+echo -e "${CYAN}[+] Configuring .zshrc (Instant Auto-run)...${NC}"
 cat > "$HOME/.zshrc" << 'ZZZ'
+# Jalankan menu di awal agar tidak ada jeda loading plugin
+if [ -f "$HOME/NetworkTools/menu.py" ]; then
+    clear
+    python3 "$HOME/NetworkTools/menu.py"
+fi
+
 export ZSH="$HOME/.oh-my-zsh"
 plugins=(git zsh-autosuggestions)
 source $ZSH/oh-my-zsh.sh
@@ -36,27 +47,23 @@ source $ZSH/oh-my-zsh.sh
 # Prompt Khas Ucenk D-Tech
 PROMPT='%F{green}[Ucenk %F{cyan}D-Tech%F{white}]%F{yellow} ~ $ %f'
 
-# Jalankan Menu Otomatis
-if [ -f "$HOME/NetworkTools/menu.py" ]; then
-    python3 "$HOME/NetworkTools/menu.py"
-fi
-
+# Alias shortcut
 alias menu='python3 $HOME/NetworkTools/menu.py'
+alias update='bash $HOME/NetworkTools/update.sh'
+alias mikhmon='python3 -c "import sys; sys.path.append(\"$HOME/NetworkTools\"); from menu import run_mikhmon; run_mikhmon()"'
 ZZZ
 
-# 5. RAHASIA OTOMATIS: Paksa Bash panggil ZSH
-# Ini agar saat pertama kali buka Termux, tampilan default langsung dilewati
-echo -e "${CYAN}[+] Setting ZSH as default permanently...${NC}"
+# 6. Bash ZSH
+
 echo "exec zsh" > "$HOME/.bashrc"
 chsh -s zsh || true
 
-# 6. Finalisasi Permission
+# 7. Finalisasi Permission
 chmod +x ~/NetworkTools/*.py 2>/dev/null || true
 
 echo -e "\n${GREEN}==============================================="
 echo -e "  SETUP SELESAI! UCENK D-TECH SIAP PAKAI."
-echo -e "  Sekarang tutup Termux dan buka lagi."
+echo -e "  Sekarang sistem akan otomatis masuk ke ZSH."
 echo -e "===============================================${NC}"
 
-# Langsung masuk ke tampilan baru sekarang juga
 exec zsh

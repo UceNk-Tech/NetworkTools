@@ -1,10 +1,10 @@
 #!/bin/bash
 # ==========================================
 # Installer Otomatis Ucenk D-Tech Pro v3.2
-# REVISI: TOTAL BYPASS PKG (Anti-Unable)
+# REVISI: ZERO-PKG FOR SPEEDTEST (Pasti Berhasil)
 # ==========================================
 
-# Jangan berhenti jika ada error
+# Matikan mode berhenti jika error
 set +e 
 
 GREEN='\033[0;32m'
@@ -15,30 +15,30 @@ NC='\033[0m'
 
 echo -e "${CYAN}[+] Memulai Setup Lingkungan Ucenk D-Tech...${NC}"
 
-# 1. Install Paket Sistem Dasar (Tanpa Speedtest)
-echo -e "${CYAN}[+] Memasang Paket Sistem (Abaikan pesan error repo)...${NC}"
-# Kita biarkan paket ini terinstall jika sudah ada, kalau error lewati saja
-pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap wget tar -y || true
+# 1. Install Paket Sistem Dasar (TANPA SPEEDTEST-CLI DI SINI)
+echo -e "${CYAN}[+] Memasang Paket Sistem (Membersihkan Antrian)...${NC}"
+# Alice pisah agar jika satu gagal, yang lain tetap jalan dan tidak lapor "Unable" massal
+for pkg in php git figlet curl python psmisc inetutils neofetch zsh nmap wget tar; do
+    pkg install $pkg -y || true
+done
 
-# 2. PROSEDUR FIX SPEEDTEST (TANPA PKG)
-echo -e "${CYAN}[+] Membersihkan sistem dari sisa instalasi gagal...${NC}"
-# Hapus alias pengganggu
+# 2. PROSEDUR FIX SPEEDTEST (TOTAL MANUAL - JALUR GITHUB)
+echo -e "${CYAN}[+] Membersihkan sistem dari sisa binary & alias rusak...${NC}"
 unalias speedtest 2>/dev/null || true
-# Hapus binary hantu yang bikin e_type error
 rm -f $PREFIX/bin/speedtest
 rm -f $PREFIX/bin/speedtest-cli
 
-echo -e "${CYAN}[+] Memasang Speedtest via Jalur Manual (Anti-Unable)...${NC}"
-# Mengambil file langsung dari GitHub (Ini yang tadi kamu tes dan BERHASIL)
+echo -e "${CYAN}[+] Mendownload Script Speedtest (Jalur yang tadi Berhasil)...${NC}"
+# Kita pakai curl -k lagi karena tadi kamu tes ini BERHASIL (65334 bytes)
 curl -k -L https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py -o $PREFIX/bin/speedtest-cli
 
-# Beri izin eksekusi
+# Beri izin eksekusi agar script bisa jalan
 chmod +x $PREFIX/bin/speedtest-cli
 
-# Buat link agar perintah 'speedtest' bisa dipanggil di terminal
+# Buat link agar perintah 'speedtest' bisa dipanggil
 ln -sf $PREFIX/bin/speedtest-cli $PREFIX/bin/speedtest
 
-echo -e "${GREEN}[✓] Speedtest terpasang manual (Bypass Package Manager).${NC}"
+echo -e "${GREEN}[✓] Speedtest terpasang via Raw Script (Bypass Repo).${NC}"
 
 # 3. Install Library Python
 echo -e "${CYAN}[+] Installing Python Libraries...${NC}"
@@ -46,11 +46,10 @@ pip install lolcat routeros-api requests --break-system-packages || true
 
 # 4. Setup Oh My Zsh
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
-    echo -e "${CYAN}[+] Setting up Oh My Zsh...${NC}"
     sh -c "$(curl -k -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 fi
 
-# 5. Konfigurasi .zshrc (Penentu keberhasilan Menu 19)
+# 5. Konfigurasi .zshrc
 echo -e "${CYAN}[+] Configuring .zshrc...${NC}"
 cat > "$HOME/.zshrc" << 'ZZZ'
 export ZSH="$HOME/.oh-my-zsh"
@@ -64,7 +63,7 @@ if [ -f "$HOME/NetworkTools/menu.py" ]; then
 fi
 
 alias menu='python $HOME/NetworkTools/menu.py'
-# Gunakan python3 agar tidak kena e_type error
+# Pastikan dipanggil lewat python3 agar tidak kena error binary ELF
 alias speedtest='python3 $PREFIX/bin/speedtest-cli --secure'
 ZZZ
 
@@ -72,7 +71,8 @@ ZZZ
 chmod +x ~/NetworkTools/*.py 2>/dev/null || true
 
 echo -e "\n${GREEN}==============================================="
-echo -e "  SETUP BERHASIL, UCENK! TIDAK ADA LAGI UNABLE."
+echo -e "  SETUP BERHASIL, UCENK!"
+echo -e "  Pesan 'Unable' harusnya sudah hilang."
 echo -e "  Ketik: source ~/.zshrc"
-echo -e "  Lalu jalankan Menu 19."
+echo -e "  Lalu tes dengan ketik: speedtest"
 echo -e "===============================================${NC}"

@@ -1411,15 +1411,14 @@ def main():
         elif c == '17': traffic_report_pon()
         elif c == '18': auto_audit_olt()    
         elif c == '19':
-            os.system('clear')
-            print(f"{CYAN}=== SPEEDTEST REAL-TIME ==={RESET}")
-            # Cek di folder bin Termux
+            print(f"\n{CYAN}--- Menjalankan Speedtest (Stay on Screen) ---{RESET}")
+            # Cek apakah file ada
             if os.path.exists("/data/data/com.termux/files/usr/bin/speedtest"):
+                # Menjalankan langsung tanpa 'clear' agar tetap di bawah menu
                 os.system("speedtest --accept-license --accept-gdpr")
             else:
-                print(f"{YELLOW}[!] Speedtest resmi belum terpasang di /usr/bin/ {RESET}")
-                os.system("speedtest-cli")
-                os.system("speedtest-cli")
+                print(f"{YELLOW}[!] Versi resmi tidak ditemukan, mencoba versi standar...{RESET}")
+                os.system("speedtest-cli --simple")
         elif c == '20': nmap_scan_tool()
         elif c == '21': mac_lookup_tool()
         elif c == '22': port_scanner_tool()

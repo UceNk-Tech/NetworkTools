@@ -17,23 +17,37 @@ echo -e "${CYAN}[+] Memulai Setup Lingkungan Ucenk D-Tech...${NC}"
 echo -e "${CYAN}[+] Checking System Packages...${NC}"
 pkg update -y || true
 
-# 2. Fix Repository & Install Speedtest CLI (CARA MANUAL TERAMPUH)
-echo -e "${CYAN}[+] Memperbaiki alamat Repository yang mati...${NC}"
-# Alice ganti paksa termux.net yang mati ke server resmi yang aktif
-sed -i 's|termux.net|packages.termux.org/apt/termux-main|g' $PREFIX/etc/apt/sources.list
+# 2. Install Speedtest CLI (HARD-INSTALL: Jalur Manual .deb)
+echo -e "${CYAN}[+] Menjalankan Prosedur Hard-Install Speedtest...${NC}"
 
-echo -e "${CYAN}[+] Membersihkan file binary rusak (e_type error)...${NC}"
+# Bersihkan sisa-sisa file hantu yang bikin e_type error
 rm -f $PREFIX/bin/speedtest
 rm -f $PREFIX/bin/speedtest-cli
 
-echo -e "${CYAN}[+] Mengupdate database paket baru...${NC}"
-apt update -y
+# Deteksi arsitektur untuk mengambil file yang tepat secara manual
+ARCH=$(uname -m)
+if [[ "$ARCH" == "aarch64" ]]; then
+    # Download file .deb resmi dari mirror yang masih aktif
+    curl -L https://mirror.leaseweb.com/termux/termux-main/pool/main/s/speedtest-cli/speedtest-cli_2.1.3_all.deb -o speedtest.deb
+elif [[ "$ARCH" == "armv7l" || "$ARCH" == "arm" ]]; then
+    curl -L https://mirror.leaseweb.com/termux/termux-main/pool/main/s/speedtest-cli/speedtest-cli_2.1.3_all.deb -o speedtest.deb
+else
+    # Fallback ke versi universal jika arsitektur tidak dikenal
+    curl -L https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py -o $PREFIX/bin/speedtest-cli
+    chmod +x $PREFIX/bin/speedtest-cli
+fi
 
-echo -e "${CYAN}[+] Menginstall Speedtest CLI via PKG...${NC}"
-# Sekarang pkg install pasti bisa menemukan paketnya
-apt install speedtest-cli -y
+# Pasang file .deb jika berhasil didownload
+if [ -f "speedtest.deb" ]; then
+    echo -e "${CYAN}[+] Memasang paket .deb secara manual...${NC}"
+    dpkg -i --force-all speedtest.deb
+    rm speedtest.deb
+fi
 
-echo -e "${GREEN}[✓] Speedtest-cli berhasil terpasang via Repositori Baru.${NC}"
+# Pastikan symlink benar agar Menu 19 tidak bingung
+ln -sf $PREFIX/bin/speedtest-cli $PREFIX/bin/speedtest
+
+echo -e "${GREEN}[✓] Hard-Install Selesai. Sistem tidak lagi butuh repositori.${NC}"
 
 # 3. Install Library Python
 echo -e "${CYAN}[+] Installing Python Libraries...${NC}"

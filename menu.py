@@ -599,7 +599,7 @@ def config_onu_logic():
 
     while True:
         print(f"\n{MAGENTA}--- PILIH TINDAKAN (PORT {p}) ---{RESET}")
-        print(f" 1. {YELLOW}Scan ONU ID Kosong (Cari nomor kosong){RESET}")
+        print(f" 1. {YELLOW}Scan/Cari nomor kosong{RESET}")
         print(f" 2. {GREEN}ZTE (Hotspot Only){RESET}")
         print(f" 3. {GREEN}ZTE (Hotspot + PPPoE){RESET}")
         print(f" 4. {GREEN}FH  (Hotspot Only){RESET}")

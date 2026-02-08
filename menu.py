@@ -563,6 +563,8 @@ import re
 
 import re
 
+import re
+
 def config_onu_logic(): 
     creds = get_credentials("olt")
     if not creds: 
@@ -653,7 +655,7 @@ def config_onu_logic():
             cmds = ["conf t", f"interface gpon-olt_{p}", f"onu {test_id} type ALL sn {found_sn}", "exit", "terminal length 0", f"show pon power attenuation gpon-onu_{p}:{test_id}", "conf t", f"interface gpon-olt_{p}", f"no onu {test_id}", "end"]
             output = telnet_olt_execute(creds, cmds)
             
-            print(f"\n{WHITE}DETAIL POWER ATTENUATION ONU (PRE-CONFIG):{RESET}")
+            print(f"\n{WHITE}DETAIL POWER & ATTENUATION ONU (PRE-CONFIG):{RESET}")
             print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
             if output:
                 lines = output.splitlines()
@@ -683,7 +685,7 @@ def config_onu_logic():
             cmds = []
             
             if opt == '2': # ZTE HOTSPOT (Template Request)
-                vlan = input(f"{WHITE}VLAN ID: {RESET}").strip()
+                vlan = input(f"{WHITE}VLAN Hotspot: {RESET}").strip()
                 profile = input(f"{WHITE}Tcont Profile: {RESET}").strip()
                 cmds = [
                     "conf t",
@@ -707,14 +709,14 @@ def config_onu_logic():
                     "end", "write"
                 ]
 
-            elif opt == '3': # ZTE HOTSPOT + PPPOE (Template Request)
+            elif opt == '3': # ZTE HOTSPOT + PPPOE
                 v_pppoe = input(f"{WHITE}VLAN PPPoE: {RESET}").strip()
                 v_hotspot = input(f"{WHITE}VLAN Hotspot: {RESET}").strip()
                 profile = input(f"{WHITE}Tcont Profile: {RESET}").strip()
                 u_pppoe = input(f"{WHITE}Username PPPoE: {RESET}").strip()
                 p_pppoe = input(f"{WHITE}Password PPPoE: {RESET}").strip()
-                v_profile_wan = input(f"{WHITE}VLAN Profile WAN (misal VLAN100-PPPOE): {RESET}").strip()
-                ssid_name = input(f"{WHITE}SSID Hotspot: {RESET}").strip()
+                v_profile_wan = f"VLAN{v_pppoe}-PPPOE" 
+                ssid_name = input(f"{WHITE}Nama SSID Hotspot: {RESET}").strip()
                 cmds = [
                     "conf t",
                     f"interface gpon-olt_{p}",
@@ -761,7 +763,6 @@ def config_onu_logic():
                 print(f"\n{CYAN}[*] Mengirim konfigurasi ke OLT...{RESET}")
                 telnet_olt_execute(creds, cmds)
                 print(f"{GREEN}[✓] Registrasi Selesai!{RESET}")
-
 
 def restart_onu(): # Menu 11
     creds = get_credentials("olt")

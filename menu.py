@@ -559,11 +559,6 @@ def list_onu():
     else:
         print(f"{RED}[!] Gagal mengambil data atau port kosong.{RESET}")
 
-import re
-
-import re
-
-import re
 
 def config_onu_logic(): 
     creds = get_credentials("olt")

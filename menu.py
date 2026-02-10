@@ -538,40 +538,37 @@ def list_onu():
     print(f"\n{CYAN}[+] Mengambil daftar semua ONU di port {p}...{RESET}")
     
     if brand == 'zte':
-        # Pastikan terminal length 0 dan masuk ke mode yang benar
-        # Perintah 'show' biasanya dieksekusi dari level root (#)
+        # Kita gunakan urutan yang paling 'clean' untuk ZTE
+        # Menghindari penggunaan 'end' di tengah untuk mencegah reset session terminal
         cmds = [
             "terminal length 0",
-            "enable", # Memastikan dalam mode privileged
             f"show pon onu information gpon-olt_{p}"
         ]
     else:
         cmds = [
             "terminal length 0",
-            "enable",
             f"show onu status port {p}"
         ]
         
+    # Memanggil eksekusi
     output = telnet_olt_execute(creds, cmds)
     
     if output:
-        # --- Bagian Revisi: Membersihkan Output ---
+        # --- Bagian Revisi: Membersihkan Output agar Tampilan Rapi ---
         lines = output.splitlines()
         
-        # Daftar kata kunci yang ingin dibuang dari tampilan
-        trash_keywords = [
-            "The password is not strong",
-            "ZXAN#",
-            "terminal length 0",
-            "show pon onu",
-            "show onu status",
-            "enable"
-        ]
-        
+        # Filter untuk membuang echo perintah dan prompt agar tidak tampil dua kali
         filtered_lines = []
+        skip_keywords = [
+            "terminal length 0", 
+            f"show pon onu information gpon-olt_{p}",
+            "show onu status port",
+            "ZXAN#", 
+            "The password is not strong"
+        ]
+
         for line in lines:
-            # Lewati baris jika mengandung kata sampah
-            if not any(key in line for key in trash_keywords):
+            if not any(key in line for key in skip_keywords) and line.strip():
                 filtered_lines.append(line)
         
         clean_output = "\n".join(filtered_lines).strip()
@@ -581,10 +578,9 @@ def list_onu():
         if clean_output:
             print(f"{WHITE}{clean_output}{RESET}")
         else:
-            print(f"{YELLOW}[!] Port mungkin kosong atau perintah tidak menghasilkan data.{RESET}")
+            print(f"{YELLOW}[!] Tidak ada data yang diterima dari OLT.{RESET}")
     else:
-        print(f"{RED}[!] Gagal mengambil data atau koneksi terputus.{RESET}")
-
+        print(f"{RED}[!] Gagal mengambil data. Cek koneksi ke OLT.{RESET}")
 
 
 def config_onu_logic(): 

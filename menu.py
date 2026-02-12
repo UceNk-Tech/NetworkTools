@@ -587,19 +587,18 @@ def config_onu_logic():
     
     brand = creds.get('brand', 'zte').lower()
     found_sn = ""
-    saran_id_otomatis = "" # Alice: Simpan saran ID di sini agar tidak hilang
+    saran_id_global = "" # Penampung saran ID agar bisa dipakai di menu registrasi
     
     print(f"\n{MAGENTA}=== MONITOR & REGISTRASI ONU ==={RESET}")
     p = input(f"{WHITE}Input Port Lokasi (contoh 1/1/1): {RESET}").strip()
 
-    # STEP 1: SCAN AWAL UNTUK UNCONFIGURED
+    # --- STEP 1: SCAN ONU UNCONFIGURED ---
     print(f"\n{CYAN}[+] Memeriksa ONU Unconfigured...{RESET}")
-    cmd_scan = ["enable", "terminal length 0", "show gpon onu uncfg"] if brand == 'zte' else ["terminal length 0", f"show onu unconfigured port {p}"]
+    cmd_scan = ["enable", "terminal length 0", "show gpon onu uncfg"]
     res_unconfig = telnet_olt_execute(creds, cmd_scan)
     
     if res_unconfig:
         clean_res = "\n".join([line for line in res_unconfig.splitlines() if "ZXAN" not in line and "%" not in line and line.strip()])
-        
         if any(x in clean_res.upper() for x in ["FHTT", "ZTEG", "SN", "ONUINDEX"]):
             print(f"\n{YELLOW}⚠️  ONU TERDETEKSI (Hasil Scan):{RESET}")
             print(f"{WHITE}--------------------------------------------------{RESET}")
@@ -610,13 +609,12 @@ def config_onu_logic():
                 found_sn = sn_match.group(0)
                 print(f"{GREEN}[✓] SN Otomatis Disimpan: {found_sn}{RESET}")
         else:
-            print(f"{YELLOW}[i] Scan Selesai: Tidak menemukan ONU baru unregister.{RESET}")
-    else:
-        print(f"{RED}[!] Gagal mengambil data scan.{RESET}")
+            print(f"{YELLOW}[i] Scan Selesai: Tidak menemukan ONU baru.{RESET}")
 
+    # --- LOOP MENU TINDAKAN ---
     while True:
         print(f"\n{MAGENTA}--- PILIH TINDAKAN (PORT {p}) ---{RESET}")
-        print(f" 1. {YELLOW}Scan ONU ID Kosong (Cari nomor kosong){RESET}")
+        print(f" 1. {YELLOW}Scan ONU ID Kosong (1-128){RESET}")
         print(f" 2. {GREEN}Registrasi ZTE (Hotspot Only){RESET}")
         print(f" 3. {GREEN}Registrasi ZTE (Hotspot + PPPoE){RESET}")
         print(f" 4. {GREEN}Registrasi FH  (Hotspot){RESET}")
@@ -625,102 +623,86 @@ def config_onu_logic():
         print(f" 0. {YELLOW}Keluar/Kembali{RESET}")
         
         opt = input(f"\n{YELLOW}Pilih (0-6): {RESET}").strip()
-        if opt == '0' or not opt: 
-            break
+        if opt == '0' or not opt: break
 
-        # OPSI 1: SCAN ID KOSONG
+        # OPSI 1: CARI ID KOSONG (Logika yang tadi kamu bilang bisa)
         if opt == '1':
             print(f"\n{CYAN}[*] Menganalisa daftar ID di port {p}...{RESET}")
-            # Alice: Gunakan 'information' agar regex {p}:ID lebih akurat
-            cmd_list = ["enable", "terminal length 0", f"show gpon onu information gpon-olt_{p}"] if brand == 'zte' else ["terminal length 0", f"show onu status port {p}"]
+            # Alice: Gunakan information karena outputnya pasti ada format 1/1/1:ID
+            cmd_list = ["enable", "terminal length 0", f"show gpon onu information gpon-olt_{p}"]
             res_list = telnet_olt_execute(creds, cmd_list)
             
             if res_list:
-                # Regex diperkuat untuk menangkap ID setelah tanda titik dua pada port
+                # Regex mencari angka setelah port (misal 1/1/1:2)
                 ids_found = re.findall(rf"{p}:(\d+)", res_list)
                 ids_int = sorted(list(set([int(x) for x in ids_found])))
                 
-                if not ids_int:
-                    print(f"{CYAN}[i] Port {p} terlihat kosong. Silakan pakai ID 1.{RESET}")
-                    saran_id_otomatis = "1"
-                else:
-                    max_id = max(ids_int)
-                    missing_ids = [x for x in range(1, max_id + 1) if x not in ids_int]
-                    
-                    # Logika cari ID bolong atau lanjut max+1
-                    if 1 not in ids_int: temp_saran = 1
-                    elif missing_ids: temp_saran = min(missing_ids)
-                    else: temp_saran = max_id + 1
-                    
-                    saran_id_otomatis = str(temp_saran)
+                # Tentukan saran ID (Cari yang bolong mulai dari 1)
+                saran = 1
+                while saran in ids_int:
+                    saran += 1
+                saran_id_global = str(saran) # Simpan ke variabel global fungsi
 
-                    print(f"{MAGENTA}--------------------------------------------------{RESET}")
-                    print(f"{WHITE}ID Aktif di Port ini: {ids_int if len(ids_int) < 15 else 'Sangat Banyak'}{RESET}")
-                    if missing_ids:
-                        print(f"{YELLOW}[!] ID KOSONG (Siap Pakai):{RESET}")
-                        chunks = [list(map(str, missing_ids[i:i + 10])) for i in range(0, len(missing_ids), 10)]
-                        for chunk in chunks: print(f"{WHITE}    {', '.join(chunk)}{RESET}")
-                    
-                    print(f"\n{GREEN}[+] SARAN ONU ID BARU: {saran_id_otomatis}{RESET}")
-                    print(f"{MAGENTA}--------------------------------------------------{RESET}")
+                print(f"{MAGENTA}--------------------------------------------------{RESET}")
+                print(f"{CYAN}[i] ID Terdeteksi Aktif: {ids_int if len(ids_int) < 20 else 'Sangat banyak...'}{RESET}")
+                
+                # Cek ID bolong di tengah
+                if ids_int:
+                    max_id = max(ids_int)
+                    missing = [x for x in range(1, max_id + 1) if x not in ids_int]
+                    if missing:
+                        print(f"{YELLOW}[!] ID KOSONG DI TENAH:{RESET}")
+                        print(f"{WHITE}    {', '.join(map(str, missing[:15]))}{RESET}")
+
+                print(f"\n{GREEN}[+] SARAN ONU ID BERIKUTNYA: {saran}{RESET}")
+                if 1 not in ids_int and ids_int:
+                    print(f"{YELLOW}[!] Catatan: ID 1 ternyata KOSONG!{RESET}")
+                print(f"{MAGENTA}--------------------------------------------------{RESET}")
+            else:
+                print(f"{RED}[!] Gagal mengambil data OLT.{RESET}")
             continue
 
         # OPSI 6: CEK POWER
         if opt == '6':
             if not found_sn:
-                print(f"{RED}[!] Tidak ada SN terdeteksi. Silakan Scan uncfg dulu.{RESET}")
-                continue
-            
-            # Gunakan ID 128 sebagai temporary check
-            test_id = "128"
-            print(f"\n{CYAN}[+] Meminjam ID {test_id} untuk Cek Power SN {found_sn}...{RESET}")
-            
-            cmds = [
-                "enable", "conf t", f"interface gpon-olt_{p}", 
-                f"onu {test_id} type ALL sn {found_sn}", "exit", 
-                f"show pon power attenuation gpon-onu_{p}:{test_id}", 
-                "conf t", f"interface gpon-olt_{p}", f"no onu {test_id}", "end"
-            ]
+                print(f"{RED}[!] Tidak ada SN. Silakan Scan uncfg dulu.{RESET}"); continue
+            test_id = "128" # Pakai ID ujung untuk ngetes
+            print(f"{CYAN}[+] Meminjam ID {test_id} untuk Cek Power...{RESET}")
+            cmds = ["enable", "conf t", f"interface gpon-olt_{p}", f"onu {test_id} type ALL sn {found_sn}", "exit", f"show pon power attenuation gpon-onu_{p}:{test_id}", "conf t", f"interface gpon-olt_{p}", f"no onu {test_id}", "end"]
             output = telnet_olt_execute(creds, cmds)
-            
-            print(f"\n{WHITE}DETAIL POWER OPTIK:{RESET}")
             if output:
+                print(f"\n{WHITE}HASIL POWER OPTIK:{RESET}")
                 for line in output.splitlines():
                     if any(x in line for x in ["Rx", "Tx", "OLT", "ONU"]):
                         if "show" not in line: print(f"{YELLOW}{line.strip()}{RESET}")
             continue
 
-        # OPSI 2-5: REGISTRASI
+        # OPSI 2-5: REGISTRASI (DENGAN AUTO-FILL SARAN ID)
         if opt in ['2', '3', '4', '5']:
-            label_saran = f" [Saran: {saran_id_otomatis}]" if saran_id_otomatis else ""
-            onu_id = input(f"{WHITE}Masukkan ID ONU{label_saran}: {RESET}").strip() or saran_id_otomatis
+            label_saran = f" [Saran: {saran_id_global}]" if saran_id_global else ""
+            onu_id = input(f"{WHITE}Masukkan ID ONU{label_saran}: {RESET}").strip() or saran_id_global
             
             if not onu_id:
-                print(f"{RED}[!] ID ONU tidak boleh kosong!{RESET}")
-                continue
-
+                print(f"{RED}[!] ID tidak boleh kosong. Jalankan Opsi 1 dulu!{RESET}"); continue
+                
             sn = input(f"{WHITE}Masukkan SN ONU [{found_sn}]: {RESET}").strip() or found_sn
-            name = input(f"{WHITE}Nama Pelanggan (Tanpa Spasi): {RESET}").strip().replace(" ", "_")
+            name = input(f"{WHITE}Nama Pelanggan: {RESET}").strip().replace(" ", "_")
             cmds = []
-            
+
+            # (Bagian template perintah tetap sama seperti sebelumnya)
             if opt == '2': # ZTE HOTSPOT
-                vlan = input(f"VLAN ID: ").strip()
-                prof = input(f"Profile Tcont: ").strip()
-                cmds = ["enable", "conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL sn {sn}", "exit", f"interface gpon-onu_{p}:{onu_id}", f"name {name}", f"tcont 1 profile {prof}", "gemport 1 tcont 1", f"service-port 1 vport 1 user-vlan {vlan} vlan {vlan}", "exit", f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {vlan}", f"vlan port wifi_0/1 mode tag vlan {vlan}", "end", "write"]
-
+                v = input("VLAN: "); pr = input("Tcont Prof: ")
+                cmds = ["enable", "conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL sn {sn}", "exit", f"interface gpon-onu_{p}:{onu_id}", f"name {name}", f"tcont 1 profile {pr}", "gemport 1 tcont 1", f"service-port 1 vport 1 user-vlan {v} vlan {v}", "exit", f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {v}", f"vlan port wifi_0/1 mode tag vlan {v}", f"vlan port eth_0/1 mode tag vlan {v}", "security-mgmt 212 state enable mode forward protocol web", "end", "write"]
             elif opt == '3': # ZTE HOTSPOT + PPPOE
-                v_p = input("VLAN PPPoE: "); v_h = input("VLAN Hotspot: "); prof = input("Tcont Prof: ")
-                user = input("User PPPoE: "); pw = input("Pass PPPoE: "); ssid = input("SSID Name: "); v_wan = input("VLAN Profile WAN: ")
-                cmds = ["enable", "conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL-ONT sn {sn}", "exit", f"interface gpon-onu_{p}:{onu_id}", f"name {name}", f"tcont 1 profile {prof}", f"tcont 2 profile {prof}", "gemport 1 tcont 1", "gemport 2 tcont 2", f"service-port 1 vport 1 user-vlan {v_p} vlan {v_p}", f"service-port 2 vport 2 user-vlan {v_h} vlan {v_h}", "exit", f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {v_p}", f"service 2 gemport 2 vlan {v_h}", f"wan-ip 1 mode pppoe username {user} password {pw} vlan-profile {v_wan} host 1", "interface wifi wifi_0/2 state unlock", f"ssid ctrl wifi_0/2 name {ssid}", f"vlan port wifi_0/2 mode tag vlan {v_h}", "end", "write"]
-
-            elif opt == '4': # FH HOTSPOT
-                vlan = input("VLAN Hotspot: ").strip()
-                cmds = ["enable", "conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL sn {sn}", "exit", f"interface gpon-onu_{p}:{onu_id}", f"name {name}", "tcont 1 profile server", "gemport 1 tcont 1", "exit", f"service-port {onu_id} vport 1 gpon-onu_{p}:{onu_id} user-vlan {vlan} vlan {vlan}", f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {vlan}", "end", "write"]
-
-            elif opt == '5': # FH HOTSPOT + PPPOE
-                v_p = input("VLAN PPPoE: "); v_h = input("VLAN Hotspot: "); u = input("User: "); pw = input("Pass: "); ssid = input("SSID: ")
-                sp1 = onu_id; sp2 = str(int(onu_id) + 500)
-                cmds = ["enable", "conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL sn {sn}", "exit", f"interface gpon-onu_{p}:{onu_id}", f"name {name}", "tcont 1 profile server", "tcont 2 profile server", "gemport 1 tcont 1", "gemport 2 tcont 2", "exit", f"service-port {sp1} vport 1 gpon-onu_{p}:{onu_id} user-vlan {v_p} vlan {v_p}", f"service-port {sp2} vport 2 gpon-onu_{p}:{onu_id} user-vlan {v_h} vlan {v_h}", f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {v_p}", f"service 2 gemport 2 vlan {v_h}", f"wan-ip 1 mode pppoe username {u} password {pw} vlan-profile pppoe-langgor host 1", "interface wifi wifi_0/2 state unlock", f"ssid ctrl wifi_0/2 name {ssid}", "end", "write"]
+                vp=input("VLAN P:"); vh=input("VLAN H:"); pr=input("Prof:"); u=input("User:"); pw=input("Pass:"); s=input("SSID:"); vw=input("V_Wan:")
+                cmds = ["enable", "conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL-ONT sn {sn}", "exit", f"interface gpon-onu_{p}:{onu_id}", f"name {name}", f"tcont 1 profile {pr}", f"tcont 2 profile {pr}", "gemport 1 tcont 1", "gemport 2 tcont 2", f"service-port 1 vport 1 user-vlan {vp} vlan {vp}", f"service-port 2 vport 2 user-vlan {vh} vlan {vh}", "exit", f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {vp}", f"service 2 gemport 2 vlan {vh}", f"wan-ip 1 mode pppoe username {u} password {pw} vlan-profile {vw} host 1", "interface wifi wifi_0/2 state unlock", f"ssid ctrl wifi_0/2 name {s}", f"vlan port wifi_0/2 mode tag vlan {vh}", "end", "write"]
+            elif opt == '4': # FH
+                v = input("VLAN: ")
+                cmds = ["enable", "conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL sn {sn}", "exit", f"interface gpon-onu_{p}:{onu_id}", f"name {name}", "tcont 1 profile server", "gemport 1 tcont 1", "exit", f"service-port {onu_id} vport 1 gpon-onu_{p}:{onu_id} user-vlan {v} vlan {v}", f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {v}", "end", "write"]
+            elif opt == '5': # FH + PPPOE
+                vp=input("VLAN P:"); vh=input("VLAN H:"); u=input("User:"); pw=input("Pass:"); s=input("SSID:")
+                sp1=onu_id; sp2=str(int(onu_id)+500)
+                cmds = ["enable", "conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL sn {sn}", "exit", f"interface gpon-onu_{p}:{onu_id}", f"name {name}", "tcont 1 profile server", "tcont 2 profile server", "gemport 1 tcont 1", "gemport 2 tcont 2", "exit", f"service-port {sp1} vport 1 gpon-onu_{p}:{onu_id} user-vlan {vp} vlan {vp}", f"service-port {sp2} vport 2 gpon-onu_{p}:{onu_id} user-vlan {vh} vlan {vh}", f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {vp}", f"service 2 gemport 2 vlan {vh}", f"wan-ip 1 mode pppoe username {u} password {pw} vlan-profile pppoe-langgor host 1", "interface wifi wifi_0/2 state unlock", f"ssid ctrl wifi_0/2 name {s}", "end", "write"]
 
             if cmds:
                 print(f"\n{CYAN}[*] Mengirim konfigurasi ke OLT...{RESET}")

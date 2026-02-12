@@ -497,29 +497,21 @@ def telnet_olt_execute(creds, cmds):
     import time, telnetlib
     try:
         tn = telnetlib.Telnet(creds['ip'], timeout=10)
-        
-        # Proses Login
         tn.read_until(b"Username:", timeout=5)
         tn.write(creds['user'].encode('ascii') + b"\n")
         tn.read_until(b"Password:", timeout=5)
         tn.write(creds['pass'].encode('ascii') + b"\n")
         
-        time.sleep(1) # Tunggu login stabil
-        
-        # Bersihkan buffer awal
-        tn.read_very_eager()
-        
-        # Paksa ke mode privilege
+        time.sleep(1)
         tn.write(b"end\n")
-        time.sleep(0.3)
-        tn.write(b"enable\n")
-        time.sleep(0.3)
+        tn.write(b"terminal length 0\n") # Alice: Wajib biar ga ada --More--
+        time.sleep(0.5)
         
         full_output = ""
         for cmd in cmds:
             tn.write(cmd.encode('ascii') + b"\n")
-            time.sleep(1.5) # OLT ZTE butuh waktu buat mikir, Cen
-            # Baca sampai prompt muncul atau timeout
+            # Alice: Tunggu sampai prompt ZXAN# muncul lagi baru lanjut
+            time.sleep(1)
             res = tn.read_until(b"#", timeout=5).decode('ascii', errors='ignore')
             full_output += res
             
@@ -537,34 +529,23 @@ def list_onu():
     if not creds: return
         
     p = input(f"{WHITE}Input Port (contoh 1/1/1): {RESET}").strip()
-    brand = creds.get('brand', 'zte').lower()
-    print(f"\n{CYAN}[+] Menarik data dari OLT...{RESET}")
+    print(f"\n{CYAN}[+] Menarik data ONU di port {p}...{RESET}")
     
-    # Gunakan perintah yang lebih detail untuk ZTE
-    cmds = ["terminal length 0", f"show pon onu information gpon-olt_{p}"]
+    cmds = [f"show pon onu information gpon-olt_{p}"]
     output = telnet_olt_execute(creds, cmds)
     
     print(f"\n{WHITE}==== DAFTAR ONU TERDAFTAR (PORT {p}) ===={RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     if output:
-        # Kita ambil baris yang punya format ONU ID (contoh 1/1/1:1)
         lines = output.splitlines()
         found = False
         for line in lines:
-            # Cari baris yang mengandung port (misal 1/1/1)
-            if p in line and ":" in line:
+            # Alice: Kita cari baris yang beneran mulai dengan port tersebut
+            if line.strip().startswith(p):
                 print(f"{WHITE}{line.strip()}{RESET}")
                 found = True
-        
         if not found:
-            # Kalau filter di atas gagal, cetak semua yang bukan perintah
-            for line in lines:
-                if any(x in line for x in ["ONUIndex", "AdminState", "PhaseState"]):
-                    print(f"{CYAN}{line.strip()}{RESET}")
-                    found = True
-            if not found: print(f"{YELLOW}[!] Data mentah kosong. Cek port {p} apakah ada isinya?{RESET}")
-    else:
-        print(f"{RED}[!] Gagal kontak OLT.{RESET}")
+            print(f"{YELLOW}[!] Tidak ada ONU aktif yang tampil di port {p}.{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 
 
@@ -572,123 +553,55 @@ def config_onu_logic():
     creds = get_credentials("olt")
     if not creds: return
     
-    brand = creds.get('brand', 'zte').lower()
-    found_sn = ""
-    p = input(f"{WHITE}Input Port Lokasi (contoh 1/2/1): {RESET}").strip()
+    p = input(f"{WHITE}Input Port Lokasi (contoh 1/1/1): {RESET}").strip()
 
-    # Opsi 1: Scan Nomor Kosong
-    print(f"\n{CYAN}[*] Menganalisa ID di port {p}...{RESET}")
-    # Gunakan 'show gpon onu state' karena outputnya lebih konsisten buat di-regex
-    cmds = ["terminal length 0", f"show gpon onu state gpon-olt_{p}"]
+    print(f"\n{CYAN}[*] Mencari ID Terpakai di port {p}...{RESET}")
+    cmds = [f"show pon onu information gpon-olt_{p}"]
     res_list = telnet_olt_execute(creds, cmds)
     
     if res_list:
-        # REGEX BARU: Mencari angka setelah titik dua, contoh '1/1/1:3' akan ambil '3'
-        # Kita cari pola p + ":" + angka
-        pattern = rf"{p}:(\d+)"
-        ids_found = re.findall(pattern, res_list)
+        # ALICE REGEX FIX:
+        # Cari pola yang HANYA diawali dengan port (misal 1/1/1:2)
+        # Kita ambil angka setelah titik dua
+        pattern = rf"^{p}:(\d+)" 
+        ids_found = []
         
-        # Kalau pattern di atas gagal, coba pattern umum
-        if not ids_found:
-            ids_found = re.findall(r'[:](\d{1,3})', res_list)
+        for line in res_list.splitlines():
+            match = re.search(rf"{p}:(\d+)", line.strip())
+            if match:
+                ids_found.append(int(match.group(1)))
 
-        ids_int = sorted(list(set([int(x) for x in ids_found])))
+        ids_int = sorted(list(set(ids_found)))
         
-        print(f"{WHITE}ID Terdeteksi: {ids_int}{RESET}") # Debugging buat Ucenk
+        # Debugging biar Ucenk tau apa yang dibaca Alice
+        print(f"{CYAN}[i] ID yang sedang dipakai: {ids_int}{RESET}")
 
         if not ids_int:
-            print(f"{GREEN}[i] Port {p} terdeteksi KOSONG secara sistem. Pakai ID 1.{RESET}")
+            print(f"{GREEN}[✓] Port {p} Kosong Melompong. Pakai ID 1.{RESET}")
         else:
+            # Cari bolongan ID
             max_id = max(ids_int)
-            # List ID dari 1 sampai yang terbesar yang ada di OLT
-            missing_ids = [x for x in range(1, max_id + 1) if x not in ids_int]
+            all_possible = set(range(1, max_id + 2))
+            used = set(ids_int)
+            available = sorted(list(all_possible - used))
             
-            print(f"{MAGENTA}--------------------------------------------------{RESET}")
-            if missing_ids:
-                print(f"{YELLOW}[!] ID KOSONG DI TENGAH (Bolong):{RESET}")
-                print(f"{WHITE}{', '.join(map(str, missing_ids))}{RESET}")
-            else:
-                print(f"{YELLOW}[i] Tidak ada ID bolong (1 sampai {max_id} penuh).{RESET}")
-            
-            print(f"\n{GREEN}[+] SARAN ID BARU: {max_id + 1}{RESET}")
-            print(f"{MAGENTA}--------------------------------------------------{RESET}")
-    else:
-        print(f"{RED}[!] OLT tidak merespon.{RESET}")
+            # Ambil saran (angka terkecil yang tersedia)
+            saran_id = available[0]
 
-def restart_onu(): # Menu 11
-    creds = get_credentials("olt")
-    if not creds: 
-        print(f"{RED}[!] Profile OLT belum diset.{RESET}")
-        return
-        
-    brand = creds.get('brand', 'zte').lower()
-    print(f"\n{YELLOW}=== RESTART/REBOOT ONU ({brand.upper()}) ==={RESET}")
-    port = input(f"{WHITE}Port (contoh 1/3/1): {RESET}").strip()
-    onu_id = input(f"{WHITE}Nomor ONU: {RESET}").strip()
-    
-    print(f"{CYAN}[*] Mohon tunggu, sedang mendapatkan informasi ONU...{RESET}")
-    
-    if brand == 'zte':
-        check_cmds = [
-            "terminal length 0", 
-            "end", 
-            f"show gpon onu detail-info gpon-onu_{port}:{onu_id}"
-        ]
-    else: # Fiberhome
-        check_cmds = [
-            "terminal length 0", 
-            "end", 
-            f"show onu info port {port} ont {onu_id}"
-        ]
-        
-    output = telnet_olt_execute(creds, check_cmds)
-    
-    if output and "Invalid" not in output:
-        print(f"\n{MAGENTA}================ DETAIL INFORMASI ONU ================{RESET}")
-        
-        # --- PROSES FILTER LEBIH KETAT ---
-        for line in output.splitlines():
-            l_strip = line.strip()
+            print(f"{MAGENTA}--------------------------------------------------{RESET}")
+            if any(x < max_id for x in available):
+                bolong = [x for x in available if x < max_id]
+                print(f"{YELLOW}[!] ADA ID KOSONG (Bolong): {bolong}{RESET}")
             
-            # Lewati baris kosong
-            if not l_strip:
-                continue
-                
-            # Filter baris sampah: Prompt, Peringatan Password, dan Echo Command
-            if "ZXAN" in l_strip or "password is not strong" in l_strip or "%" in l_strip:
-                continue
-            if l_strip.startswith("show ") or l_strip.startswith("terminal ") or l_strip.startswith("end"):
-                continue
+            print(f"{GREEN}[+] SARAN ID BARU UNTUK {p}: {saran_id}{RESET}")
+            print(f"{MAGENTA}--------------------------------------------------{RESET}")
             
-            # Cetak hanya baris yang berisi data asli
-            print(f"{WHITE}{line}{RESET}")
-            
-        print(f"{MAGENTA}======================================================{RESET}")
-        
-        confirm = input(f"\n{CYAN}>>> Konfirmasi: Restart ONU ini? {YELLOW}(y/n): {RESET}").lower()
-        if confirm == 'y':
-            print(f"{CYAN}[*] Mengirim perintah reboot...{RESET}")
-            
-            reboot_cmds = []
-            if brand == 'zte':
-                reboot_cmds = [
-                    "conf t",
-                    f"pon-onu-mng gpon-onu_{port}:{onu_id}",
-                    "reboot",
-                    "yes",
-                    "exit",
-                    "end"
-                ]
-            elif brand == 'fiberhome':
-                reboot_cmds = [f"reboot onu port {port} onu {onu_id}", "y"]
-            
-            telnet_olt_execute(creds, reboot_cmds)
-            print(f"{GREEN}[✓] Perintah Reboot BERHASIL dikirim ke ONU {port}:{onu_id}.{RESET}")
-        else:
-            print(f"{MAGENTA}[-] Restart dibatalkan.{RESET}")
+            # Kasih lihat SN yang sudah ada biar nggak bentrok
+            print(f"{WHITE}SN Terdaftar di port ini:{RESET}")
+            for line in res_list.splitlines():
+                if "SN(" in line: print(f"  - {line.strip()}")
     else:
-        print(f"{RED}[!] Data tidak ditemukan atau syntax tidak dikenali OLT.{RESET}")
-        
+        print(f"{RED}[!] Gagal ambil data. Cek koneksi ke OLT.{RESET}")
 
 def reset_onu(): 
     creds = get_credentials("olt")

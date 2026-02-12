@@ -494,171 +494,126 @@ def log_viewer_mikrotik():
 # CORE EXECUTION
 
 def telnet_olt_execute(creds, cmds):
+    import time, telnetlib
     try:
-        # Alice Fix: Tambahkan import time jika belum ada di atas
-        import time
         tn = telnetlib.Telnet(creds['ip'], timeout=10)
+        
+        # Proses Login
         tn.read_until(b"Username:", timeout=5)
         tn.write(creds['user'].encode('ascii') + b"\n")
         tn.read_until(b"Password:", timeout=5)
         tn.write(creds['pass'].encode('ascii') + b"\n")
         
-        output = ""
-        # Paksa ke mode privilese tertinggi dulu
-        full_cmds = ["end", "enable"] + cmds
+        time.sleep(1) # Tunggu login stabil
         
-        for cmd in full_cmds:
+        # Bersihkan buffer awal
+        tn.read_very_eager()
+        
+        # Paksa ke mode privilege
+        tn.write(b"end\n")
+        time.sleep(0.3)
+        tn.write(b"enable\n")
+        time.sleep(0.3)
+        
+        full_output = ""
+        for cmd in cmds:
             tn.write(cmd.encode('ascii') + b"\n")
-            # Alice Fix: Delay krusial agar OLT tidak Invalid Input
-            time.sleep(0.5) 
-            output += tn.read_until(b"#", timeout=10).decode('ascii')
+            time.sleep(1.5) # OLT ZTE butuh waktu buat mikir, Cen
+            # Baca sampai prompt muncul atau timeout
+            res = tn.read_until(b"#", timeout=5).decode('ascii', errors='ignore')
+            full_output += res
             
         tn.write(b"exit\n")
         tn.close()
-        return output
+        return full_output
     except Exception as e:
         print(f"{RED}[!] Telnet Error: {e}{RESET}")
         return None
 
 
-
 # --- OLT TOOLS (9-14) ---
 def list_onu(): 
     creds = get_credentials("olt")
-    if not creds: 
-        print(f"{RED}[!] Profile OLT belum diset.{RESET}")
-        return
+    if not creds: return
         
     p = input(f"{WHITE}Input Port (contoh 1/1/1): {RESET}").strip()
     brand = creds.get('brand', 'zte').lower()
-    print(f"\n{CYAN}[+] Mengambil daftar semua ONU di port {p}...{RESET}")
+    print(f"\n{CYAN}[+] Menarik data dari OLT...{RESET}")
     
-    if brand == 'zte':
-        cmds = ["terminal length 0", f"show pon onu information gpon-olt_{p}"]
-    else:
-        cmds = ["terminal length 0", f"show onu status port {p}"]
-        
+    # Gunakan perintah yang lebih detail untuk ZTE
+    cmds = ["terminal length 0", f"show pon onu information gpon-olt_{p}"]
     output = telnet_olt_execute(creds, cmds)
     
     print(f"\n{WHITE}==== DAFTAR ONU TERDAFTAR (PORT {p}) ===={RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     if output:
+        # Kita ambil baris yang punya format ONU ID (contoh 1/1/1:1)
         lines = output.splitlines()
-        # Alice Fix: Filter output agar hanya menampilkan data tabel
+        found = False
         for line in lines:
-            l = line.strip()
-            if not l or any(x in l for x in ["ZXAN", "show ", "terminal", "password", "end", "enable", "---"]):
-                continue
-            print(f"{WHITE}{l}{RESET}")
+            # Cari baris yang mengandung port (misal 1/1/1)
+            if p in line and ":" in line:
+                print(f"{WHITE}{line.strip()}{RESET}")
+                found = True
+        
+        if not found:
+            # Kalau filter di atas gagal, cetak semua yang bukan perintah
+            for line in lines:
+                if any(x in line for x in ["ONUIndex", "AdminState", "PhaseState"]):
+                    print(f"{CYAN}{line.strip()}{RESET}")
+                    found = True
+            if not found: print(f"{YELLOW}[!] Data mentah kosong. Cek port {p} apakah ada isinya?{RESET}")
     else:
-        print(f"{YELLOW}[!] Tidak ada data yang diterima dari OLT.{RESET}")
+        print(f"{RED}[!] Gagal kontak OLT.{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 
 
 def config_onu_logic(): 
     creds = get_credentials("olt")
-    if not creds: 
-        print(f"{YELLOW}[!] Profile OLT belum diset.{RESET}")
-        return
+    if not creds: return
     
     brand = creds.get('brand', 'zte').lower()
     found_sn = ""
-    print(f"\n{MAGENTA}=== MONITOR & REGISTRASI ONU ==={RESET}")
     p = input(f"{WHITE}Input Port Lokasi (contoh 1/2/1): {RESET}").strip()
 
-    print(f"\n{CYAN}[+] Memeriksa ONU Unconfigured...{RESET}")
-    cmd_scan = ["terminal length 0", "show gpon onu uncfg"] if brand == 'zte' else ["terminal length 0", f"show onu unconfigured port {p}"]
-    res_unconfig = telnet_olt_execute(creds, cmd_scan)
+    # Opsi 1: Scan Nomor Kosong
+    print(f"\n{CYAN}[*] Menganalisa ID di port {p}...{RESET}")
+    # Gunakan 'show gpon onu state' karena outputnya lebih konsisten buat di-regex
+    cmds = ["terminal length 0", f"show gpon onu state gpon-olt_{p}"]
+    res_list = telnet_olt_execute(creds, cmds)
     
-    if res_unconfig:
-        # Pembersihan output scan untuk mencari SN
-        sn_match = re.search(r'(FHTT|ZTEG)[0-9A-Z]{8,}', res_unconfig.upper())
-        if sn_match:
-            found_sn = sn_match.group(0)
-            print(f"\n{YELLOW}⚠️  ONU TERDETEKSI:{RESET}")
-            print(f"{WHITE}--------------------------------------------------{RESET}")
-            # Tampilkan hanya baris yang berisi SN tersebut
-            for line in res_unconfig.splitlines():
-                if found_sn in line.upper(): print(f"{WHITE}{line.strip()}{RESET}")
-            print(f"{WHITE}--------------------------------------------------{RESET}")
-            print(f"{GREEN}[✓] SN Otomatis Disimpan: {found_sn}{RESET}")
-        else:
-            print(f"{YELLOW}[i] Scan Selesai: Tidak menemukan ONU baru.{RESET}")
-
-    while True:
-        print(f"\n{MAGENTA}--- PILIH TINDAKAN (PORT {p}) ---{RESET}")
-        print(f" 1. {YELLOW}Scan/Cari nomor kosong{RESET}")
-        print(f" 2. {GREEN}ZTE (Hotspot Only){RESET}")
-        print(f" 3. {GREEN}ZTE (Hotspot + PPPoE){RESET}")
-        print(f" 4. {GREEN}FH  (Hotspot Only){RESET}")
-        print(f" 5. {GREEN}FH  (Hotspot+PPPoE){RESET}")
-        print(f" 6. {CYAN}Cek Detail Power Optik Unconfigured{RESET}") 
-        print(f" 0. {YELLOW}Keluar/Kembali{RESET}")
+    if res_list:
+        # REGEX BARU: Mencari angka setelah titik dua, contoh '1/1/1:3' akan ambil '3'
+        # Kita cari pola p + ":" + angka
+        pattern = rf"{p}:(\d+)"
+        ids_found = re.findall(pattern, res_list)
         
-        opt = input(f"\n{YELLOW}Pilih (0-6): {RESET}").strip()
-        if not opt or opt == '0': break
+        # Kalau pattern di atas gagal, coba pattern umum
+        if not ids_found:
+            ids_found = re.findall(r'[:](\d{1,3})', res_list)
 
-        if opt == '1':
-            print(f"\n{CYAN}[*] Menganalisa daftar ID di port {p}...{RESET}")
-            cmd_list = ["terminal length 0", f"show gpon onu state gpon-olt_{p}"] if brand == 'zte' else [f"show onu status port {p}"]
-            res_list = telnet_olt_execute(creds, cmd_list)
-            if res_list:
-                # Regex diperkuat untuk menangkap ID setelah tanda titik dua
-                ids_found = re.findall(r':\s*(\d{1,3})', res_list)
-                ids_int = sorted(list(set([int(x) for x in ids_found if int(x) <= 128])))
-                
-                if not ids_int:
-                    print(f"{CYAN}[i] Port {p} kosong. Pakai ID 1.{RESET}")
-                else:
-                    max_id = max(ids_int)
-                    missing_ids = [x for x in range(1, max_id + 1) if x not in ids_int]
-                    print(f"{MAGENTA}--------------------------------------------------{RESET}")
-                    if missing_ids:
-                        print(f"{YELLOW}[!] ID KOSONG (Siap Pakai):{RESET}")
-                        # Tampilkan ID kosong per 10 angka biar rapi
-                        for i in range(0, len(missing_ids), 10):
-                            print(f"{WHITE}    {', '.join(map(str, missing_ids[i:i+10]))}{RESET}")
-                    else:
-                        print(f"{YELLOW}[i] ID 1-{max_id} terisi penuh.{RESET}")
-                    print(f"\n{GREEN}[+] SARAN ID BARU: {max_id + 1}{RESET}")
-                    print(f"{MAGENTA}--------------------------------------------------{RESET}")
-            continue
+        ids_int = sorted(list(set([int(x) for x in ids_found])))
+        
+        print(f"{WHITE}ID Terdeteksi: {ids_int}{RESET}") # Debugging buat Ucenk
 
-        if opt == '6':
-            if not found_sn:
-                print(f"{RED}[!] Scan SN dulu (Opsi 1)!{RESET}"); continue
+        if not ids_int:
+            print(f"{GREEN}[i] Port {p} terdeteksi KOSONG secara sistem. Pakai ID 1.{RESET}")
+        else:
+            max_id = max(ids_int)
+            # List ID dari 1 sampai yang terbesar yang ada di OLT
+            missing_ids = [x for x in range(1, max_id + 1) if x not in ids_int]
             
-            test_id = "128" # Pakai ID ujung untuk tes
-            print(f"{CYAN}[+] Cek Power untuk SN: {found_sn} (Pinjam ID {test_id}){RESET}")
-            cmds = [
-                "conf t", f"interface gpon-olt_{p}", f"onu {test_id} type ALL sn {found_sn}", 
-                "exit", f"show pon power attenuation gpon-onu_{p}:{test_id}", 
-                "conf t", f"interface gpon-olt_{p}", f"no onu {test_id}", "end"
-            ]
-            output = telnet_olt_execute(creds, cmds)
-            if output:
-                for line in output.splitlines():
-                    if any(x in line for x in ["Rx", "Tx", "OLT", "ONU"]):
-                        if "show" not in line: print(f"{YELLOW}{line.strip()}{RESET}")
-            continue
-
-        if opt in ['2', '3', '4', '5']:
-            onu_id = input(f"{WHITE}Masukkan ID ONU: {RESET}").strip()
-            sn = input(f"{WHITE}Masukkan SN ONU [{found_sn}]: {RESET}").strip() or found_sn
-            name = input(f"{WHITE}Nama Pelanggan: {RESET}").strip().replace(" ", "_")
+            print(f"{MAGENTA}--------------------------------------------------{RESET}")
+            if missing_ids:
+                print(f"{YELLOW}[!] ID KOSONG DI TENGAH (Bolong):{RESET}")
+                print(f"{WHITE}{', '.join(map(str, missing_ids))}{RESET}")
+            else:
+                print(f"{YELLOW}[i] Tidak ada ID bolong (1 sampai {max_id} penuh).{RESET}")
             
-            # --- Logic Template Konfigurasi ---
-            if opt == '2': # ZTE HOTSPOT
-                v = input(f"VLAN: "); tp = input(f"Tcont: ")
-                cmds = ["conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL sn {sn}", "exit", f"interface gpon-onu_{p}:{onu_id}", f"name {name}", f"tcont 1 profile {tp}", "gemport 1 tcont 1", f"service-port 1 vport 1 user-vlan {v} vlan {v}", "exit", f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {v}", "end", "write"]
-            
-            # (Tambahkan elif untuk 3, 4, 5 dengan pola yang sama, awali selalu dengan 'conf t')
-            
-            if cmds:
-                telnet_olt_execute(creds, cmds)
-                print(f"{GREEN}[✓] Registrasi {name} Berhasil!{RESET}")
-
-
+            print(f"\n{GREEN}[+] SARAN ID BARU: {max_id + 1}{RESET}")
+            print(f"{MAGENTA}--------------------------------------------------{RESET}")
+    else:
+        print(f"{RED}[!] OLT tidak merespon.{RESET}")
 
 def restart_onu(): # Menu 11
     creds = get_credentials("olt")

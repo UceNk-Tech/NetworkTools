@@ -601,11 +601,10 @@ def config_onu_logic():
         print(f" 2. {GREEN}Registrasi ZTE (Hotspot Only){RESET}")
         print(f" 3. {GREEN}Registrasi ZTE (Hotspot + PPPoE){RESET}")
         print(f" 4. {GREEN}Registrasi FH  (Hotspot - Custom Script){RESET}")
-        print(f" 5. {GREEN}Registrasi FH  (Hotspot+PPPoE){RESET}")
-        print(f" 6. {CYAN}Cek Detail Power Optik Unconfigured{RESET}") 
+        print(f" 5. {CYAN}Cek Detail Power Optik Unconfigured{RESET}") 
         print(f" 0. {YELLOW}Keluar/Kembali{RESET}")
         
-        opt = input(f"\n{YELLOW}Pilih (0-6): {RESET}").strip()
+        opt = input(f"\n{YELLOW}Pilih (0-5): {RESET}").strip()
         if opt == '0' or not opt: break
 
         # OPSI 1: ANALISA ID KOSONG
@@ -628,12 +627,12 @@ def config_onu_logic():
                         saran_id_global = str(missing[0])
                     else:
                         saran_id_global = str(max_id + 1)
-                print(f"\n{GREEN}[✓] SARAN ONU ID BERIKUTNYA: {saran_id_global}{RESET}")
+                print(f"\n{GREEN}[✓] SARAN ONU ID: {saran_id_global}{RESET}")
                 print(f"{MAGENTA}--------------------------------------------------{RESET}")
             continue
 
-        # OPSI 6: CEK POWER OPTIK
-        if opt == '6':
+        # OPSI 5: CEK POWER OPTIK (Sebelumnya Menu 6)
+        if opt == '5':
             if not found_sn:
                 print(f"{RED}[!] SN tidak ditemukan. Scan dulu!{RESET}"); continue
             test_id = "128"
@@ -651,8 +650,8 @@ def config_onu_logic():
                         print(f"{YELLOW}{line.strip()}{RESET}")
             continue
 
-        # OPSI 2-5: REGISTRASI
-        if opt in ['2', '3', '4', '5']:
+        # PROSES INPUT UNTUK REGISTRASI (Opsi 2, 3, 4)
+        if opt in ['2', '3', '4']:
             hint = f" [Saran: {saran_id_global}]" if saran_id_global else ""
             onu_id = input(f"{WHITE}Masukkan ID ONU{hint}: {RESET}").strip() or saran_id_global
             if not onu_id:
@@ -660,12 +659,12 @@ def config_onu_logic():
             
             sn = input(f"{WHITE}Masukkan SN ONU [{found_sn}]: {RESET}").strip() or found_sn
             raw_name = input(f"{WHITE}Nama Pelanggan: {RESET}").strip()
-            name = raw_name.replace(" ", "_") # Nama untuk command tanpa spasi
+            name = raw_name.replace(" ", "_")
             cmds = []
 
-            # --- REVISI MENU 4: FIBERHOME HOTSPOT CUSTOM ---
+            # --- MENU 4: FIBERHOME HOTSPOT CUSTOM ---
             if opt == '4':
-                prof = input(f"{WHITE}Profile Tcont [default]: {RESET}").strip() or "default"
+                prof = input(f"{WHITE}Profile Tcont [default/server]: {RESET}").strip() or "default"
                 vlan = input(f"{WHITE}Vlan ID: {RESET}").strip()
                 cmds = [
                     "conf t",
@@ -692,7 +691,7 @@ def config_onu_logic():
                     "write"
                 ]
 
-            elif opt == '2': # ZTE HOTSPOT (Standar)
+            elif opt == '2': # ZTE HOTSPOT
                 vlan = input("VLAN: "); prof = input("Tcont Profile: ")
                 cmds = [
                     "conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL sn {sn}", "exit",
@@ -701,8 +700,19 @@ def config_onu_logic():
                     f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {vlan}",
                     f"vlan port wifi_0/1 mode tag vlan {vlan}", "end", "write"
                 ]
-            
-            # (Menu 3 & 5 bisa ditambahkan di sini dengan pola yang sama jika diperlukan)
+
+            elif opt == '3': # ZTE MIX
+                vp = input("VLAN PPPoE: "); vh = input("VLAN Hotspot: "); prof = input("Tcont Prof: ")
+                u = input("User: "); pw = input("Pass: "); v_w = input("WAN Prof: "); ssid = input("SSID: ")
+                cmds = [
+                    "conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL-ONT sn {sn}", "exit",
+                    f"interface gpon-onu_{p}:{onu_id}", f"name {name}", f"tcont 1 profile {prof}", f"tcont 2 profile {prof}",
+                    "gemport 1 tcont 1", "gemport 2 tcont 2", "exit",
+                    f"service-port 1 vport 1 user-vlan {vp} vlan {vp}", f"service-port 2 vport 2 user-vlan {vh} vlan {vh}", "exit",
+                    f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {vp}", f"service 2 gemport 2 vlan {vh}",
+                    f"wan-ip 1 mode pppoe username {u} password {pw} vlan-profile {v_w} host 1",
+                    "interface wifi wifi_0/2 state unlock", f"ssid ctrl wifi_0/2 name {ssid}", f"vlan port wifi_0/2 mode tag vlan {vh}", "end", "write"
+                ]
 
             if cmds:
                 print(f"\n{CYAN}[*] Mengirim konfigurasi ke OLT...{RESET}")

@@ -720,7 +720,7 @@ def config_onu_logic():
                 print(f"{GREEN}[✓] Registrasi {raw_name} Selesai!{RESET}")
 
 # --- MENU 11: REBOOT / RESTART ONU ---
-def reboot_onu(): 
+def restart_onu(): # Alice ganti namanya jadi restart_onu biar sinkron sama main()
     creds = get_credentials("olt")
     if not creds: return
     
@@ -735,7 +735,7 @@ def reboot_onu():
     if not port or not onu_id:
         print(f"{RED}[!] Input tidak lengkap!{RESET}"); return
 
-    # Tampilkan Detail Info dulu
+    # Tampilkan Detail Info dulu sebelum eksekusi
     print(f"\n{CYAN}[*] Mengambil info ONU {port}:{onu_id}...{RESET}")
     check_cmd = [f"show gpon onu state gpon-olt_{port} {onu_id}"]
     output = telnet_olt_execute(creds, check_cmd)
@@ -750,7 +750,7 @@ def reboot_onu():
         
         if confirm == 'y':
             print(f"{YELLOW}[*] Mengirim perintah restart...{RESET}")
-            # Perintah restart di ZTE: request gpon onu restart
+            # Perintah restart di ZTE
             reboot_cmds = [f"request gpon onu restart gpon-onu_{port}:{onu_id}"]
             telnet_olt_execute(creds, reboot_cmds)
             print(f"{GREEN}[✓] Perintah Reboot berhasil dikirim!{RESET}")
@@ -791,18 +791,20 @@ def reset_onu():
             print(f"{YELLOW}[*] Memproses penghapusan...{RESET}")
             reset_cmds = [
                 "conf t",
-                f"interface gpon-olt_{port}",
+                f"interface gpon-olt_{p}", # Pastikan p atau port ya? Alice pakai variabel port di atas
                 f"no onu {onu_id}",
                 "end",
                 "write"
             ]
+            # Alice perbaiki variabelnya biar ga salah p vs port
+            reset_cmds = ["conf t", f"interface gpon-olt_{port}", f"no onu {onu_id}", "end", "write"]
+            
             telnet_olt_execute(creds, reset_cmds)
             print(f"{GREEN}[✓] ONU {port}:{onu_id} BERHASIL DIHAPUS.{RESET}")
         else:
             print(f"{MAGENTA}[-] Dibatalkan oleh user.{RESET}")
     else:
         print(f"{RED}[!] ONU tidak ditemukan atau OLT tidak merespon.{RESET}")
-        
 
 def check_optical_power_fast():
     creds = get_credentials("olt")

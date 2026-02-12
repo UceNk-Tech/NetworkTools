@@ -719,45 +719,76 @@ def config_onu_logic():
                 telnet_olt_execute(creds, cmds)
                 print(f"{GREEN}[✓] Registrasi {raw_name} Selesai!{RESET}")
 
+# --- MENU 11: REBOOT / RESTART ONU ---
+def reboot_onu(): 
+    creds = get_credentials("olt")
+    if not creds: return
+    
+    # Warna lokal
+    RED = '\033[0;31m'; GREEN = '\033[0;32m'; YELLOW = '\033[0;33m'
+    CYAN = '\033[0;36m'; MAGENTA = '\033[0;35m'; WHITE = '\033[0;37m'; RESET = '\033[0m'
+    
+    print(f"\n{YELLOW}=== REBOOT / RESTART ONU ==={RESET}")
+    port = input(f"{WHITE}Masukkan Port (contoh 1/1/1): {RESET}").strip()
+    onu_id = input(f"{WHITE}Masukkan Nomor ONU: {RESET}").strip()
+    
+    if not port or not onu_id:
+        print(f"{RED}[!] Input tidak lengkap!{RESET}"); return
+
+    # Tampilkan Detail Info dulu
+    print(f"\n{CYAN}[*] Mengambil info ONU {port}:{onu_id}...{RESET}")
+    check_cmd = [f"show gpon onu state gpon-olt_{port} {onu_id}"]
+    output = telnet_olt_execute(creds, check_cmd)
+    
+    if output and "No related" not in output:
+        print(f"\n{YELLOW}Detail ONU Yang Akan Di-Restart:{RESET}")
+        lines = [l.strip() for l in output.splitlines() if ":" in l or "SN" in l.upper()]
+        for line in lines: print(f"{WHITE}{line}{RESET}")
+        
+        print(f"{MAGENTA}-------------------------------------------{RESET}")
+        confirm = input(f"{CYAN}Yakin mau REBOOT ONU ini? {YELLOW}(y/n): {RESET}").lower()
+        
+        if confirm == 'y':
+            print(f"{YELLOW}[*] Mengirim perintah restart...{RESET}")
+            # Perintah restart di ZTE: request gpon onu restart
+            reboot_cmds = [f"request gpon onu restart gpon-onu_{port}:{onu_id}"]
+            telnet_olt_execute(creds, reboot_cmds)
+            print(f"{GREEN}[✓] Perintah Reboot berhasil dikirim!{RESET}")
+        else:
+            print(f"{MAGENTA}[-] Reboot dibatalkan.{RESET}")
+    else:
+        print(f"{RED}[!] ONU tidak ditemukan.{RESET}")
+
 # --- MENU 12: RESET / HAPUS ONU ---
 def reset_onu(): 
     creds = get_credentials("olt")
     if not creds: return
     
-    # Warna lokal Alice
     RED = '\033[0;31m'; GREEN = '\033[0;32m'; YELLOW = '\033[0;33m'
     CYAN = '\033[0;36m'; MAGENTA = '\033[0;35m'; WHITE = '\033[0;37m'; RESET = '\033[0m'
     
-    print(f"\n{RED}=== RESET / HAPUS ONU ==={RESET}")
+    print(f"\n{RED}=== RESET / HAPUS ONU (DELETE) ==={RESET}")
     port = input(f"{WHITE}Masukkan Port (contoh 1/1/1): {RESET}").strip()
     onu_id = input(f"{WHITE}Masukkan Nomor ONU: {RESET}").strip()
     
     if not port or not onu_id:
-        print(f"{RED}[!] Input tidak lengkap!{RESET}")
-        return
+        print(f"{RED}[!] Input tidak lengkap!{RESET}"); return
 
-    # STEP 1: Intip dulu ONU-nya ada atau nggak
+    # Tampilkan Detail Info dulu
     print(f"\n{CYAN}[*] Mengambil data ONU {port}:{onu_id}...{RESET}")
-    
-    # Kita pakai perintah paling dasar yang universal di ZTE
     check_cmd = [f"show gpon onu state gpon-olt_{port} {onu_id}"]
     output = telnet_olt_execute(creds, check_cmd)
     
-    # Alice: Jika output ada dan tidak menunjukkan data kosong
     if output and "No related" not in output:
-        print(f"\n{YELLOW}Detail ONU:{RESET}")
-        # Tampilkan baris yang relevan saja (Status & SN)
+        print(f"\n{YELLOW}Detail ONU Yang Akan DIHAPUS:{RESET}")
         lines = [l.strip() for l in output.splitlines() if ":" in l or "SN" in l.upper()]
-        for line in lines:
-            print(f"{WHITE}{line}{RESET}")
+        for line in lines: print(f"{WHITE}{line}{RESET}")
         
         print(f"{MAGENTA}-------------------------------------------{RESET}")
-        confirm = input(f"{CYAN}Yakin mau hapus ONU ini? {YELLOW}(y/n): {RESET}").lower()
+        confirm = input(f"{CYAN}Yakin mau HAPUS ONU ini? {YELLOW}(y/n): {RESET}").lower()
         
         if confirm == 'y':
             print(f"{YELLOW}[*] Memproses penghapusan...{RESET}")
-            
-            # Perintah inti: Masuk interface port -> hapus ID -> simpan
             reset_cmds = [
                 "conf t",
                 f"interface gpon-olt_{port}",
@@ -765,14 +796,8 @@ def reset_onu():
                 "end",
                 "write"
             ]
-            
-            hasil = telnet_olt_execute(creds, reset_cmds)
-            
-            if hasil:
-                print(f"{GREEN}[✓] ONU {port}:{onu_id} BERHASIL DIHAPUS.{RESET}")
-                print(f"{CYAN}[i] Sekarang ONU bisa diregistrasi ulang (cek uncfg).{RESET}")
-            else:
-                print(f"{RED}[!] Gagal mengirim perintah hapus ke OLT.{RESET}")
+            telnet_olt_execute(creds, reset_cmds)
+            print(f"{GREEN}[✓] ONU {port}:{onu_id} BERHASIL DIHAPUS.{RESET}")
         else:
             print(f"{MAGENTA}[-] Dibatalkan oleh user.{RESET}")
     else:

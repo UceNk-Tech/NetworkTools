@@ -600,7 +600,7 @@ def config_onu_logic():
         print(f" 1. {YELLOW}Scan ONU ID Kosong (Cari nomor bolong){RESET}")
         print(f" 2. {GREEN}Registrasi ZTE (Hotspot Only){RESET}")
         print(f" 3. {GREEN}Registrasi ZTE (Hotspot + PPPoE){RESET}")
-        print(f" 4. {GREEN}Registrasi FH  (Hotspot - Custom Script){RESET}")
+        print(f" 4. {GREEN}Registrasi FH  (Hotspot Only){RESET}")
         print(f" 5. {CYAN}Cek Detail Power Optik Unconfigured{RESET}") 
         print(f" 0. {YELLOW}Keluar/Kembali{RESET}")
         

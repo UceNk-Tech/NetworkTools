@@ -1346,7 +1346,7 @@ def update_tools_auto(): # Menu 26
 
 def tanya_alice():
     # Masukkan API Key kamu di sini
-    genai.configure(api_key="ISI_API_KEY_GEMINI_KAMU")
+    genai.configure(api_key="AIzaSyCLcEH13sTfki8wD94tHFvXxO5q6sz379I")
     
     # Konfigurasi Model & Kepribadian (System Instruction)
     # Alice kasih instruksi permanen biar dia gak amnesia

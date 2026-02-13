@@ -1108,18 +1108,18 @@ def traffic_report_pon(): # Menu 17 (OLT Tools)
     
     print(f"\n{CYAN}=== TRAFFIC REPORT PER PON PORT ==={RESET}")
     port = input(f"{WHITE}Masukkan Port PON (contoh 1/1/1): {RESET}").strip()
-    
+    if not port: return
+
     print(f"\n{CYAN}[*] Mengambil data statistik trafik...{RESET}")
     
     if brand == 'zte':
-        # Perintah untuk melihat throughput real-time pada port PON ZTE
+        # Alice coba berikan beberapa opsi perintah sekaligus agar tidak blank
         cmds = [
-            "terminal length 0", 
-            "enable", 
-            f"show interface gpon-olt_{port}"
+            "terminal length 0",
+            f"show interface gpon-olt_{port}",
+            f"show statistics gpon-olt_{port}"
         ]
     else:
-        # Untuk Fiberhome
         cmds = ["terminal length 0", f"show interface pon {port}"]
 
     output = telnet_olt_execute(creds, cmds)
@@ -1130,23 +1130,38 @@ def traffic_report_pon(): # Menu 17 (OLT Tools)
     if output:
         lines = output.splitlines()
         found = False
+        
+        # Kata kunci yang dicari di output OLT
+        targets = ["input rate", "output rate", "bits/sec", "throughput", "speed", "packets", "octets"]
+        
         for line in lines:
             l_low = line.lower()
-            # Cari baris yang mengandung data input/output rate
-            if any(x in l_low for x in ["input rate", "output rate", "bits/sec", "throughput"]):
-                # Highlight data trafik dengan warna Hijau
+            
+            # Abaikan baris error dan echo
+            if any(x in l_low for x in ["^", "%error", "invalid"]):
+                continue
+
+            if any(x in l_low for x in targets):
+                # Bersihkan spasi berlebih dan beri warna hijau untuk angka trafik
                 print(f"{GREEN}{line.strip()}{RESET}")
                 found = True
-            elif "description" in l_low or "state" in l_low:
+            elif any(x in l_low for x in ["description", "state", "phy-address"]):
                 print(f"{WHITE}{line.strip()}{RESET}")
         
         if not found:
-            # Jika output detail tidak muncul, tampilkan semua yang relevan
-            print(f"{WHITE}{output}{RESET}")
+            # Jika tidak ada kata kunci traffic, tampilkan saja semua output yang bukan error
+            clean_output = "\n".join([l for l in lines if "^" not in l and "%Error" not in l])
+            if clean_output.strip():
+                print(f"{WHITE}{clean_output.strip()}{RESET}")
+            else:
+                print(f"{RED}[!] Perintah tidak didukung atau port salah.{RESET}")
+                print(f"{YELLOW}[i] Tips: Coba manual 'show interface gpon-olt_{port}' di OLT.{RESET}")
     else:
         print(f"{YELLOW}[!] Gagal mengambil data trafik.{RESET}")
         
     print(f"{MAGENTA}-----------------------------------------------------------------------{RESET}")
+    input(f"\n{WHITE}Tekan Enter untuk kembali...{RESET}")
+
 
 
 def auto_audit_olt(): # Menu 18 (OLT Tools)

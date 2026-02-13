@@ -989,19 +989,22 @@ def alarm_event_viewer(): # Menu 15
 
     print(f"\n{CYAN}[*] Mengambil data...{RESET}")
     
+    cmds = ["terminal length 0"]
+    
     if brand == 'zte':
-        # Kita tambahkan 'enable' untuk memastikan hak akses penuh
+        # Kita pakai perintah yang lebih universal untuk ZTE
         if opt == '1':
-            cmds = ["terminal length 0", "enable", "show alarm current"]
+            # Mencoba current alarm (Urutan: Standar -> GPON Specific)
+            cmds += ["show alarm current", "show gpon alarm current"]
         else:
-            # Gunakan 'show alarm history' yang paling standar
-            cmds = ["terminal length 0", "enable", "show alarm history"]
+            # Mencoba history (Urutan: Standar -> Alarm Log)
+            cmds += ["show alarm history", "show alarm-log"]
     else:
         # Untuk Fiberhome
         if opt == '1':
-            cmds = ["terminal length 0", "show alarm active"]
+            cmds.append("show alarm active")
         else:
-            cmds = ["terminal length 0", "show event log"]
+            cmds.append("show event log")
 
     output = telnet_olt_execute(creds, cmds)
     
@@ -1011,35 +1014,39 @@ def alarm_event_viewer(): # Menu 15
     if output:
         lines = output.splitlines()
         has_data = False
+        
+        # Kata kunci error yang harus diabaikan/dideteksi
+        error_keywords = ["%error", "invalid input", "unrecognized", "^"]
+        
         for line in lines:
             l_low = line.lower()
             
-            # Filter baris echo dan prompt agar bersih
-            if any(x in l_low for x in ["terminal length", "enable", "show alarm", "zxan#", "zxan>"]):
+            # Filter baris sampah
+            if not line.strip() or any(x in l_low for x in ["terminal length", "show alarm", "zxan#", "zxan>", "---", "next page"]):
                 continue
             
-            # Cek jika ada error
-            if "%error" in l_low:
-                print(f"{RED}[!] Error OLT: Perintah tidak dikenali oleh firmware ini.{RESET}")
-                print(f"{WHITE}[i] Coba ketik manual 'show alarm ?' di OLT untuk cek perintah history.{RESET}")
-                break
+            # Jika baris mengandung tanda panah ^ atau error, abaikan baris itu (cari perintah selanjutnya)
+            if any(x in l_low for x in error_keywords):
+                continue
             
-            # Tampilkan baris yang berisi data
-            if line.strip():
-                has_data = True
-                # Highlight alarm krusial
-                if any(x in l_low for x in ["critical", "major", "los", "dyinggasp", "off-line"]):
-                    print(f"{YELLOW}{line.strip()}{RESET}")
-                else:
-                    print(f"{WHITE}{line.strip()}{RESET}")
+            has_data = True
+            # Tampilkan data dengan warna
+            if any(x in l_low for x in ["critical", "major", "los", "dyinggasp", "off-line"]):
+                print(f"{RED}{line.strip()}{RESET}") # Alice ganti RED biar lebih waspada
+            elif "minor" in l_low or "warning" in l_low:
+                print(f"{YELLOW}{line.strip()}{RESET}")
+            else:
+                print(f"{WHITE}{line.strip()}{RESET}")
         
-        if not has_data and "%error" not in output.lower():
-            print(f"{GREEN}[✓] Tidak ada alarm atau log tersimpan.{RESET}")
+        if not has_data:
+            print(f"{GREEN}[✓] Tidak ada alarm aktif atau perintah tidak didukung firmware ini.{RESET}")
+            print(f"{WHITE}[i] Tips: Coba login manual dan ketik 'show alarm ?' untuk cek command tepatnya.{RESET}")
     else:
         print(f"{YELLOW}[!] OLT tidak memberikan respon.{RESET}")
         
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
-
+    input(f"\n{WHITE}Tekan Enter untuk kembali...{RESET}")
+    
 
 def backup_restore_olt(): # Menu 16
     creds = get_credentials("olt")

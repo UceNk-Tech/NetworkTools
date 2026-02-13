@@ -14,11 +14,17 @@ NC='\033[0m'
 echo -e "${CYAN}[+] Memulai Setup Lingkungan Ucenk D-Tech...${NC}"
 
 # 1. Update & Install SEMUA Dependencies
-echo -e "${CYAN}[+] Installing System Packages (PHP, Git, MTR, Figlet)...${NC}"
+echo -e "${CYAN}[+] Updating System & Adding Repositories...${NC}"
 pkg update && pkg upgrade -y
 
-# Alice: Menambahkan mtr dan dnsutils (untuk traceroute standar) ke daftar install
-pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap tur-repo -y
+# Alice: Menambah x11-repo agar paket 'mtr' bisa ditemukan
+echo -e "${CYAN}[+] Enabling extra repositories (TUR & X11)...${NC}"
+pkg install tur-repo x11-repo -y
+pkg update -y
+
+echo -e "${CYAN}[+] Installing System Packages (MTR, PHP, Git, Figlet, etc)...${NC}"
+# Alice: dnsutils untuk traceroute, mtr untuk network diagnostic
+pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap -y
 pkg install binutils rust python-cryptography mtr dnsutils -y
 
 # 2. Install Library Python Wajib

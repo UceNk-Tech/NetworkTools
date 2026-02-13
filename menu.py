@@ -1001,6 +1001,173 @@ def config_onu_logic():
             
             input(f"\n{WHITE}Pemasangan Selesai. Tekan Enter untuk keluar...{RESET}")
 
+
+# --- MENU 11: REBOOT / RESTART ONU ---
+def restart_onu():
+    creds = get_credentials("olt")
+    if not creds: return
+    
+    RED = '\033[0;31m'; GREEN = '\033[0;32m'; YELLOW = '\033[0;33m'
+    CYAN = '\033[0;36m'; MAGENTA = '\033[0;35m'; WHITE = '\033[0;37m'; RESET = '\033[0m'
+    
+    print(f"\n{YELLOW}=== REBOOT / RESTART ONU ==={RESET}")
+    port = input(f"{WHITE}Masukkan Port (contoh 1/1/1): {RESET}").strip()
+    onu_id = input(f"{WHITE}Masukkan Nomor ONU: {RESET}").strip()
+    
+    if not port or not onu_id:
+        print(f"{RED}[!] Input tidak lengkap!{RESET}"); return
+
+    print(f"\n{CYAN}[*] Mengambil info ONU {port}:{onu_id}...{RESET}")
+    # Alice: Pakai detail-info supaya SN-nya pasti keluar
+    check_cmd = ["terminal length 0", f"show gpon onu detail-info gpon-onu_{port}:{onu_id}"]
+    output = telnet_olt_execute(creds, check_cmd)
+    
+    if output and "No related" not in output:
+        print(f"\n{YELLOW}--- DETAIL ONU DITEMUKAN ---{RESET}")
+        # Alice: Tampilkan semua baris yang ada isinya biar SN kelihatan
+        lines = output.splitlines()
+        for line in lines:
+            if any(x in line for x in [":", "SN", "State", "Phase", "Model", "Type"]):
+                if "show" not in line: print(f"{WHITE}{line.strip()}{RESET}")
+        
+        print(f"{MAGENTA}-------------------------------------------{RESET}")
+        confirm = input(f"{CYAN}Yakin mau REBOOT ONU ini? {YELLOW}(y/n): {RESET}").lower()
+        
+        if confirm == 'y':
+            print(f"{YELLOW}[*] Mengirim perintah restart...{RESET}")
+            # Alice: Tambahin 'conf t' supaya perintahnya lebih prioritas
+            reboot_cmds = [
+                "conf t",
+                f"request gpon onu restart gpon-onu_{port}:{onu_id}",
+                "end"
+            ]
+            telnet_olt_execute(creds, reboot_cmds)
+            print(f"{GREEN}[✓] Perintah Reboot terkirim. (Cek lampu PON di modem){RESET}")
+        else:
+            print(f"{MAGENTA}[-] Reboot dibatalkan.{RESET}")
+    else:
+        print(f"{RED}[!] ONU tidak ditemukan atau OLT sibuk.{RESET}")
+        
+
+# --- MENU 12: RESET / HAPUS ONU ---
+def reset_onu(): 
+    creds = get_credentials("olt")
+    if not creds: return
+    
+    RED = '\033[0;31m'; GREEN = '\033[0;32m'; YELLOW = '\033[0;33m'
+    CYAN = '\033[0;36m'; MAGENTA = '\033[0;35m'; WHITE = '\033[0;37m'; RESET = '\033[0m'
+    
+    print(f"\n{RED}=== RESET / HAPUS ONU (DELETE) ==={RESET}")
+    port = input(f"{WHITE}Masukkan Port (contoh 1/1/1): {RESET}").strip()
+    onu_id = input(f"{WHITE}Masukkan Nomor ONU: {RESET}").strip()
+    
+    if not port or not onu_id:
+        print(f"{RED}[!] Input tidak lengkap!{RESET}"); return
+
+    print(f"\n{CYAN}[*] Mengambil data ONU {port}:{onu_id}...{RESET}")
+    # Alice: Samakan pakai detail-info biar SN-nya muncul
+    check_cmd = ["terminal length 0", f"show gpon onu detail-info gpon-onu_{port}:{onu_id}"]
+    output = telnet_olt_execute(creds, check_cmd)
+    
+    if output and "No related" not in output:
+        print(f"\n{YELLOW}--- DETAIL ONU YANG AKAN DIHAPUS ---{RESET}")
+        lines = output.splitlines()
+        for line in lines:
+            if any(x in line for x in [":", "SN", "State", "Phase", "Model"]):
+                if "show" not in line: print(f"{WHITE}{line.strip()}{RESET}")
+        
+        print(f"{MAGENTA}-------------------------------------------{RESET}")
+        confirm = input(f"{CYAN}Yakin mau HAPUS ONU ini? {YELLOW}(y/n): {RESET}").lower()
+        
+        if confirm == 'y':
+            print(f"{YELLOW}[*] Memproses penghapusan...{RESET}")
+            reset_cmds = [
+                "conf t",
+                f"interface gpon-olt_{port}",
+                f"no onu {onu_id}",
+                "end",
+                "write"
+            ]
+            telnet_olt_execute(creds, reset_cmds)
+            print(f"{GREEN}[✓] ONU {port}:{onu_id} BERHASIL DIHAPUS.{RESET}")
+        else:
+            print(f"{MAGENTA}[-] Dibatalkan oleh user.{RESET}")
+    else:
+        print(f"{RED}[!] ONU tidak ditemukan.{RESET}")
+
+
+def check_optical_power_fast():
+    creds = get_credentials("olt")
+    if not creds: return
+    
+    brand = creds.get('brand', 'zte').lower()
+    print(f"\n{CYAN}=== CEK STATUS & POWER OPTIK ONU ==={RESET}")
+    port = input(f"{WHITE}Masukkan Port (contoh 1/2/1): {RESET}").strip()
+    onu_id = input(f"{WHITE}NO ONU: {RESET}").strip()
+    
+    print(f"\n{CYAN}[*] Mohon tunggu, sedang berkomunikasi dengan ONU...{RESET}")
+
+    if brand == 'fiberhome':
+        cmds = ["terminal length 0", f"show onu optical-power {port} {onu_id}"]
+    else: 
+        cmds = [
+            "terminal length 0", 
+            f"show pon power attenuation gpon-onu_{port}:{onu_id}"
+        ]
+    
+    output = telnet_olt_execute(creds, cmds)
+    
+    print(f"\n{WHITE}HASIL DIAGNOSA ONU {onu_id} @ PORT {port}:{RESET}")
+    print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
+    
+    if output:
+        # --- PROSES PEMBERSIHAN OUTPUT ---
+        lines = output.splitlines()
+        clean_lines = []
+        for line in lines:
+            l_strip = line.strip()
+            # Sembunyikan banner password, prompt ZXAN, dan baris kosong di awal
+            if not l_strip or "% The password" in line or "ZXAN#" in line or "terminal length" in line:
+                continue
+            clean_lines.append(line)
+        
+        clean_output = "\n".join(clean_lines)
+        
+        # Tampilkan tabel yang sudah bersih
+        print(f"{YELLOW}{clean_output}{RESET}")
+        print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
+
+        # --- LOGIKA PENGAMBILAN RX ONU (BARIS DOWN) ---
+        rx_val = None
+        for line in clean_lines:
+            # Kita cari baris 'down' dan ambil angka Rx (bukan Tx)
+            if "down" in line.lower() and "Rx" in line:
+                # Regex mencari angka negatif (Rx biasanya negatif)
+                matches = re.findall(r"Rx\s*:\s*(-?\d+\.\d+)", line)
+                if matches:
+                    rx_val = float(matches[0])
+                    break
+        
+        if rx_val is not None:
+            if rx_val < -27.0:
+                color, status = RED, "CRITICAL (DROP)"
+            elif rx_val < -25.0:
+                color, status = YELLOW, "WARNING (REDAUP)"
+            else:
+                color, status = GREEN, "NORMAL (BAGUS)"
+            
+            print(f"{WHITE}Identity ONU       : {MAGENTA}{port}:{onu_id}{RESET}")
+            print(f"{WHITE}Redaman (Rx ONU)   : {color}{rx_val} dBm{RESET}")
+            print(f"{WHITE}Kondisi            : {color}{status}{RESET}")
+        else:
+            print(f"{YELLOW}[!] Analisa otomatis gagal. Silakan baca tabel di atas.{RESET}")
+    else:
+        print(f"{RED}[!] Gagal koneksi ke OLT.{RESET}")
+
+    print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
+
+
+
 def port_vlan(): 
     c = get_credentials("olt")
     p = input("ONU (1/1/1:1): "); v = input("VLAN: ")

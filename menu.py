@@ -697,7 +697,7 @@ def config_onu_logic():
 
             if opt == '1': # ZTE HOTSPOT ONLY
                 vlan = input(f"{WHITE}VLAN Hotspot: {RESET}")
-                prof = input(f"{WHITE}Tcont Profile [{CYAN}default/{YELLOW}server]: {RESET}") or "default"
+                prof = input(f"{WHITE}Tcont Profile [{CYAN}default{RESET}/{YELLOW}server{RESET}]: {RESET}") or "default"
                 cmds = [
                     "conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL-ONT sn {sn}", "exit",
                     f"interface gpon-onu_{p}:{onu_id}", f"name {name}", f"description 1$${raw_name}$$",
@@ -711,7 +711,7 @@ def config_onu_logic():
             elif opt == '2': # ZTE MIX (PPPoE + Hotspot)
                 vp = input(f"{WHITE}VLAN PPPoE: {RESET}").strip()
                 vh = input(f"{WHITE}VLAN Hotspot: {RESET}").strip()
-                prof = input(f"{WHITE}Tcont Profile [{CYAN}default/{YELLOW}server]: {RESET}").strip() or "default"
+                prof = input(f"{WHITE}Tcont Profile [{CYAN}default{RESET}/{YELLOW}server{RESET}]: {RESET}").strip() or "default"
                 u = input(f"{WHITE}User PPPoE: {RESET}").strip()
                 pw = input(f"{WHITE}Pass PPPoE: {RESET}").strip()
                 auto_v_w = f"VLAN{vp}-PPPOE"
@@ -731,7 +731,7 @@ def config_onu_logic():
                 ]
 
             elif opt == '3': # FIBERHOME HOTSPOT
-                prof = input(f"{WHITE}Profile Tcont [{CYAN}default/{YELLOW}server]: {RESET}").strip() or "default"
+                prof = input(f"{WHITE}Profile Tcont [{CYAN}default{RESET}/{YELLOW}server{RESET}]: {RESET}").strip() or "default"
                 vlan = input(f"{WHITE}Vlan ID: {RESET}").strip()
                 cmds = [
                     "conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL sn {sn}", "exit",

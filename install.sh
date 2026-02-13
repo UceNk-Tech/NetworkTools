@@ -17,15 +17,15 @@ echo -e "${CYAN}[+] Memulai Setup Lingkungan Ucenk D-Tech...${NC}"
 echo -e "${CYAN}[+] Updating System & Adding Repositories...${NC}"
 pkg update && pkg upgrade -y
 
-# Alice: Menambah x11-repo agar paket 'mtr' bisa ditemukan
-echo -e "${CYAN}[+] Enabling extra repositories (TUR & X11)...${NC}"
-pkg install tur-repo x11-repo -y
+# Alice: Menambah repo tambahan agar MTR dan Traceroute ditemukan di semua kondisi
+echo -e "${CYAN}[+] Enabling extra repositories (TUR, X11, & ROOT)...${NC}"
+pkg install tur-repo x11-repo root-repo -y
 pkg update -y
 
-echo -e "${CYAN}[+] Installing System Packages (MTR, PHP, Git, Figlet, etc)...${NC}"
-# Alice: dnsutils untuk traceroute, mtr untuk network diagnostic
+echo -e "${CYAN}[+] Installing System Packages (MTR, Traceroute, PHP, Git, etc)...${NC}"
+# Alice: Menambahkan 'traceroute' secara spesifik agar tidak manual lagi
 pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap -y
-pkg install binutils rust python-cryptography mtr dnsutils -y
+pkg install binutils rust python-cryptography mtr traceroute dnsutils -y
 
 # 2. Install Library Python Wajib
 echo -e "${CYAN}[+] Installing Python Libraries (Requests, RouterOS, AI Alice, etc)...${NC}"

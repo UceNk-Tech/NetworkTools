@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==========================================
-# Installer Otomatis Ucenk D-Tech Pro v3.2
-# Support: Multi-Profile & Rogue DHCP Check
+# Installer Otomatis Ucenk D-Tech Pro v3.3
+# Support: Multi-Profile, Rogue DHCP & AI Alice
 # Author: Ucenk
 # ==========================================
 set -e
@@ -19,9 +19,9 @@ pkg update && pkg upgrade -y
 pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap -y
 
 # 2. Install Library Python Wajib
-# Menambahkan 'requests' untuk fitur Brand Lookup di menu DHCP Rogue
-echo -e "${CYAN}[+] Installing Python Libraries (Requests, RouterOS, etc)...${NC}"
-pip install lolcat routeros-api speedtest-cli requests --break-system-packages
+# Alice: Menambahkan 'google-generativeai' agar otak Alice langsung aktif!
+echo -e "${CYAN}[+] Installing Python Libraries (Requests, RouterOS, AI Alice, etc)...${NC}"
+pip install lolcat routeros-api speedtest-cli requests google-generativeai --break-system-packages
 
 # 3. Setup Oh My Zsh & Plugins
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
@@ -77,6 +77,6 @@ fi
 
 echo -e "\n${GREEN}==============================================="
 echo -e "  SETUP BERHASIL! SEMUA TOOLS SIAP DIGUNAKAN."
-echo -e "  DHCP Rogue & Brand Lookup AKTIF."
+echo -e "  AI ALICE, DHCP Rogue & Brand Lookup AKTIF."
 echo -e "  Buka ulang Termux untuk melihat hasilnya."
 echo -e "===============================================${NC}"

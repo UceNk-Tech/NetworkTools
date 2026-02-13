@@ -10,6 +10,7 @@ import json
 import getpass
 from datetime import datetime
 import telnetlib
+import google.generativeai as genai
 
 # --- HANDLER LIBRARY ---
 try:
@@ -1343,6 +1344,54 @@ def update_tools_auto(): # Menu 26
     print(f"{MAGENTA}--------------------------------------------------{RESET}")
 
 
+def tanya_alice():
+    # Masukkan API Key kamu di sini
+    genai.configure(api_key="ISI_API_KEY_GEMINI_KAMU")
+    
+    # Konfigurasi Model & Kepribadian (System Instruction)
+    # Alice kasih instruksi permanen biar dia gak amnesia
+    model = genai.GenerativeModel(
+        model_name='gemini-1.5-flash',
+        system_instruction="Kamu adalah Alice, asisten AI casual dan asik untuk teknisi ISP bernama Ucenk. "
+                           "Kamu tertanam di dalam tools OLT berbasis Python di Termux. "
+                           "Gunakan panggilan 'Ucenk', gaya bicara santai, informatif, dan sedikit lucu. "
+                           "Fokus bantu urusan teknis OLT ZTE/Fiberhome dan jaringan."
+    )
+    
+    # Mulai chat dengan history kosong
+    chat = model.start_chat(history=[])
+    
+    RED = '\033[0;31m'; CYAN = '\033[0;36m'; MAGENTA = '\033[0;35m'; WHITE = '\033[0;37m'; RESET = '\033[0m'
+    
+    print(f"\n{MAGENTA}✨ ALICE BRAIN IS ONLINE ✨{RESET}")
+    print(f"{CYAN}Halo Ucenk! Ketik {YELLOW}'?'{CYAN} kapanpun kamu butuh bantuan Alice di menu utama.{RESET}")
+    print(f"{WHITE}Sekarang kita sudah terhubung. Mau nanya apa hari ini?{RESET}")
+    print(f"{RED}(Ketik '0' atau 'keluar' untuk kembali ke menu){RESET}")
+
+    while True:
+        user_input = input(f"\n{YELLOW}Ucenk [?]: {RESET}").strip()
+        
+        if not user_input:
+            continue
+            
+        if user_input.lower() in ['keluar', 'exit', '0', 'back']:
+            print(f"{MAGENTA}Alice: Okey Ucenk, Alice standby di background ya! Semangat pasang ONU-nya!{RESET}")
+            break
+            
+        try:
+            # Alice mikir pakai history, jadi kalau ditanya nyambung
+            response = chat.send_message(user_input)
+            
+            # Tampilkan jawaban Alice
+            print(f"\n{MAGENTA}Alice: {RESET}{response.text}")
+            
+        except Exception as e:
+            # Kalau API Key salah atau kuota habis, ini yang muncul
+            print(f"\n{RED}[!] Waduh Ucenk, Alice gagal konek ke pusat: {e}{RESET}")
+            print(f"{YELLOW}[i] Cek API Key atau koneksi internet kamu ya!{RESET}")
+            break
+
+
 def show_menu():
     v = load_vault(); prof = v.get("active_profile", "Ucenk")
     os.system('clear')
@@ -1376,6 +1425,7 @@ def show_menu():
     print(f"\n{CYAN} 20. Nmap                             24. Ping & Traceroute        ")
     print(f"\n{CYAN} 21. MAC Lookup                       25. DNS Checker              ")
     print(f"\n{CYAN} 22. Port Scaner                      26. Update-Tools             ")
+    print(f"  ?. {MAGENTA}Tanya Alice (Asisten AI){RESET}")
     print(f"\n{GREEN} 99. Profile Setting{RESET}\n{YELLOW} 0 . Exit{RESET}")
     os.system('echo "======================= github.com/UceNk-Tech =====================" | lolcat 2>/dev/null')
 

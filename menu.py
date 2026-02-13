@@ -592,7 +592,7 @@ def config_onu_logic():
                 found_sn = sn_match.group(0)
                 print(f"{GREEN}[✓] SN Otomatis Disimpan: {found_sn}{RESET}")
         else:
-            print(f"{YELLOW}[i] Tidak ada ONU uncfg.{RESET}")
+            print(f"{YELLOW}[i] Tidak ada ONU Baru [unconfig].{RESET}")
 
     # --- STEP 2: INPUT PORT & AUTO CARI ID ---
     p = input(f"\n{WHITE}Input Port Lokasi (contoh 1/1/1): {RESET}").strip()
@@ -613,7 +613,7 @@ def config_onu_logic():
 
     # --- LOOPING UTAMA MENU ---
     while True:
-        print(f"\n{MAGENTA}--- PILIH JENIS TINDAKAN ---{RESET}")
+        print(f"\n{MAGENTA}--- PILIH JENIS REGISTRASI---{RESET}")
         print(f" 1. {GREEN}Registrasi ZTE (Hotspot Only){RESET}")
         print(f" 2. {GREEN}Registrasi ZTE (Hotspot + PPPoE){RESET}")
         print(f" 3. {GREEN}Registrasi FH  (Hotspot Only){RESET}")

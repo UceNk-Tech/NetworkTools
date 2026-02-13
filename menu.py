@@ -1112,15 +1112,12 @@ def traffic_report_pon(): # Menu 17 (OLT Tools)
 
     print(f"\n{CYAN}[*] Mengambil data statistik trafik...{RESET}")
     
-    if brand == 'zte':
-        # Alice coba berikan beberapa opsi perintah sekaligus agar tidak blank
-        cmds = [
-            "terminal length 0",
-            f"show interface gpon-olt_{port}",
-            f"show statistics gpon-olt_{port}"
-        ]
-    else:
-        cmds = ["terminal length 0", f"show interface pon {port}"]
+    # Berdasarkan tes manual Ucenk, format ini yang tembus:
+    # show interface gpon-olt_1/1/1
+    cmds = [
+        "terminal length 0",
+        f"show interface gpon-olt_{port}"
+    ]
 
     output = telnet_olt_execute(creds, cmds)
     
@@ -1131,37 +1128,45 @@ def traffic_report_pon(): # Menu 17 (OLT Tools)
         lines = output.splitlines()
         found = False
         
-        # Kata kunci yang dicari di output OLT
-        targets = ["input rate", "output rate", "bits/sec", "throughput", "speed", "packets", "octets"]
-        
         for line in lines:
             l_low = line.lower()
             
-            # Abaikan baris error dan echo
-            if any(x in l_low for x in ["^", "%error", "invalid"]):
-                continue
+            # Cari Input/Output Rate
+            if "rate :" in l_low or "rate:" in l_low:
+                # Ekstrak angka Bps menggunakan regex
+                match = re.search(r":\s+(\d+)\s+Bps", line)
+                if match:
+                    bps = int(match.group(1))
+                    # Rumus: (Bps * 8) / 1.000.000 = Mbps
+                    mbps = (bps * 8) / 1000000
+                    
+                    label = "DOWNLOAD (Out)" if "output" in l_low else "UPLOAD (In)  "
+                    color = GREEN if mbps > 1 else WHITE
+                    
+                    print(f"{WHITE}{label} : {color}{mbps:.2f} Mbps {WHITE}({bps} Bps){RESET}")
+                    found = True
+            
+            # Tampilkan informasi ONU terdaftar
+            elif "registered onus" in l_low:
+                print(f"{CYAN}{line.strip()}{RESET}")
+            
+            # Tampilkan Bandwidth Throughput (%)
+            elif "bandwidth throughput" in l_low:
+                print(f"{YELLOW}{line.strip()}{RESET}")
 
-            if any(x in l_low for x in targets):
-                # Bersihkan spasi berlebih dan beri warna hijau untuk angka trafik
-                print(f"{GREEN}{line.strip()}{RESET}")
-                found = True
-            elif any(x in l_low for x in ["description", "state", "phy-address"]):
-                print(f"{WHITE}{line.strip()}{RESET}")
-        
         if not found:
-            # Jika tidak ada kata kunci traffic, tampilkan saja semua output yang bukan error
-            clean_output = "\n".join([l for l in lines if "^" not in l and "%Error" not in l])
-            if clean_output.strip():
-                print(f"{WHITE}{clean_output.strip()}{RESET}")
-            else:
-                print(f"{RED}[!] Perintah tidak didukung atau port salah.{RESET}")
-                print(f"{YELLOW}[i] Tips: Coba manual 'show interface gpon-olt_{port}' di OLT.{RESET}")
-    else:
-        print(f"{YELLOW}[!] Gagal mengambil data trafik.{RESET}")
-        
-    print(f"{MAGENTA}-----------------------------------------------------------------------{RESET}")
-    input(f"\n{WHITE}Tekan Enter untuk kembali...{RESET}")
+            # Jika regex gagal, tampilkan saja baris raw yang ada kata 'rate'
+            for line in lines:
+                if "rate" in line.lower() and "bps" in line.lower():
+                    print(f"{GREEN}{line.strip()}{RESET}")
+                    found = True
 
+    else:
+        print(f"{RED}[!] Gagal mengambil data dari OLT.{RESET}")
+        
+    print(f"{MAGENTA}----------------------------------------------------------------------{RESET}")
+    input(f"\n{WHITE}Tekan Enter untuk kembali ke Menu Utama...{RESET}")
+    return
 
 
 def auto_audit_olt(): # Menu 18 (OLT Tools)

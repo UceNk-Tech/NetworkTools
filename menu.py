@@ -10,7 +10,7 @@ import json
 import getpass
 from datetime import datetime
 import telnetlib
-import google.generativeai as genai
+import os, requests, json
 
 # --- HANDLER LIBRARY ---
 try:
@@ -1345,52 +1345,42 @@ def update_tools_auto(): # Menu 26
 
 
 def tanya_alice():
-    # Masukkan API Key kamu di sini
-    genai.configure(api_key="AIzaSyCLcEH13sTfki8wD94tHFvXxO5q6sz379I")
+    API_KEY = "AIzaSyCLcEH13sTfki8wD94tHFvXxO5q6sz379I"
+    URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
     
-    # Konfigurasi Model & Kepribadian (System Instruction)
-    # Alice kasih instruksi permanen biar dia gak amnesia
-    model = genai.GenerativeModel(
-        model_name='gemini-1.5-flash',
-        system_instruction="Kamu adalah Alice, asisten AI casual dan asik untuk teknisi ISP bernama Ucenk. "
-                           "Kamu tertanam di dalam tools OLT berbasis Python di Termux. "
-                           "Gunakan panggilan 'Ucenk', gaya bicara santai, informatif, dan sedikit lucu. "
-                           "Fokus bantu urusan teknis OLT ZTE/Fiberhome dan jaringan."
-    )
+    RED = '\033[0;31m'; CYAN = '\033[0;36m'; MAGENTA = '\033[0;35m'; YELLOW = '\033[0;33m'; RESET = '\033[0m'
     
-    # Mulai chat dengan history kosong
-    chat = model.start_chat(history=[])
+    print(f"\n{MAGENTA}✨ ALICE CONNECTED VIA API BYPASS ✨{RESET}")
+    print(f"{CYAN}Halo Ucenk! Aku pakai mode hemat data nih, biar gak berat di Termux.{RESET}")
     
-    RED = '\033[0;31m'; CYAN = '\033[0;36m'; MAGENTA = '\033[0;35m'; WHITE = '\033[0;37m'; RESET = '\033[0m'
-    
-    print(f"\n{MAGENTA}✨ ALICE BRAIN IS ONLINE ✨{RESET}")
-    print(f"{CYAN}Halo Ucenk! Ketik {YELLOW}'?'{CYAN} kapanpun kamu butuh bantuan Alice di menu utama.{RESET}")
-    print(f"{WHITE}Sekarang kita sudah terhubung. Mau nanya apa hari ini?{RESET}")
-    print(f"{RED}(Ketik '0' atau 'keluar' untuk kembali ke menu){RESET}")
+    history = [] # Untuk simpan konteks obrolan singkat
 
     while True:
         user_input = input(f"\n{YELLOW}Ucenk [?]: {RESET}").strip()
-        
-        if not user_input:
-            continue
-            
-        if user_input.lower() in ['keluar', 'exit', '0', 'back']:
-            print(f"{MAGENTA}Alice: Okey Ucenk, Alice standby di background ya! Semangat pasang ONU-nya!{RESET}")
-            break
-            
-        try:
-            # Alice mikir pakai history, jadi kalau ditanya nyambung
-            response = chat.send_message(user_input)
-            
-            # Tampilkan jawaban Alice
-            print(f"\n{MAGENTA}Alice: {RESET}{response.text}")
-            
-        except Exception as e:
-            # Kalau API Key salah atau kuota habis, ini yang muncul
-            print(f"\n{RED}[!] Waduh Ucenk, Alice gagal konek ke pusat: {e}{RESET}")
-            print(f"{YELLOW}[i] Cek API Key atau koneksi internet kamu ya!{RESET}")
-            break
+        if user_input.lower() in ['0', 'keluar', 'exit']: break
+        if not user_input: continue
 
+        # Tambahkan ke history
+        history.append({"role": "user", "parts": [{"text": f"Kamu Alice, asisten asik Ucenk si teknisi ISP. Jawab santai: {user_input}"}]})
+        
+        payload = {"contents": history}
+        
+        try:
+            # Pake requests aja, jauh lebih enteng daripada library google
+            response = requests.post(URL, headers={'Content-Type': 'application/json'}, data=json.dumps(payload))
+            res_json = response.json()
+            
+            jawaban = res_json['candidates'][0]['content']['parts'][0]['text']
+            print(f"\n{MAGENTA}Alice: {RESET}{jawaban}")
+            
+            # Simpan jawaban Alice ke history
+            history.append({"role": "model", "parts": [{"text": jawaban}]})
+            
+            # Biar gak kepenuhan (simpan 5 obrolan terakhir aja)
+            if len(history) > 10: history = history[-10:]
+
+        except Exception as e:
+            print(f"{RED}[!] Waduh Ucenk, ada kendala koneksi: {e}{RESET}")
 
 def show_menu():
     v = load_vault(); prof = v.get("active_profile", "Ucenk")

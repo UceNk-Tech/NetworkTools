@@ -1348,13 +1348,16 @@ def update_tools_auto(): # Menu 26
 
 
 def tanya_alice():
-    # ⚠️ PAKAI API KEY BARU (JANGAN DISHARE LAGI)
-    API_KEY = "PASTE_API_KEY_BARU_DISINI"
+    # ==========================================
+    # ⚠️ WAJIB ISI API KEY DI BAWAH INI
+    # ==========================================
+    API_KEY = "AIzaSyArLs7KtWTwb7p02OUhZtNLDTx1YPvtdlM" 
     
+    # Config Model
     MODEL = "gemini-1.5-flash"
     URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
     
-    # Warna-warni Termux
+    # Warna
     RED = '\033[0;31m'; CYAN = '\033[0;36m'; MAGENTA = '\033[0;35m'; YELLOW = '\033[0;33m'; RESET = '\033[0m'
     
     print(f"\n{MAGENTA}[✨ Alice Gemini 1.5 Flash]{RESET} {CYAN}Halo Ucenk! Aku siap pantau Mikrotik & OLT kamu.{RESET}")
@@ -1362,67 +1365,65 @@ def tanya_alice():
 
     while True:
         try:
-            # Input user
             user_input = input(f"{YELLOW}Ucenk [90]: {RESET}").strip()
             
-            # Logic keluar
+            # Logic Keluar
             if user_input.lower() in ['0', 'keluar', 'exit']: 
-                print(f"{CYAN}Alice istirahat dulu ya. Bye!{RESET}")
+                print(f"{CYAN}Alice offline. Bye!{RESET}")
                 break
             
             if not user_input: continue
 
-            output_eksekusi = "Tidak ada data sistem tambahan (hanya percakapan biasa)."
-            
-            # --- LOGIKA OTOMATIS: INTEGRASI FUNGSI LAMA ---
-            try:
-                # Cek User Hotspot
-                if any(key in user_input.lower() for key in ["user aktif", "hotspot", "mikrotik"]):
-                    print(f"{CYAN}(Bentar Cenk, aku intip Mikrotik dulu...){RESET}")
-                    f = io.StringIO()
-                    with redirect_stdout(f):
-                        # Pastikan fungsi ini ada di file global/import
-                        if 'mk_hotspot_active' in globals():
-                            mk_hotspot_active()
-                        else:
-                            print("❌ Error: Fungsi mk_hotspot_active tidak ditemukan.")
-                    output_eksekusi = f.getvalue()
+            output_eksekusi = "Tidak ada data sistem tambahan."
 
-                # Cek ONU/OLT
-                elif any(key in user_input.lower() for key in ["list onu", "onu", "olt"]):
-                    print(f"{CYAN}(Sabar ya, aku cek daftar ONU dulu...){RESET}")
-                    f = io.StringIO()
-                    with redirect_stdout(f):
-                        if 'list_onu' in globals():
-                            list_onu()
-                        else:
-                             print("❌ Error: Fungsi list_onu tidak ditemukan.")
-                    output_eksekusi = f.getvalue()
+            # --- LOGIKA BACA DATA MIKROTIK/OLT ---
+            # Karena ini satu file, kita bisa panggil fungsinya langsung
             
-            except Exception as e:
-                output_eksekusi = f"Gagal mengambil data sistem: {e}"
-                print(f"{RED}Error Lokal: {e}{RESET}")
+            # 1. Cek User Hotspot
+            if any(key in user_input.lower() for key in ["user aktif", "hotspot", "mikrotik"]):
+                print(f"{CYAN}(Sebentar, aku scan Mikrotik dulu...){RESET}")
+                f = io.StringIO()
+                with redirect_stdout(f):
+                    try:
+                        mk_hotspot_active() # Langsung panggil fungsi asli
+                    except NameError:
+                        print("Fungsi mk_hotspot_active belum dibuat/diload.")
+                    except Exception as e:
+                        print(f"Error menjalankan fungsi: {e}")
+                output_eksekusi = f.getvalue()
 
-            # --- KIRIM KE AI ---
+            # 2. Cek ONU/OLT
+            elif any(key in user_input.lower() for key in ["list onu", "onu", "olt"]):
+                print(f"{CYAN}(Sebentar, aku scan OLT dulu...){RESET}")
+                f = io.StringIO()
+                with redirect_stdout(f):
+                    try:
+                        list_onu() # Langsung panggil fungsi asli
+                    except NameError:
+                        print("Fungsi list_onu belum dibuat/diload.")
+                    except Exception as e:
+                        print(f"Error menjalankan fungsi: {e}")
+                output_eksekusi = f.getvalue()
+
+            # --- KIRIM KE GOOGLE GEMINI ---
             headers = {
                 'Content-Type': 'application/json',
                 'x-goog-api-key': API_KEY
             }
             
             prompt_system = f"""
-            Kamu adalah Alice, asisten teknisi jaringan D-Tech (Ucenk).
-            Gaya bicara: Santai, akrab, gunakan kata 'aku'.
-            Tugas: Analisa output sistem jaringan dan jawab pertanyaan Ucenk.
+            Kamu adalah Alice, asisten teknisi jaringan (Ucenk D-Tech).
+            Gaya bicara: Santai, teknis, gunakan kata 'aku'.
             
-            DATA DARI SISTEM (MIKROTIK/OLT):
+            DATA LIVE DARI SISTEM:
             {output_eksekusi}
             
-            Jawab pertanyaan Ucenk di bawah ini berdasarkan data di atas (jika ada).
+            Tugas: Jawab pertanyaan Ucenk berdasarkan data di atas (jika ada).
             """
 
             payload = {
                 "contents": [{
-                    "parts": [{"text": f"{prompt_system}\n\nUcenk bertanya: {user_input}"}]
+                    "parts": [{"text": f"{prompt_system}\n\nPertanyaan Ucenk: {user_input}"}]
                 }],
                 "generationConfig": {
                     "temperature": 0.7,
@@ -1430,36 +1431,25 @@ def tanya_alice():
                 }
             }
 
-            # Request ke Google
             response = requests.post(URL, headers=headers, json=payload)
-            
+            res_json = response.json()
+
             if response.status_code == 200:
-                res_json = response.json()
                 try:
                     jawaban = res_json['candidates'][0]['content']['parts'][0]['text']
-                    # Hilangkan markdown bold (**) biar rapi di termux, opsional
-                    jawaban_bersih = jawaban.replace("**", "") 
+                    # Hapus tanda bintang markdown biar rapi
+                    jawaban_bersih = jawaban.replace("**", "")
                     print(f"\n{MAGENTA}Alice: {RESET}{jawaban_bersih}\n")
-                except (KeyError, IndexError):
-                    print(f"\n{RED}[!] Alice bengong (Respon kosong dari Google){RESET}")
+                except KeyError:
+                    print(f"\n{RED}[!] Alice bingung (Response kosong){RESET}")
             else:
-                print(f"\n{RED}[!] Gagal connect Google (Code: {response.status_code}){RESET}")
-                # Print error detail untuk debugging
-                print(response.text)
+                msg = res_json.get('error', {}).get('message', 'Unknown Error')
+                print(f"\n{RED}[!] Error API Google: {msg}{RESET}")
 
         except KeyboardInterrupt:
-            print("\nKeluar paksa...")
             break
         except Exception as e:
-            print(f"\n{RED}[!] Script Crash: {e}{RESET}")
-
-# Baris ini penting biar bisa di-test langsung
-if __name__ == "__main__":
-    # Fungsi dummy buat testing kalau dijalankan terpisah tanpa menu.py utama
-    def mk_hotspot_active(): print("DUMMY DATA: User Hotspot = 12 orang")
-    def list_onu(): print("DUMMY DATA: ONU Online = 45, Offline = 2")
-    
-    tanya_alice()
+            print(f"\n{RED}[!] Script Error: {e}{RESET}")
 
 
 

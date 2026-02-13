@@ -703,33 +703,68 @@ def config_onu_logic():
             name = raw_name.replace(" ", "_")
             cmds = []
 
-            if opt == '3': # FH
-                prof = input(f"{WHITE}Profile Tcont [default/server]: {RESET}").strip() or "default"
-                vlan = input(f"{WHITE}Vlan ID: {RESET}").strip()
-                cmds = ["conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL sn {sn}", "exit",
-                        f"interface gpon-onu_{p}:{onu_id}", f"name {name}", f"description 1$${raw_name}$$",
-                        f"tcont 1 profile {prof}", "gemport 1 tcont 1", f"service-port 1 vport 1 user-vlan {vlan} vlan {vlan}",
-                        "exit", f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {vlan}",
-                        "vlan port veip_1 mode hybrid", f"vlan port wifi_0/1 mode tag vlan {vlan}",
-                        f"vlan port eth_0/1 mode tag vlan {vlan}", f"vlan port eth_0/2 mode tag vlan {vlan}",
-                        "dhcp", "end", "write"]
-            elif opt == '1': # ZTE HOTSPOT
-                vlan = input("VLAN: "); prof = input("Tcont Profile: ")
-                cmds = ["conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL sn {sn}", "exit",
-                        f"interface gpon-onu_{p}:{onu_id}", f"name {name}", f"tcont 1 profile {prof}",
-                        "gemport 1 tcont 1", "exit", f"service-port 1 vport 1 user-vlan {vlan} vlan {vlan}",
-                        f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {vlan}",
-                        f"vlan port wifi_0/1 mode tag vlan {vlan}", "end", "write"]
-            elif opt == '2': # ZTE MIX
-                vp = input("VLAN PPPoE: "); vh = input("VLAN Hotspot: "); prof = input("Tcont Prof: ")
-                u = input("User: "); pw = input("Pass: "); v_w = input("WAN Prof: "); ssid = input("SSID: ")
-                cmds = ["conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL-ONT sn {sn}", "exit",
-                        f"interface gpon-onu_{p}:{onu_id}", f"name {name}", f"tcont 1 profile {prof}", f"tcont 2 profile {prof}",
-                        "gemport 1 tcont 1", "gemport 2 tcont 2", "exit",
-                        f"service-port 1 vport 1 user-vlan {vp} vlan {vp}", f"service-port 2 vport 2 user-vlan {vh} vlan {vh}", "exit",
-                        f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {vp}", f"service 2 gemport 2 vlan {vh}",
-                        f"wan-ip 1 mode pppoe username {u} password {pw} vlan-profile {v_w} host 1",
-                        "interface wifi wifi_0/2 state unlock", f"ssid ctrl wifi_0/2 name {ssid}", "end", "write"]
+            if opt == '1': # ZTE HOTSPOT (Sesuai skrip manualmu)
+                vlan = input("VLAN: ")
+                prof = input("Tcont Profile [default]: ") or "default"
+                cmds = [
+                    "conf t",
+                    f"interface gpon-olt_{p}",
+                    f"onu {onu_id} type ALL sn {sn}",
+                    "exit",
+                    f"interface gpon-onu_{p}:{onu_id}",
+                    f"name {name}",
+                    f"tcont 1 profile {prof}",
+                    "gemport 1 tcont 1",
+                    # Service-port dimasukin ke sini sesuai manualmu
+                    f"service-port 1 vport 1 user-vlan {vlan} vlan {vlan}",
+                    "exit",
+                    f"pon-onu-mng gpon-onu_{p}:{onu_id}",
+                    f"service 1 gemport 1 vlan {vlan}",
+                    f"vlan port wifi_0/1 mode tag vlan {vlan}",
+                    f"vlan port eth_0/1 mode tag vlan {vlan}",
+                    f"vlan port eth_0/2 mode tag vlan {vlan}",
+                    f"vlan port eth_0/3 mode tag vlan {vlan}",
+                    f"vlan port eth_0/4 mode tag vlan {vlan}",
+                    "security-mgmt 212 state enable mode forward protocol web",
+                    "end", 
+                    "write"
+                ]
+
+            elif opt == '2': # ZTE MIX (PPPoE + Hotspot)
+                vp = input("VLAN PPPoE: ")
+                vh = input("VLAN Hotspot: ")
+                prof = input("Tcont Prof [default]: ") or "default"
+                u = input("User PPPoE: ")
+                pw = input("Pass PPPoE: ")
+                v_w = input("WAN Prof (VLAN Profile): ")
+                ssid = input("SSID Name: ")
+                cmds = [
+                    "conf t",
+                    f"interface gpon-olt_{p}",
+                    f"onu {onu_id} type ALL sn {sn}",
+                    "exit",
+                    f"interface gpon-onu_{p}:{onu_id}",
+                    f"name {name}",
+                    f"tcont 1 profile {prof}",
+                    f"tcont 2 profile {prof}",
+                    "gemport 1 tcont 1",
+                    "gemport 2 tcont 2",
+                    f"service-port 1 vport 1 user-vlan {vp} vlan {vp}",
+                    f"service-port 2 vport 2 user-vlan {vh} vlan {vh}",
+                    "exit",
+                    f"pon-onu-mng gpon-onu_{p}:{onu_id}",
+                    f"service 1 gemport 1 vlan {vp}",
+                    f"service 2 gemport 2 vlan {vh}",
+                    # Mapping port fisik untuk Hotspot (VLAN Hotspot)
+                    f"vlan port wifi_0/1 mode tag vlan {vh}",
+                    f"vlan port eth_0/1 mode tag vlan {vh}", 
+                    f"wan-ip 1 mode pppoe username {u} password {pw} vlan-profile {v_w} host 1",
+                    "interface wifi wifi_0/2 state unlock",
+                    f"ssid ctrl wifi_0/2 name {ssid}",
+                    "security-mgmt 212 state enable mode forward protocol web",
+                    "end", 
+                    "write"
+                ]
 
             if cmds:
                 print(f"\n{CYAN}[*] Mengirim konfigurasi ke OLT...{RESET}")

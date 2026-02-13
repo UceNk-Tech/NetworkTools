@@ -770,7 +770,7 @@ def config_onu_logic():
                     "security-mgmt 212 state enable mode forward protocol web", "end", "write"
                 ]
 
-           elif opt == '2': # ZTE MIX (PPPoE + Hotspot)
+          elif opt == '2': # ZTE MIX (PPPoE + Hotspot)
             vp = input(f"{WHITE}VLAN PPPoE: {RESET}").strip()
             vh = input(f"{WHITE}VLAN Hotspot: {RESET}").strip()
             prof = input(f"{WHITE}Tcont Profile [default/server]: {RESET}").strip() or "default"
@@ -809,7 +809,6 @@ def config_onu_logic():
                 f"vlan port eth_0/3 mode tag vlan {vp}",
                 "end", "write"
             ]
-
             elif opt == '3': # FIBERHOME HOTSPOT
                 prof = input(f"{WHITE}Profile Tcont [default/server]: {RESET}").strip() or "default"
                 vlan = input(f"{WHITE}Vlan ID: {RESET}").strip()

@@ -1470,8 +1470,8 @@ def main():
         elif c == '24': ping_traceroute_tool()
         elif c == '25': dns_tools()
         elif c == '26': update_tools_auto()
-        elif c == '99': manage_profiles()
         elif c == '100': tanya_alice()
+        elif c == '99': manage_profiles()
         elif c == '0': sys.exit()
         input(f"\n{YELLOW}Tekan Enter...{RESET}")
 

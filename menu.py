@@ -562,7 +562,7 @@ def list_onu():
         print(f"{RED}[!] Gagal mengambil data OLT.{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 
-# --- MONITOR & REGISTRASI LENGKAP (FINAL DENGAN LOGIKA MENU 13) ---
+# --- MONITOR & REGISTRASI LENGKAP (MENU 4 FIX & LOOPING) ---
 def config_onu_logic(): 
     creds = get_credentials("olt")
     if not creds: 
@@ -612,129 +612,172 @@ def config_onu_logic():
             saran_id_global = str(missing[0]) if missing else str(max_id + 1)
         print(f"{GREEN}[✓] SARAN ONU ID: {saran_id_global}{RESET}")
 
-    # --- STEP 3: MENU TINDAKAN ---
-    print(f"\n{MAGENTA}--- PILIH JENIS REGISTRASI ---{RESET}")
+    # --- TAMPILKAN MENU HANYA SEKALI DI SINI ---
+    print(f"\n{MAGENTA}--- PILIH JENIS TINDAKAN ---{RESET}")
     print(f" 1. {GREEN}Registrasi ZTE (Hotspot Only){RESET}")
     print(f" 2. {GREEN}Registrasi ZTE (Hotspot + PPPoE){RESET}")
     print(f" 3. {GREEN}Registrasi FH  (Hotspot Only){RESET}")
     print(f" 4. {CYAN}Cek Detail Power Optik Unconfigured{RESET}") 
     print(f" 0. {YELLOW}Batal/Keluar{RESET}")
-    
-    opt = input(f"\n{YELLOW}Pilih (0-4): {RESET}").strip()
-    if opt == '0' or not opt: return
 
-    # OPSI 4 (Cek Manual Sebelum Reg)
-    if opt == '4':
-        if not found_sn: print(f"{RED}[!] SN tidak ditemukan.{RESET}"); return
-        test_id = "128"
-        print(f"{CYAN}[+] Meminjam ID {test_id} untuk diagnosa...{RESET}")
-        cmds = ["conf t", f"interface gpon-olt_{p}", f"onu {test_id} type ALL sn {found_sn}", "exit",
-                f"show pon power attenuation gpon-onu_{p}:{test_id}", "conf t", f"interface gpon-olt_{p}", f"no onu {test_id}", "end"]
-        output = telnet_olt_execute(creds, cmds)
-        if output:
-            print(f"\n{WHITE}DETAIL POWER OPTIK:{RESET}")
-            for line in output.splitlines():
-                if any(x in line for x in ["Rx", "Tx", "OLT", "ONU"]) and "show" not in line:
-                    print(f"{YELLOW}{line.strip()}{RESET}")
-        input(f"\n{WHITE}Selesai. Tekan Enter...{RESET}"); return
+    # --- LOOPING UTAMA (Agar Menu 4 bisa diulang tanpa reprint menu) ---
+    while True:
+        opt = input(f"\n{YELLOW}Pilih (0-4): {RESET}").strip()
+        
+        # Keluar
+        if opt == '0' or not opt: break
 
-    # PROSES REGISTRASI (OPSI 1-3)
-    if opt in ['1', '2', '3']:
-        onu_id = input(f"{WHITE}Masukkan ID ONU [Saran: {saran_id_global}]: {RESET}").strip() or saran_id_global
-        sn = input(f"{WHITE}Masukkan SN ONU [{found_sn}]: {RESET}").strip() or found_sn
-        raw_name = input(f"{WHITE}Nama Pelanggan: {RESET}").strip()
-        name = raw_name.replace(" ", "_")
-        cmds = []
-
-        if opt == '3': # FH
-            prof = input(f"{WHITE}Profile Tcont [default/server]: {RESET}").strip() or "default"
-            vlan = input(f"{WHITE}Vlan ID: {RESET}").strip()
-            cmds = ["conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL sn {sn}", "exit",
-                    f"interface gpon-onu_{p}:{onu_id}", f"name {name}", f"description 1$${raw_name}$$",
-                    f"tcont 1 profile {prof}", "gemport 1 tcont 1", f"service-port 1 vport 1 user-vlan {vlan} vlan {vlan}",
-                    "exit", f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {vlan}",
-                    "vlan port veip_1 mode hybrid", f"vlan port wifi_0/1 mode tag vlan {vlan}",
-                    f"vlan port eth_0/1 mode tag vlan {vlan}", f"vlan port eth_0/2 mode tag vlan {vlan}",
-                    "dhcp", "end", "write"]
-        elif opt == '1': # ZTE HOTSPOT
-            vlan = input("VLAN: "); prof = input("Tcont Profile: ")
-            cmds = ["conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL sn {sn}", "exit",
-                    f"interface gpon-onu_{p}:{onu_id}", f"name {name}", f"tcont 1 profile {prof}",
-                    "gemport 1 tcont 1", "exit", f"service-port 1 vport 1 user-vlan {vlan} vlan {vlan}",
-                    f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {vlan}",
-                    f"vlan port wifi_0/1 mode tag vlan {vlan}", "end", "write"]
-        elif opt == '2': # ZTE MIX
-            vp = input("VLAN PPPoE: "); vh = input("VLAN Hotspot: "); prof = input("Tcont Prof: ")
-            u = input("User: "); pw = input("Pass: "); v_w = input("WAN Prof: "); ssid = input("SSID: ")
-            cmds = ["conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL-ONT sn {sn}", "exit",
-                    f"interface gpon-onu_{p}:{onu_id}", f"name {name}", f"tcont 1 profile {prof}", f"tcont 2 profile {prof}",
-                    "gemport 1 tcont 1", "gemport 2 tcont 2", "exit",
-                    f"service-port 1 vport 1 user-vlan {vp} vlan {vp}", f"service-port 2 vport 2 user-vlan {vh} vlan {vh}", "exit",
-                    f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {vp}", f"service 2 gemport 2 vlan {vh}",
-                    f"wan-ip 1 mode pppoe username {u} password {pw} vlan-profile {v_w} host 1",
-                    "interface wifi wifi_0/2 state unlock", f"ssid ctrl wifi_0/2 name {ssid}", "end", "write"]
-
-        if cmds:
-            print(f"\n{CYAN}[*] Mengirim konfigurasi ke OLT...{RESET}")
-            telnet_olt_execute(creds, cmds)
-            print(f"{GREEN}[✓] Registrasi Selesai!{RESET}")
+        # --- OPSI 4: CEK MANUAL (FORMAT MENU 13) ---
+        if opt == '4':
+            if not found_sn: 
+                print(f"{RED}[!] SN tidak ditemukan. Tidak bisa cek.{RESET}")
+                continue # Balik minta input lagi
             
-            # --- AUTO CEK OPTIK (LOGIKA MENU 13 YANG DIPINDAHKAN) ---
-            print(f"\n{CYAN}[*] Menunggu ONU online untuk cek redaman (Max 20 detik)...{RESET}")
+            test_id = "128"
+            print(f"\n{CYAN}[+] Meminjam ID {test_id} untuk diagnosa...{RESET}")
             
-            # Loop 4 kali (total +/- 20 detik) untuk menunggu sinyal
-            got_signal = False
-            for attempt in range(1, 5):
-                print(f"{YELLOW}[Attempt {attempt}/4] Mencoba baca optik...{RESET}")
-                time.sleep(5) # Tunggu 5 detik setiap percobaan
+            # Perintah khusus config sementara -> cek -> hapus
+            check_cmds = ["terminal length 0"]
+            if brand == 'fiberhome': check_cmds.append(f"show onu optical-power {p} {test_id}")
+            else: check_cmds.append(f"show pon power attenuation gpon-onu_{p}:{test_id}")
+            
+            cmds = [
+                "conf t", f"interface gpon-olt_{p}", f"onu {test_id} type ALL sn {found_sn}", "exit",
+            ] + check_cmds + [
+                "conf t", f"interface gpon-olt_{p}", f"no onu {test_id}", "end"
+            ]
+            
+            output = telnet_olt_execute(creds, cmds)
+            
+            if output:
+                lines = output.splitlines()
+                clean_lines = []
+                rx_val = None
                 
-                check_cmds = ["terminal length 0"]
-                if brand == 'fiberhome': check_cmds.append(f"show onu optical-power {p} {onu_id}")
-                else: check_cmds.append(f"show pon power attenuation gpon-onu_{p}:{onu_id}")
+                # Filter Output
+                for line in lines:
+                    l_strip = line.strip()
+                    if not l_strip or "% The password" in line or "ZXAN#" in line or "terminal length" in line: continue
+                    clean_lines.append(line)
+                    # Ambil data Rx
+                    if "down" in line.lower() and "Rx" in line:
+                        matches = re.findall(r"Rx\s*:\s*(-?\d+\.\d+)", line)
+                        if matches: rx_val = float(matches[0])
+
+                clean_output = "\n".join(clean_lines)
                 
-                output = telnet_olt_execute(creds, check_cmds)
+                # TAMPILAN TABEL (Format Menu 13)
+                print(f"\n{WHITE}HASIL DIAGNOSA (SN: {found_sn}):{RESET}")
+                print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
+                print(f"{YELLOW}{clean_output}{RESET}")
+                print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
                 
-                # --- LOGIKA PARSING PERSIS MENU 13 ---
-                if output:
-                    lines = output.splitlines()
-                    clean_lines = []
-                    rx_val = None
+                if rx_val is not None:
+                    if rx_val < -27.0: color, status = RED, "CRITICAL (DROP)"
+                    elif rx_val < -25.0: color, status = YELLOW, "WARNING (REDAUP)"
+                    else: color, status = GREEN, "NORMAL (BAGUS)"
                     
-                    for line in lines:
-                        l_strip = line.strip()
-                        if not l_strip or "% The password" in line or "ZXAN#" in line or "terminal length" in line: continue
-                        clean_lines.append(line)
-                        
-                        # Cari Rx Value
-                        if "down" in line.lower() and "Rx" in line:
-                            matches = re.findall(r"Rx\s*:\s*(-?\d+\.\d+)", line)
-                            if matches: rx_val = float(matches[0])
+                    print(f"{WHITE}Identity ONU        : {MAGENTA}{p}:{test_id} (Temp){RESET}")
+                    print(f"{WHITE}Redaman (Rx ONU)    : {color}{rx_val} dBm{RESET}")
+                    print(f"{WHITE}Kondisi             : {color}{status}{RESET}")
+                else:
+                    print(f"{YELLOW}[!] Data Rx belum terbaca (Mungkin ONU belum up sempurna/kabel putus).{RESET}")
+                
+                print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
+            
+            # PENTING: Continue agar kembali ke "Pilih (0-4)" tanpa keluar
+            continue 
+
+        # --- OPSI 1, 2, 3: REGISTRASI (Selesai -> Keluar Loop) ---
+        if opt in ['1', '2', '3']:
+            onu_id = input(f"{WHITE}Masukkan ID ONU [Saran: {saran_id_global}]: {RESET}").strip() or saran_id_global
+            sn = input(f"{WHITE}Masukkan SN ONU [{found_sn}]: {RESET}").strip() or found_sn
+            raw_name = input(f"{WHITE}Nama Pelanggan: {RESET}").strip()
+            name = raw_name.replace(" ", "_")
+            cmds = []
+
+            # Penyiapan Command (Sama seperti sebelumnya)
+            if opt == '3': # FH
+                prof = input(f"{WHITE}Profile Tcont [default/server]: {RESET}").strip() or "default"
+                vlan = input(f"{WHITE}Vlan ID: {RESET}").strip()
+                cmds = ["conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL sn {sn}", "exit",
+                        f"interface gpon-onu_{p}:{onu_id}", f"name {name}", f"description 1$${raw_name}$$",
+                        f"tcont 1 profile {prof}", "gemport 1 tcont 1", f"service-port 1 vport 1 user-vlan {vlan} vlan {vlan}",
+                        "exit", f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {vlan}",
+                        "vlan port veip_1 mode hybrid", f"vlan port wifi_0/1 mode tag vlan {vlan}",
+                        f"vlan port eth_0/1 mode tag vlan {vlan}", f"vlan port eth_0/2 mode tag vlan {vlan}",
+                        "dhcp", "end", "write"]
+            elif opt == '1': # ZTE HOTSPOT
+                vlan = input("VLAN: "); prof = input("Tcont Profile: ")
+                cmds = ["conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL sn {sn}", "exit",
+                        f"interface gpon-onu_{p}:{onu_id}", f"name {name}", f"tcont 1 profile {prof}",
+                        "gemport 1 tcont 1", "exit", f"service-port 1 vport 1 user-vlan {vlan} vlan {vlan}",
+                        f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {vlan}",
+                        f"vlan port wifi_0/1 mode tag vlan {vlan}", "end", "write"]
+            elif opt == '2': # ZTE MIX
+                vp = input("VLAN PPPoE: "); vh = input("VLAN Hotspot: "); prof = input("Tcont Prof: ")
+                u = input("User: "); pw = input("Pass: "); v_w = input("WAN Prof: "); ssid = input("SSID: ")
+                cmds = ["conf t", f"interface gpon-olt_{p}", f"onu {onu_id} type ALL-ONT sn {sn}", "exit",
+                        f"interface gpon-onu_{p}:{onu_id}", f"name {name}", f"tcont 1 profile {prof}", f"tcont 2 profile {prof}",
+                        "gemport 1 tcont 1", "gemport 2 tcont 2", "exit",
+                        f"service-port 1 vport 1 user-vlan {vp} vlan {vp}", f"service-port 2 vport 2 user-vlan {vh} vlan {vh}", "exit",
+                        f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {vp}", f"service 2 gemport 2 vlan {vh}",
+                        f"wan-ip 1 mode pppoe username {u} password {pw} vlan-profile {v_w} host 1",
+                        "interface wifi wifi_0/2 state unlock", f"ssid ctrl wifi_0/2 name {ssid}", "end", "write"]
+
+            if cmds:
+                print(f"\n{CYAN}[*] Mengirim konfigurasi ke OLT...{RESET}")
+                telnet_olt_execute(creds, cmds)
+                print(f"{GREEN}[✓] Registrasi Selesai!{RESET}")
+                
+                # --- AUTO CEK OPTIK SETELAH REGISTRASI (Looping Wait) ---
+                print(f"\n{CYAN}[*] Menunggu ONU online untuk cek redaman (Max 20 detik)...{RESET}")
+                got_signal = False
+                for attempt in range(1, 5):
+                    print(f"{YELLOW}[Attempt {attempt}/4] Mencoba baca optik...{RESET}")
+                    time.sleep(5) 
                     
-                    # Jika Rx ditemukan (artinya sinyal sudah up)
-                    if rx_val is not None:
-                        got_signal = True
-                        clean_output = "\n".join(clean_lines)
+                    check_cmds = ["terminal length 0"]
+                    if brand == 'fiberhome': check_cmds.append(f"show onu optical-power {p} {onu_id}")
+                    else: check_cmds.append(f"show pon power attenuation gpon-onu_{p}:{onu_id}")
+                    
+                    output = telnet_olt_execute(creds, check_cmds)
+                    
+                    # LOGIKA PARSING (SAMA PERSIS MENU 13)
+                    if output:
+                        lines = output.splitlines()
+                        clean_lines = []
+                        rx_val = None
+                        for line in lines:
+                            l_strip = line.strip()
+                            if not l_strip or "% The password" in line or "ZXAN#" in line or "terminal length" in line: continue
+                            clean_lines.append(line)
+                            if "down" in line.lower() and "Rx" in line:
+                                matches = re.findall(r"Rx\s*:\s*(-?\d+\.\d+)", line)
+                                if matches: rx_val = float(matches[0])
                         
-                        print(f"\n{WHITE}HASIL DIAGNOSA ONU {onu_id} @ PORT {p}:{RESET}")
-                        print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
-                        print(f"{YELLOW}{clean_output}{RESET}")
-                        print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
-                        
-                        if rx_val < -27.0: color, status = RED, "CRITICAL (DROP)"
-                        elif rx_val < -25.0: color, status = YELLOW, "WARNING (REDAUP)"
-                        else: color, status = GREEN, "NORMAL (BAGUS)"
-                        
-                        print(f"{WHITE}Identity ONU        : {MAGENTA}{p}:{onu_id}{RESET}")
-                        print(f"{WHITE}Redaman (Rx ONU)    : {color}{rx_val} dBm{RESET}")
-                        print(f"{WHITE}Kondisi             : {color}{status}{RESET}")
-                        print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
-                        break # Keluar dari loop karena sudah berhasil
-            
-            if not got_signal:
-                print(f"\n{RED}[!] ONU belum terdeteksi Online setelah menunggu.{RESET}")
-                print(f"{RED}[!] Kemungkinan kabel putus atau ONU mati.{RESET}")
-            
-            input(f"\n{WHITE}Tekan Enter untuk keluar...{RESET}")
+                        if rx_val is not None:
+                            got_signal = True
+                            clean_output = "\n".join(clean_lines)
+                            print(f"\n{WHITE}HASIL DIAGNOSA ONU {onu_id} @ PORT {p}:{RESET}")
+                            print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
+                            print(f"{YELLOW}{clean_output}{RESET}")
+                            print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
+                            if rx_val < -27.0: color, status = RED, "CRITICAL (DROP)"
+                            elif rx_val < -25.0: color, status = YELLOW, "WARNING (REDAUP)"
+                            else: color, status = GREEN, "NORMAL (BAGUS)"
+                            print(f"{WHITE}Identity ONU        : {MAGENTA}{p}:{onu_id}{RESET}")
+                            print(f"{WHITE}Redaman (Rx ONU)    : {color}{rx_val} dBm{RESET}")
+                            print(f"{WHITE}Kondisi             : {color}{status}{RESET}")
+                            print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
+                            break 
+                
+                if not got_signal:
+                    print(f"\n{RED}[!] ONU belum terdeteksi Online.{RESET}")
+
+                # Keluar loop setelah registrasi selesai
+                input(f"\n{WHITE}Tekan Enter untuk keluar...{RESET}")
+                break
             
 
 # --- MENU 11: REBOOT / RESTART ONU ---

@@ -1337,6 +1337,7 @@ def what_my_ip(): # Menu 23
 
 
 def ping_traceroute_tool(): # Menu 24
+    import os
     print(f"\n{CYAN}=== PING & TRACEROUTE TOOLS ==={RESET}")
     target = input(f"{WHITE}Masukkan Host/IP (contoh google.com atau 8.8.8.8): {RESET}").strip()
     
@@ -1344,25 +1345,36 @@ def ping_traceroute_tool(): # Menu 24
         print(f"{YELLOW}[!] Host/IP tidak boleh kosong.{RESET}")
         return
 
-    print(f"\n{MAGENTA}--- PILIH METODE ---{RESET}")
-    print(" 1. Ping Test (Cek Latency/RTO)")
-    print(" 2. Traceroute (Lacak Jalur/Hop)")
-    print(" 0. Kembali")
-    
-    opt = input(f"\n{YELLOW}Pilih Opsi: {RESET}").strip()
+    while True:
+        print(f"\n{MAGENTA}--- PILIH METODE ---{RESET}")
+        print(" 1. Ping Test (Cek Latency/RTO)")
+        print(" 2. Traceroute (Lacak Jalur/Hop)")
+        print(" 0. Kembali")
+        
+        opt = input(f"\n{YELLOW}Pilih Opsi: {RESET}").strip()
 
-    if opt == '1':
-        print(f"\n{CYAN}[*] Menjalankan Ping ke {target}...{RESET}")
-        os.system(f"ping -c 5 {target}")
-    elif opt == '2':
-        print(f"\n{CYAN}[*] Menjalankan Traceroute ke {target}...{RESET}")
-        print(f"{WHITE}[i] Mohon tunggu, ini mungkin memakan waktu beberapa saat.{RESET}\n")
-        os.system(f"traceroute {target} 2>/dev/null || mtr -rw {target}")
-    else:
-        return
+        if opt == '1':
+            print(f"\n{CYAN}[*] Menjalankan Ping ke {target}...{RESET}")
+            # Aku batasi 5 paket biar gak nunggu kelamaan
+            os.system(f"ping -c 5 {target}")
+            
+        elif opt == '2':
+            print(f"\n{CYAN}[*] Menjalankan Traceroute ke {target}...{RESET}")
+            print(f"{WHITE}[i] Menganalisa jalur network...{RESET}\n")
+            
+            # Cek apakah traceroute sudah ada, kalau belum bantu instal otomatis
+            check_tr = os.system("command -v traceroute > /dev/null 2>&1")
+            if check_tr != 0:
+                print(f"{YELLOW}[!] Traceroute belum terinstal. Menginstal dulu...{RESET}")
+                os.system("pkg install dnsutils -y > /dev/null 2>&1")
+            
+            os.system(f"traceroute {target}")
+            
+        elif opt == '0' or not opt:
+            return # Balik ke Menu Utama
 
-    print(f"\n{MAGENTA}--------------------------------------------------{RESET}")
-
+        print(f"\n{MAGENTA}--------------------------------------------------{RESET}")
+        input(f"{WHITE}Tekan Enter untuk lanjut...{RESET}")
 
 def dns_tools(): # Menu 25
     print(f"\n{CYAN}=== DNS LOOKUP TOOLS ==={RESET}")

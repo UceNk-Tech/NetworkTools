@@ -1222,7 +1222,7 @@ def auto_audit_olt(): # Menu 18 (OLT Tools)
                     else:
                         print(f"{GREEN}[SIGNAL OK]  {line.strip()}{RESET}")
                 else:
-                    print(f"{WHITE}{line.strip()}{RESET}")
+                    print(f"{YELLOW}{line.strip()}{RESET}")
 
             # 2. Audit Status ONU
             elif any(x in l_low for x in ["offline", "los", "dyinggasp"]):
@@ -1233,7 +1233,7 @@ def auto_audit_olt(): # Menu 18 (OLT Tools)
             
             # 3. Tampilkan baris lain yang berisi info penting
             elif line.strip():
-                print(f"{WHITE}{line.strip()}{RESET}")
+                print(f"{YELLOW}{line.strip()}{RESET}")
     else:
         print(f"{RED}[!] Audit gagal. OLT tidak merespon.{RESET}")
         

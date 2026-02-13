@@ -1345,10 +1345,10 @@ def update_tools_auto(): # Menu 26
 
 
 def tanya_alice():
-    # Ganti dengan API KEY-mu
-    API_KEY = "AIzaSyCLcEH13sTfki8wD94tHFvXxO5q6sz379I" 
+    # Masukkan API KEY kamu di sini
+    API_KEY = "ISI_API_KEY_KAMU_DI_SINI" 
     
-    # Alice: Coba pake v1 (lebih stabil) dan pastiin modelnya gemini-1.5-flash
+    # Alice: Gunakan v1 (lebih stabil) dan tambahkan model 'gemini-1.5-flash'
     URL = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={API_KEY}"
     
     RED = '\033[0;31m'; CYAN = '\033[0;36m'; MAGENTA = '\033[0;35m'; YELLOW = '\033[0;33m'; RESET = '\033[0m'
@@ -1358,36 +1358,38 @@ def tanya_alice():
 
     while True:
         try:
-            user_input = input(f"{YELLOW}Ucenk [?]: {RESET}").strip()
+            # Tetap pakai input prompt yang simpel di bawah menu
+            user_input = input(f"{YELLOW}Ucenk [100]: {RESET}").strip()
             
             if user_input.lower() in ['0', 'keluar', 'exit']:
-                print(f"{CYAN}[+] Kembali ke menu...{RESET}\n")
+                print(f"{CYAN}[+] Kembali ke menu utama...{RESET}\n")
                 break
             if not user_input:
                 continue
 
-            # Payload sederhana
+            # Payload disesuaikan dengan standar v1
             payload = {
                 "contents": [{
-                    "parts": [{"text": f"Kamu Alice, asisten teknisi ISP Ucenk D-Tech. Jawab santai. Pertanyaan: {user_input}"}]
+                    "parts": [{"text": f"Kamu adalah Alice, asisten cerdas Ucenk si teknisi ISP D-Tech. Jawab dengan santai, singkat, dan gunakan 'aku'. Pertanyaan: {user_input}"}]
                 }]
             }
             
             headers = {'Content-Type': 'application/json'}
+            # Pakai json=payload supaya requests otomatis ngurusin format JSON-nya
             response = requests.post(URL, headers=headers, json=payload)
             res_json = response.json()
             
             if response.status_code == 200 and 'candidates' in res_json:
                 jawaban = res_json['candidates'][0]['content']['parts'][0]['text']
-                print(f"{MAGENTA}Alice: {RESET}{jawaban}\n")
+                print(f"\n{MAGENTA}Alice: {RESET}{jawaban}\n")
             else:
-                # Alice: Kalau error, dia bakal cetak pesan error dari Google-nya
+                # Menampilkan pesan error detail dari Google kalau gagal
                 msg = res_json.get('error', {}).get('message', 'Akses Ditolak/Model Salah')
-                print(f"{RED}[!] Google bilang: {msg}{RESET}")
-                print(f"{RED}[!] Cek lagi API KEY di https://aistudio.google.com/app/apikey{RESET}")
+                print(f"\n{RED}[!] Google bilang: {msg}{RESET}")
+                print(f"{RED}[!] Pastikan API KEY benar dan sudah aktif di Google AI Studio.{RESET}\n")
 
         except Exception as e:
-            print(f"{RED}[!] Kendala teknis: {e}{RESET}")
+            print(f"\n{RED}[!] Kendala teknis: {e}{RESET}\n")
 
 
 def show_menu():

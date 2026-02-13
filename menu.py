@@ -544,7 +544,7 @@ def list_onu():
     cmds = [f"show pon onu information gpon-olt_{p}"]
     output = telnet_olt_execute(creds, cmds)
     
-    print(f"\n{WHITE}==== LIST ONU REGISTERED (PORT {p}) ===={RESET}")
+    print(f"\n{YELLOW}==== LIST ONU REGISTERED (PORT {p}) ===={RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
     if output:

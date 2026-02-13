@@ -695,27 +695,25 @@ def config_onu_logic():
             # Langsung lanjut ke input "Pilih (0-4)" lagi
             continue 
 
-        # --- OPSI 1, 2, 3: REGISTRASI ---
-        if opt in ['1', '2', '3']:
+        # --- OPSI 1 & 2: KHUSUS ZTE (Berdasarkan Skrip Manual Suksesmu) ---
+        if opt in ['1', '2']:
             onu_id = input(f"{WHITE}Masukkan ID ONU [Saran: {saran_id_global}]: {RESET}").strip() or saran_id_global
             sn = input(f"{WHITE}Masukkan SN ONU [{found_sn}]: {RESET}").strip() or found_sn
             raw_name = input(f"{WHITE}Nama Pelanggan: {RESET}").strip()
             name = raw_name.replace(" ", "_")
-            cmds = []
-
-            if opt == '1': # ZTE HOTSPOT (Sesuai skrip manualmu)
-                vlan = input("VLAN: ")
-                prof = input("Tcont Profile [default]: ") or "default"
+            
+            if opt == '1': # ZTE HOTSPOT ONLY
+                vlan = input(f"{WHITE}VLAN Hotspot: {RESET}").strip()
+                prof = input(f"{WHITE}Tcont Profile [default]: {RESET}").strip() or "default"
                 cmds = [
                     "conf t",
                     f"interface gpon-olt_{p}",
-                    f"onu {onu_id} type ALL sn {sn}",
+                    f"onu {onu_id} type ALL-ONT sn {sn}",
                     "exit",
                     f"interface gpon-onu_{p}:{onu_id}",
                     f"name {name}",
                     f"tcont 1 profile {prof}",
                     "gemport 1 tcont 1",
-                    # Service-port dimasukin ke sini sesuai manualmu
                     f"service-port 1 vport 1 user-vlan {vlan} vlan {vlan}",
                     "exit",
                     f"pon-onu-mng gpon-onu_{p}:{onu_id}",
@@ -726,44 +724,78 @@ def config_onu_logic():
                     f"vlan port eth_0/3 mode tag vlan {vlan}",
                     f"vlan port eth_0/4 mode tag vlan {vlan}",
                     "security-mgmt 212 state enable mode forward protocol web",
-                    "end", 
-                    "write"
+                    "end", "write"
                 ]
 
-            elif opt == '2': # ZTE MIX (PPPoE + Hotspot)
-                vp = input("VLAN PPPoE: ")
-                vh = input("VLAN Hotspot: ")
-                prof = input("Tcont Prof [default]: ") or "default"
-                u = input("User PPPoE: ")
-                pw = input("Pass PPPoE: ")
-                v_w = input("WAN Prof (VLAN Profile): ")
-                ssid = input("SSID Name: ")
-                cmds = [
-                    "conf t",
-                    f"interface gpon-olt_{p}",
-                    f"onu {onu_id} type ALL sn {sn}",
-                    "exit",
-                    f"interface gpon-onu_{p}:{onu_id}",
-                    f"name {name}",
-                    f"tcont 1 profile {prof}",
-                    f"tcont 2 profile {prof}",
-                    "gemport 1 tcont 1",
-                    "gemport 2 tcont 2",
-                    f"service-port 1 vport 1 user-vlan {vp} vlan {vp}",
-                    f"service-port 2 vport 2 user-vlan {vh} vlan {vh}",
-                    "exit",
-                    f"pon-onu-mng gpon-onu_{p}:{onu_id}",
-                    f"service 1 gemport 1 vlan {vp}",
-                    f"service 2 gemport 2 vlan {vh}",
-                    # Mapping port fisik untuk Hotspot (VLAN Hotspot)
-                    f"vlan port wifi_0/1 mode tag vlan {vh}",
-                    f"vlan port eth_0/1 mode tag vlan {vh}", 
-                    f"wan-ip 1 mode pppoe username {u} password {pw} vlan-profile {v_w} host 1",
-                    "interface wifi wifi_0/2 state unlock",
-                    f"ssid ctrl wifi_0/2 name {ssid}",
-                    "security-mgmt 212 state enable mode forward protocol web",
-                    "end", 
-                    "write"
+           elif opt == '2': # ZTE MIX (PPPoE + Hotspot)
+            vp = input(f"{WHITE}VLAN PPPoE: {RESET}").strip()
+            vh = input(f"{WHITE}VLAN Hotspot: {RESET}").strip()
+            prof = input(f"{WHITE}Tcont Profile [default/server]: {RESET}").strip() or "default"
+            u = input(f"{WHITE}User PPPoE: {RESET}").strip()
+            pw = input(f"{WHITE}Pass PPPoE: {RESET}").strip()
+            auto_v_w = f"VLAN{vp}-PPPOE"  
+            ssid = input(f"{WHITE}Nama SSID Hotspot: {RESET}").strip()
+            
+            cmds = [
+                "conf t",
+                f"interface gpon-olt_{p}",
+                f"onu {onu_id} type ALL-ONT sn {sn}",
+                "exit",
+                f"interface gpon-onu_{p}:{onu_id}",
+                f"name {name}",
+                f"description 1$${raw_name}$$",
+                f"tcont 1 profile {prof}",
+                f"tcont 2 profile {prof}",
+                "gemport 1 tcont 1",
+                "gemport 2 tcont 2",
+                # Service-port diletakkan di bawah interface sesuai manual sukses
+                f"service-port 1 vport 1 user-vlan {vp} vlan {vp}",
+                f"service-port 2 vport 2 user-vlan {vh} vlan {vh}",
+                "exit",
+                f"pon-onu-mng gpon-onu_{p}:{onu_id}",
+                f"service 1 gemport 1 vlan {vp}",
+                f"service 2 gemport 2 vlan {vh}",
+                # Menggunakan auto_v_w hasil generate otomatis
+                f"wan-ip 1 mode pppoe username {u} password {pw} vlan-profile {auto_v_w} host 1",
+                "security-mgmt 212 state enable mode forward protocol web",
+                "interface wifi wifi_0/2 state unlock",
+                "ssid auth wep wifi_0/2 open-system",
+                f"ssid ctrl wifi_0/2 name {ssid}",
+                f"vlan port wifi_0/2 mode tag vlan {vh}",
+                f"vlan port eth_0/1 mode tag vlan {vp}",
+                f"vlan port eth_0/2 mode tag vlan {vp}",
+                f"vlan port eth_0/3 mode tag vlan {vp}",
+                "end", "write"
+            ]
+        # --- OPSI 3: KHUSUS FIBERHOME (Sesuai Tes Suksesmu) ---
+        elif opt == '3': # FH HOTSPOT ONLY
+            onu_id = input(f"{WHITE}Masukkan ID ONU [Saran: {saran_id_global}]: {RESET}").strip() or saran_id_global
+            sn = input(f"{WHITE}Masukkan SN ONU [{found_sn}]: {RESET}").strip() or found_sn
+            raw_name = input(f"{WHITE}Nama Pelanggan: {RESET}").strip()
+            name = raw_name.replace(" ", "_")
+            prof = input(f"{WHITE}Profile Tcont [default/server]: {RESET}").strip() or "default"
+            vlan = input(f"{WHITE}Vlan ID: {RESET}").strip()
+            
+            cmds = [
+                "conf t", 
+                f"interface gpon-olt_{p}", 
+                f"onu {onu_id} type ALL sn {sn}", 
+                "exit",
+                f"interface gpon-onu_{p}:{onu_id}", 
+                f"name {name}", 
+                f"description 1$${raw_name}$$",
+                f"tcont 1 profile {prof}", 
+                "gemport 1 tcont 1", 
+                f"service-port 1 vport 1 user-vlan {vlan} vlan {vlan}",
+                "exit", 
+                f"pon-onu-mng gpon-onu_{p}:{onu_id}", 
+                f"service 1 gemport 1 vlan {vlan}",
+                "vlan port veip_1 mode hybrid", 
+                f"vlan port wifi_0/1 mode tag vlan {vlan}",
+                f"vlan port eth_0/1 mode tag vlan {vlan}", 
+                f"vlan port eth_0/2 mode tag vlan {vlan}",
+                "dhcp", "end", "write"
+            ]
                 ]
 
             if cmds:

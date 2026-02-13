@@ -754,6 +754,7 @@ def config_onu_logic():
                 for attempt in range(1, 5):
                     print(f"{YELLOW}[Attempt {attempt}/4] Mencoba baca optik...{RESET}")
                     time.sleep(5) 
+                    
                     check_cmds = ["terminal length 0"]
                     if brand == 'fiberhome': 
                         check_cmds.append(f"show onu optical-power {p} {onu_id}")
@@ -761,19 +762,39 @@ def config_onu_logic():
                         check_cmds.append(f"show pon power attenuation gpon-onu_{p}:{onu_id}")
                     
                     output = telnet_olt_execute(creds, check_cmds)
-                    if output and "Rx" in output:
-                        matches = re.findall(r"Rx\s*:\s*(-?\d+\.\d+)", output)
-                        if matches:
-                            rx_val = float(matches[0])
+                    
+                    if output:
+                        rx_val = None
+                        lines = output.splitlines()
+                        for line in lines:
+                            # Mengambil baris 'down' agar dapat Rx sisi ONU
+                            if "down" in line.lower() and "Rx" in line:
+                                match = re.search(r"Rx\s*:\s*(-?\d+\.\d+)", line)
+                                if match:
+                                    rx_val = float(match.group(1))
+                                    break
+                        
+                        if rx_val is not None:
                             got_signal_final = True
-                            print(f"{GREEN}[✓] ONU Online! Power: {rx_val} dBm{RESET}")
+                            if rx_val < -27.0: color, status = RED, "CRITICAL (DROP)"
+                            elif rx_val < -25.0: color, status = YELLOW, "WARNING (REDAUP)"
+                            else: color, status = GREEN, "NORMAL (BAGUS)"
+                            
+                            print(f"\n{WHITE}HASIL CEK AKHIR:{RESET}")
+                            print(f"{MAGENTA}---------------------------------------------{RESET}")
+                            print(f"{WHITE}Identity ONU        : {MAGENTA}{p}:{onu_id}{RESET}")
+                            print(f"{WHITE}Redaman (Rx ONU)    : {color}{rx_val} dBm{RESET}")
+                            print(f"{WHITE}Kondisi             : {color}{status}{RESET}")
+                            print(f"{MAGENTA}---------------------------------------------{RESET}")
                             break
                 
                 if not got_signal_final:
-                    print(f"{RED}[!] ONU belum terdeteksi Online di sistem.{RESET}")
+                    print(f"{RED}[!] ONU belum terdeteksi Online atau Rx ONU tidak terbaca.{RESET}")
 
-                input(f"\n{WHITE}Tekan Enter untuk kembali ke menu...{RESET}")
-
+                # --- BAGIAN KEMBALI KE MENU UTAMA ---
+                input(f"\n{WHITE}Tekan Enter untuk kembali ke Menu Utama...{RESET}")
+                return # Ini yang bikin dia langsung keluar ke menu awal
+                
 
 # --- MENU 11: REBOOT / RESTART ONU ---
 def restart_onu():

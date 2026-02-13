@@ -1345,44 +1345,39 @@ def update_tools_auto(): # Menu 26
 
 
 def tanya_alice():
-    # Key Ucenk (Gratis kok, tenang aja!)
     API_KEY = "AIzaSyCAouqgFCbLn83tXO0YmWu89X5hbz4IQ4E" 
-    
-    # Pake v1beta/models/gemini-1.5-flash (Ini jalur resmi gratisan)
-    URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
-    
     RED = '\033[0;31m'; CYAN = '\033[0;36m'; MAGENTA = '\033[0;35m'; YELLOW = '\033[0;33m'; RESET = '\033[0m'
     
-    print(f"\n{MAGENTA}[✨ Alice AI Aktif]{RESET} {CYAN}Halo Ucenk! Versi ini tetep GRATIS kok!{RESET}")
+    print(f"\n{MAGENTA}[✨ Alice AI Aktif]{RESET} {CYAN}Halo Ucenk! Jalur diperbarui...{RESET}")
     print(f"{YELLOW}(Ketik '0' untuk selesai){RESET}")
 
     while True:
         try:
             user_input = input(f"{YELLOW}Ucenk [100]: {RESET}").strip()
-            if user_input.lower() in ['0', 'keluar', 'exit']:
-                print(f"{CYAN}[+] Kembali ke menu utama...{RESET}\n")
-                break
+            if user_input.lower() in ['0', 'keluar', 'exit']: break
             if not user_input: continue
 
-            # Struktur payload paling aman
-            payload = {
-                "contents": [{"parts": [{"text": f"Kamu Alice, asisten asik Ucenk D-Tech. Jawab santai: {user_input}"}]}]
-            }
+            payload = {"contents": [{"parts": [{"text": f"Kamu Alice, asisten Ucenk D-Tech. Jawab santai: {user_input}"}]}]}
             
-            headers = {'Content-Type': 'application/json'}
-            response = requests.post(URL, headers=headers, json=payload)
+            # Jalur 1: v1 (Stabil)
+            URL = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={API_KEY}"
+            response = requests.post(URL, json=payload)
+            
+            # Kalau Jalur 1 Gagal, Coba Jalur 2: v1beta
+            if response.status_code != 200:
+                URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
+                response = requests.post(URL, json=payload)
+
             res_json = response.json()
-            
             if response.status_code == 200:
                 jawaban = res_json['candidates'][0]['content']['parts'][0]['text']
                 print(f"\n{MAGENTA}Alice: {RESET}{jawaban}\n")
             else:
                 msg = res_json.get('error', {}).get('message', 'Akses Ditolak')
-                print(f"\n{RED}[!] Waduh Ucenk, Google bilang: {msg}{RESET}")
+                print(f"\n{RED}[!] Google Bilang: {msg}{RESET}")
 
         except Exception as e:
             print(f"\n{RED}[!] Kendala: {e}{RESET}\n")
-
 def show_menu():
     v = load_vault(); prof = v.get("active_profile", "Ucenk")
     os.system('clear')

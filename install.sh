@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==========================================
-# Installer Otomatis Ucenk D-Tech Pro v3.3
-# Support: Multi-Profile, Rogue DHCP & AI Alice
+# Installer Otomatis Ucenk D-Tech Pro v3.4
+# Support: Multi-Profile, Rogue DHCP & AI Alice (Auto-Fix Cryptography)
 # Author: Ucenk
 # ==========================================
 set -e
@@ -16,10 +16,12 @@ echo -e "${CYAN}[+] Memulai Setup Lingkungan Ucenk D-Tech...${NC}"
 # 1. Update & Install SEMUA Dependencies
 echo -e "${CYAN}[+] Installing System Packages (PHP, Git, Psmisc, Figlet)...${NC}"
 pkg update && pkg upgrade -y
-pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap -y
+# Alice: Tambahkan tur-repo dan python-cryptography agar instalasi AI Alice lancar
+pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap tur-repo -y
+pkg install binutils rust python-cryptography -y
 
 # 2. Install Library Python Wajib
-# Alice: Menambahkan 'google-generativeai' agar otak Alice langsung aktif!
+# Alice: google-generativeai sekarang bakal terinstall tanpa error build!
 echo -e "${CYAN}[+] Installing Python Libraries (Requests, RouterOS, AI Alice, etc)...${NC}"
 pip install lolcat routeros-api speedtest-cli requests google-generativeai --break-system-packages
 
@@ -77,6 +79,7 @@ fi
 
 echo -e "\n${GREEN}==============================================="
 echo -e "  SETUP BERHASIL! SEMUA TOOLS SIAP DIGUNAKAN."
-echo -e "  AI ALICE, DHCP Rogue & Brand Lookup AKTIF."
+echo -e "  AI ALICE (Gemini Engine) AKTIF."
+echo -e "  DHCP Rogue & Brand Lookup AKTIF."
 echo -e "  Buka ulang Termux untuk melihat hasilnya."
 echo -e "===============================================${NC}"

@@ -11,6 +11,8 @@ import getpass
 from datetime import datetime
 import telnetlib
 import requests
+import io
+from contextlib import redirect_stdout
 
 # --- HANDLER LIBRARY ---
 try:
@@ -1345,27 +1347,52 @@ def update_tools_auto(): # Menu 26
 
 
 def tanya_alice():
-    API_KEY = "AIzaSyCAouqgFCbLn83tXO0YmWu89X5hbz4IQ4E" 
-    # Jalur Paling Dasar: Gemini Pro v1
-    URL = f"https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={API_KEY}"
+    API_KEY = "AIzaSyCAouqgFCbLn83tXO0YmWu89X5hbz4IQ4E"
+    URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
     
     RED = '\033[0;31m'; CYAN = '\033[0;36m'; MAGENTA = '\033[0;35m'; YELLOW = '\033[0;33m'; RESET = '\033[0m'
     
-    print(f"\n{MAGENTA}[✨ Alice AI Aktif]{RESET} {CYAN}Halo Ucenk! Pakai jalur Pro (Tetap Gratis)...{RESET}")
+    print(f"\n{MAGENTA}[✨ Alice Operator Aktif]{RESET} {CYAN}Halo Ucenk! Sebutkan perintahmu...{RESET}")
 
     while True:
         try:
-            user_input = input(f"{YELLOW}Ucenk [100]: {RESET}").strip()
-            if user_input.lower() in ['0', 'keluar', 'exit']: break
+            user_input = input(f"{YELLOW}Ucenk [90]: {RESET}").lower().strip()
+            if user_input in ['0', 'keluar', 'exit']: break
             if not user_input: continue
 
-            # Struktur payload paling simpel untuk v1
-            payload = {
-                "contents": [{
-                    "parts": [{"text": f"Kamu Alice, asisten Ucenk D-Tech. Jawab santai: {user_input}"}]
-                }]
-            }
-            
+            output_eksekusi = ""
+
+            # --- LOGIKA EKSEKUSI OTOMATIS (DI BELAKANG LAYAR) ---
+            if "hotspot aktif" in user_input or "user aktif" in user_input:
+                print(f"{CYAN}(Alice sedang mengecek Hotspot...){RESET}")
+                f = io.StringIO()
+                with redirect_stdout(f):
+                    mk_hotspot_active() # Memanggil fungsi menu nomor 2
+                output_eksekusi = f.getvalue()
+
+            elif "list onu" in user_input or "onu aktif" in user_input:
+                print(f"{CYAN}(Alice sedang melist ONU...){RESET}")
+                f = io.StringIO()
+                with redirect_stdout(f):
+                    list_onu() # Memanggil fungsi menu nomor 9
+                output_eksekusi = f.getvalue()
+
+            elif "speedtest" in user_input:
+                print(f"{CYAN}(Alice sedang speedtest...){RESET}")
+                f = io.StringIO()
+                with redirect_stdout(f):
+                    os.system("speedtest-cli") # Eksekusi langsung
+                output_eksekusi = f.getvalue()
+
+            # --- KIRIM KE AI UNTUK DIRAPIKAN ---
+            prompt = (
+                f"Ucenk bertanya: '{user_input}'. "
+                f"Hasil eksekusi sistem adalah: '{output_eksekusi}'. "
+                "Tolong rangkum hasilnya dengan bahasa yang santai dan singkat. "
+                "Gunakan 'aku' untuk dirimu (Alice). Jika hasil sistem kosong, jawab saja secara normal."
+            )
+
+            payload = {"contents": [{"parts": [{"text": prompt}]}]}
             response = requests.post(URL, json=payload)
             res_json = response.json()
 
@@ -1373,12 +1400,10 @@ def tanya_alice():
                 jawaban = res_json['candidates'][0]['content']['parts'][0]['text']
                 print(f"\n{MAGENTA}Alice: {RESET}{jawaban}\n")
             else:
-                msg = res_json.get('error', {}).get('message', 'Akses Ditolak')
-                print(f"\n{RED}[!] Google Bilang: {msg}{RESET}")
-                print(f"{RED}[!] Coba cek di Google AI Studio, apakah model 'Gemini Pro' bisa dichat di sana?{RESET}")
+                print(f"\n{RED}[!] Google Error: {res_json.get('error', {}).get('message')}{RESET}")
 
         except Exception as e:
-            print(f"\n{RED}[!] Kendala: {e}{RESET}\n")
+            print(f"\n{RED}[!] Alice gagal eksekusi: {e}{RESET}\n")
 
 
 def show_menu():

@@ -1347,74 +1347,98 @@ def update_tools_auto(): # Menu 26
 
 
 def tanya_alice():
-    # --- MASUKKAN API KEY BARU ANDA DI SINI ---
-    # Pastikan tidak ada spasi!
+    # --- API KEY PERCOBAAN ---
+    # .strip() berguna membuang spasi jika tidak sengaja ter-copy
     API_KEY = "AIzaSyArLs7KtWTwb7p02OUhZtNLDTx1YPvtdlM".strip()
     
-    # Kita coba Gemini 1.5 Flash (Gratis & Cepat)
+    # Model Gemini (Gratis & Cepat)
     MODEL = "gemini-1.5-flash"
     
-    # PERBAIKAN: Key ditaruh di URL agar lebih stabil di Termux
+    # URL API (Key ditaruh di URL agar stabil di Termux)
     URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={API_KEY}"
     
+    # Warna Termux
     RED = '\033[0;31m'; CYAN = '\033[0;36m'; MAGENTA = '\033[0;35m'; YELLOW = '\033[0;33m'; RESET = '\033[0m'
     
-    print(f"\n{MAGENTA}[✨ Alice Gemini 1.5]{RESET} {CYAN}Halo Ucenk! Siap bantu.{RESET}")
+    print(f"\n{MAGENTA}[✨ Alice - Gemini AI]{RESET} {CYAN}Halo Ucenk! Mode Test Aktif.{RESET}")
     print(f"{YELLOW}(Ketik '0' untuk kembali){RESET}")
 
     while True:
         try:
             user_input = input(f"{YELLOW}Ucenk [90]: {RESET}").strip()
-            if user_input.lower() in ['0', 'keluar', 'exit']: break
+            
+            # Logic Keluar
+            if user_input.lower() in ['0', 'keluar', 'exit']: 
+                print(f"{CYAN}Alice Offline.{RESET}")
+                break
+            
             if not user_input: continue
 
             output_eksekusi = "Tidak ada data sistem tambahan."
 
-            # --- SCANNING OTOMATIS (Tanpa Import Ribet) ---
-            # Alice langsung membaca output layar dari fungsi yang sudah ada
-            if any(k in user_input.lower() for k in ["hotspot", "mikrotik", "user"]):
-                print(f"{CYAN}(Bentar, cek Mikrotik...){RESET}")
-                f = io.StringIO()
-                with redirect_stdout(f):
-                    try: mk_hotspot_active()
-                    except: print("Gagal akses fungsi Hotspot")
-                output_eksekusi = f.getvalue()
+            # --- 1. INTEGRASI OTOMATIS (Cek Mikrotik/OLT) ---
             
-            elif any(k in user_input.lower() for k in ["onu", "olt"]):
-                print(f"{CYAN}(Bentar, cek OLT...){RESET}")
+            # Jika user nanya Hotspot/Mikrotik
+            if any(k in user_input.lower() for k in ["hotspot", "mikrotik", "user"]):
+                print(f"{CYAN}(Sebentar, cek Mikrotik...){RESET}")
+                f = io.StringIO() # Bikin penampung output
+                with redirect_stdout(f):
+                    try:
+                        # Cek apakah fungsi ada, lalu jalankan
+                        if 'mk_hotspot_active' in globals(): mk_hotspot_active()
+                        else: print("Fungsi mk_hotspot_active belum dimuat.")
+                    except Exception as e:
+                        print(f"Error fungsi: {e}")
+                output_eksekusi = f.getvalue() # Ambil hasil print
+
+            # Jika user nanya ONU/OLT
+            elif any(k in user_input.lower() for k in ["onu", "olt", "pon"]):
+                print(f"{CYAN}(Sebentar, cek OLT...){RESET}")
                 f = io.StringIO()
                 with redirect_stdout(f):
-                    try: list_onu()
-                    except: print("Gagal akses fungsi ONU")
+                    try:
+                        if 'list_onu' in globals(): list_onu()
+                        else: print("Fungsi list_onu belum dimuat.")
+                    except Exception as e:
+                        print(f"Error fungsi: {e}")
                 output_eksekusi = f.getvalue()
 
-            # --- KIRIM KE GOOGLE ---
+            # --- 2. KIRIM KE GOOGLE GEMINI ---
             headers = {'Content-Type': 'application/json'}
             
-            # Prompt Engineering
-            prompt = f"""Kamu Alice, asisten teknisi jaringan (Ucenk). 
-            Data Sistem: {output_eksekusi}
-            Pertanyaan: {user_input}
-            Jawab singkat dan teknis."""
+            # Prompt System
+            prompt_text = f"""
+            Kamu adalah Alice, asisten teknisi jaringan (Ucenk).
+            DATA LIVE DARI SISTEM:
+            {output_eksekusi}
             
+            Pertanyaan Ucenk: {user_input}
+            Jawab singkat, padat, dan teknis.
+            """
+
             payload = {
-                "contents": [{"parts": [{"text": prompt}]}]
+                "contents": [{"parts": [{"text": prompt_text}]}]
             }
 
+            # Eksekusi Request
             response = requests.post(URL, headers=headers, json=payload)
+            res_json = response.json()
             
+            # Cek Status
             if response.status_code == 200:
-                res_json = response.json()
                 try:
                     jawaban = res_json['candidates'][0]['content']['parts'][0]['text']
-                    print(f"\n{MAGENTA}Alice: {RESET}{jawaban.replace('**','')}\n")
+                    # Bersihkan format markdown (bold)
+                    print(f"\n{MAGENTA}Alice: {RESET}{jawaban.replace('**', '')}\n")
                 except:
                     print(f"\n{RED}[!] Respon kosong dari Google.{RESET}")
             else:
-                print(f"\n{RED}[!] Error {response.status_code}: {response.text}{RESET}")
+                # Tampilkan pesan error jika key salah/limit
+                msg = res_json.get('error', {}).get('message', 'Unknown Error')
+                print(f"\n{RED}[!] Error API ({response.status_code}): {msg}{RESET}")
 
         except Exception as e:
-            print(f"\n{RED}[!] Error Script: {e}{RESET}")
+            print(f"\n{RED}[!] Script Error: {e}{RESET}")
 
 
 

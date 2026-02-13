@@ -1348,46 +1348,94 @@ def update_tools_auto(): # Menu 26
 
 
 def tanya_alice():
-    # Key sakti Ucenk dari gambar tadi
-    API_KEY = "AIzaSyDb0pjVXMzuPJbfbfwkIhPV27qdd9uxIYs"
-    URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+    # Masukkan API KEY baru kamu yang fresh (Free Tier)
+    API_KEY = "AIzaSyArLs7KtWTwb7p02OUhZtNLDTx1YPvtdlM"
     
-    headers = {'Content-Type': 'application/json', 'X-goog-api-key': API_KEY}
+    # Pakai Gemini 1.5 Flash sesuai saran Google AI Studio (Gratis & Stabil)
+    MODEL = "gemini-1.5-flash"
+    URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
     
-    print(f"\n[✨ Alice D-Tech] Halo Ucenk! Aku sudah siap di jalur Free Tier.")
+    RED = '\033[0;31m'; CYAN = '\033[0;36m'; MAGENTA = '\033[0;35m'; YELLOW = '\033[0;33m'; RESET = '\033[0m'
+    
+    print(f"\n{MAGENTA}[✨ Alice Gemini 1.5 Flash]{RESET} {CYAN}Halo Ucenk! Aku siap pantau Mikrotik & OLT kamu.{RESET}")
+    print(f"{YELLOW}(Ketik '0' untuk kembali ke menu utama){RESET}")
 
     while True:
         try:
-            user_input = input(f"Ucenk [90]: ").strip()
-            if user_input.lower() in ['0', 'keluar', 'exit']: break
+            user_input = input(f"{YELLOW}Ucenk [90]: {RESET}").strip()
+            
+            if user_input.lower() in ['0', 'keluar', 'exit']: 
+                break
+            
             if not user_input: continue
 
-            # --- Alice Cek Menu Otomatis ---
-            output_eksekusi = ""
-            if "hotspot" in user_input.lower() or "user aktif" in user_input.lower():
-                print("(Alice sedang mengecek Mikrotik...)")
+            output_eksekusi = "Tidak ada data sistem tambahan."
+            
+            # --- LOGIKA OTOMATIS: ALICE JALANKAN MENU ---
+            # Jika Ucenk nanya user hotspot (Menu 2)
+            if any(key in user_input.lower() for key in ["user aktif", "hotspot", "mikrotik"]):
+                print(f"{CYAN}(Bentar Cenk, aku intip Mikrotik dulu...){RESET}")
                 f = io.StringIO()
                 with redirect_stdout(f):
-                    try: mk_hotspot_active() 
-                    except: print("Gagal panggil fungsi.")
+                    try: 
+                        mk_hotspot_active() # Memanggil fungsi asli di menu.py kamu
+                    except Exception as e: 
+                        print(f"Gagal akses fungsi: {e}")
                 output_eksekusi = f.getvalue()
 
-            # --- Kirim ke Google ---
-            payload = {
-                "contents": [{"parts": [{"text": f"Kamu Alice, asisten Ucenk D-Tech. Data: {output_eksekusi}. Tanya: {user_input}"}]}]
+            # Jika Ucenk nanya soal ONU/OLT (Menu 9)
+            elif any(key in user_input.lower() for key in ["list onu", "onu", "olt"]):
+                print(f"{CYAN}(Sabar ya, aku cek daftar ONU dulu...){RESET}")
+                f = io.StringIO()
+                with redirect_stdout(f):
+                    try: 
+                        list_onu() # Memanggil fungsi asli di menu.py kamu
+                    except Exception as e: 
+                        print(f"Gagal akses fungsi: {e}")
+                output_eksekusi = f.getvalue()
+
+            # --- KIRIM KE AI DENGAN PROMPT TEKNISI ---
+            headers = {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': API_KEY
             }
             
+            prompt_system = f"""
+            Kamu adalah Alice, asisten pribadi Ucenk (Teknisi D-Tech).
+            Gaya bicara: Santai, akrab, gunakan 'aku'. Kamu sangat ahli dalam Mikrotik dan OLT.
+            
+            DATA SISTEM SAAT INI:
+            {output_eksekusi}
+            
+            Instruksi:
+            1. Analisa data sistem di atas dan berikan ringkasannya kepada Ucenk.
+            2. Jika data kosong, jawab pertanyaan umum Ucenk dengan cerdas.
+            """
+
+            payload = {
+                "contents": [{
+                    "parts": [{"text": f"{prompt_system}\n\nPertanyaan Ucenk: {user_input}"}]
+                }],
+                "generationConfig": {
+                    "temperature": 0.7,
+                    "maxOutputTokens": 800
+                }
+            }
+
             response = requests.post(URL, headers=headers, json=payload)
             res_json = response.json()
 
             if response.status_code == 200:
                 jawaban = res_json['candidates'][0]['content']['parts'][0]['text']
-                print(f"\nAlice: {jawaban}\n")
+                print(f"\n{MAGENTA}Alice: {RESET}{jawaban}\n")
             else:
-                print(f"\n[!] Error: {res_json.get('error', {}).get('message')}")
+                msg = res_json.get('error', {}).get('message', 'Limit tercapai')
+                print(f"\n{RED}[!] Google Bilang: {msg}{RESET}")
 
         except Exception as e:
-            print(f"\n[!] Kendala: {e}")
+            print(f"\n{RED}[!] Kendala: {e}{RESET}")
+
+
 
 
 def show_menu():

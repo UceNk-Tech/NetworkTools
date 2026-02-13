@@ -1345,15 +1345,15 @@ def update_tools_auto(): # Menu 26
 
 
 def tanya_alice():
-    # Menggunakan API Key dari gambar yang kamu kirim
+    # API KEY dari gambar Ucenk
     API_KEY = "AIzaSyCAouqgFCbLn83tXO0YmWu89X5hbz4IQ4E" 
     
-    # URL menggunakan v1beta yang mendukung gemini-1.5-flash
-    URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
+    # Alice: Kita pake v1beta tapi panggil modelnya lewat model ID yang paling standar
+    URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={API_KEY}"
     
     RED = '\033[0;31m'; CYAN = '\033[0;36m'; MAGENTA = '\033[0;35m'; YELLOW = '\033[0;33m'; RESET = '\033[0m'
     
-    print(f"\n{MAGENTA}[✨ Alice AI Aktif]{RESET} {CYAN}Halo Ucenk! Ada yang bisa aku bantu?{RESET}")
+    print(f"\n{MAGENTA}[✨ Alice AI Aktif]{RESET} {CYAN}Halo Ucenk! Aku coba konek lagi ya...{RESET}")
     print(f"{YELLOW}(Ketik '0' untuk selesai){RESET}")
 
     while True:
@@ -1366,10 +1366,11 @@ def tanya_alice():
             if not user_input:
                 continue
 
-            # Payload format untuk Gemini
+            # Payload format Gemini yang paling simpel
             payload = {
                 "contents": [{
-                    "parts": [{"text": f"Kamu adalah Alice, asisten cerdas Ucenk si teknisi ISP D-Tech. Jawab dengan santai dan gunakan 'aku'. Pertanyaan: {user_input}"}]
+                    "role": "user",
+                    "parts": [{"text": f"Kamu Alice, asisten teknisi ISP D-Tech. Jawab santai: {user_input}"}]
                 }]
             }
             
@@ -1377,12 +1378,23 @@ def tanya_alice():
             response = requests.post(URL, headers=headers, json=payload)
             res_json = response.json()
             
+            # Cek respon
             if response.status_code == 200 and 'candidates' in res_json:
                 jawaban = res_json['candidates'][0]['content']['parts'][0]['text']
                 print(f"\n{MAGENTA}Alice: {RESET}{jawaban}\n")
             else:
-                msg = res_json.get('error', {}).get('message', 'Akses Ditolak')
-                print(f"\n{RED}[!] Google bilang: {msg}{RESET}")
+                # Alice: Kalau masih gagal flash, otomatis coba ganti ke gemini-1.5-flash
+                alt_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={API_KEY}"
+                response = requests.post(alt_url, headers=headers, json=payload)
+                res_json = response.json()
+                
+                if response.status_code == 200 and 'candidates' in res_json:
+                    jawaban = res_json['candidates'][0]['content']['parts'][0]['text']
+                    print(f"\n{MAGENTA}Alice: {RESET}{jawaban}\n")
+                else:
+                    msg = res_json.get('error', {}).get('message', 'Akses Ditolak')
+                    print(f"\n{RED}[!] Masalah: {msg}{RESET}")
+                    print(f"{RED}[!] Cek apakah API Key kamu sudah dichecklist 'Gemini API' di Google AI Studio.{RESET}")
 
         except Exception as e:
             print(f"\n{RED}[!] Kendala teknis: {e}{RESET}\n")
@@ -1421,8 +1433,7 @@ def show_menu():
     print(f"\n{CYAN} 20. Nmap                             24. Ping & Traceroute        ")
     print(f"\n{CYAN} 21. MAC Lookup                       25. DNS Checker              ")
     print(f"\n{CYAN} 22. Port Scaner                      26. Update-Tools             ")
-    print(f"  ?. {MAGENTA}100. Tanya Alice (Asisten AI){RESET}")
-    print(f"\n{GREEN} 99. Profile Setting{RESET}\n{CYAN}100. Tanya Alice (Asisten AI){RESET}\n{YELLOW} 0 . Exit{RESET}")
+    print(f"\n{CYAN} 98. Tanya Alice (Asisten AI){RESET}\n{GREEN} 99. Profile Setting{RESET}\n{YELLOW} 0 . Exit{RESET}")
     os.system('echo "======================= github.com/UceNk-Tech =====================" | lolcat 2>/dev/null')
 
 

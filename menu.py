@@ -562,7 +562,7 @@ def list_onu():
         print(f"{RED}[!] Gagal mengambil data OLT.{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 
-# --- MONITOR & REGISTRASI LENGKAP ---
+# --- MONITOR & REGISTRASI LENGKAP (REVISI ALICE) ---
 def config_onu_logic(): 
     creds = get_credentials("olt")
     if not creds: 
@@ -573,10 +573,9 @@ def config_onu_logic():
     saran_id_global = ""
     
     print(f"\n{MAGENTA}=== MONITOR & REGISTRASI ONU ==={RESET}")
-    p = input(f"{WHITE}Input Port Lokasi (contoh 1/1/1): {RESET}").strip()
-
-    # STEP 1: AUTO SCAN UNCONFIGURED
-    print(f"\n{CYAN}[+] Memeriksa ONU Unconfigured...{RESET}")
+    
+    # REVISI: STEP 1 AUTO SCAN UNCONFIGURED (Tanpa Input Port Dulu)
+    print(f"\n{CYAN}[+] Memeriksa ONU Unconfigured (Global)...{RESET}")
     cmd_scan = ["show gpon onu uncfg"]
     res_unconfig = telnet_olt_execute(creds, cmd_scan)
     
@@ -599,7 +598,8 @@ def config_onu_logic():
         print(f"{RED}[!] OLT tidak merespon scan uncfg.{RESET}")
 
     while True:
-        print(f"\n{MAGENTA}--- PILIH TINDAKAN (PORT {p}) ---{RESET}")
+        # Header menu tidak lagi menampilkan port spesifik karena belum diinput
+        print(f"\n{MAGENTA}--- MENU REGISTRASI & DIAGNOSA ---{RESET}")
         print(f" 1. {YELLOW}Scan ONU ID Kosong (Cari nomor bolong){RESET}")
         print(f" 2. {GREEN}Registrasi ZTE (Hotspot Only){RESET}")
         print(f" 3. {GREEN}Registrasi ZTE (Hotspot + PPPoE){RESET}")
@@ -609,6 +609,14 @@ def config_onu_logic():
         
         opt = input(f"\n{YELLOW}Pilih (0-5): {RESET}").strip()
         if opt == '0' or not opt: break
+
+        # REVISI: Input Port diminta DI SINI (hanya jika memilih menu aksi)
+        p = ""
+        if opt in ['1', '2', '3', '4', '5']:
+            p = input(f"{WHITE}Input Port Lokasi (contoh 1/1/1): {RESET}").strip()
+            if not p:
+                print(f"{RED}[!] Port harus diisi!{RESET}")
+                continue
 
         # OPSI 1: ANALISA ID KOSONG
         if opt == '1':
@@ -634,12 +642,15 @@ def config_onu_logic():
                 print(f"{MAGENTA}--------------------------------------------------{RESET}")
             continue
 
-        # OPSI 5: CEK POWER OPTIK (Sebelumnya Menu 6)
+        # OPSI 5: CEK POWER OPTIK
         if opt == '5':
             if not found_sn:
-                print(f"{RED}[!] SN tidak ditemukan. Scan dulu!{RESET}"); continue
+                print(f"{RED}[!] SN tidak ditemukan otomatis. Input manual di menu registrasi atau scan ulang.{RESET}")
+                # Opsional: Bisa minta input SN manual disini kalau mau, tapi sesuai logika lama kita skip dulu
+                continue
+            
             test_id = "128"
-            print(f"{CYAN}[+] Meminjam ID {test_id} untuk diagnosa...{RESET}")
+            print(f"{CYAN}[+] Meminjam ID {test_id} pada port {p} untuk diagnosa...{RESET}")
             cmds = [
                 "conf t", f"interface gpon-olt_{p}", f"onu {test_id} type ALL sn {found_sn}", 
                 "exit", f"show pon power attenuation gpon-onu_{p}:{test_id}", 
@@ -718,7 +729,7 @@ def config_onu_logic():
                 ]
 
             if cmds:
-                print(f"\n{CYAN}[*] Mengirim konfigurasi ke OLT...{RESET}")
+                print(f"\n{CYAN}[*] Mengirim konfigurasi ke OLT (Port {p})...{RESET}")
                 telnet_olt_execute(creds, cmds)
                 print(f"{GREEN}[✓] Registrasi {raw_name} Selesai!{RESET}")
 

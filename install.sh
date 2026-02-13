@@ -17,18 +17,28 @@ echo -e "${CYAN}[+] Memulai Setup Lingkungan Ucenk D-Tech...${NC}"
 echo -e "${CYAN}[+] Updating System & Adding Repositories...${NC}"
 pkg update && pkg upgrade -y
 
-# Alice: Menambah repo tambahan agar MTR dan Traceroute ditemukan di semua kondisi
+# Alice: Kita pasang repo tambahan di awal agar mtr & traceroute terdeteksi
 echo -e "${CYAN}[+] Enabling extra repositories (TUR, X11, & ROOT)...${NC}"
 pkg install tur-repo x11-repo root-repo -y
 pkg update -y
 
-echo -e "${CYAN}[+] Installing System Packages (MTR, Traceroute, PHP, Git, etc)...${NC}"
-# Alice: Menambahkan 'traceroute' secara spesifik agar tidak manual lagi
+echo -e "${CYAN}[+] Installing System Packages (PHP, Git, Figlet, etc)...${NC}"
+# Alice: Mengelompokkan paket sistem standar
 pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap -y
-pkg install binutils rust python-cryptography mtr traceroute dnsutils -y
+
+echo -e "${CYAN}[+] Installing Network Diagnostic Tools (MTR & Traceroute)...${NC}"
+# Alice: Memisahkan instalasi mtr & traceroute agar lebih kuat saat clone ulang
+pkg install mtr -y
+pkg install traceroute -y
+pkg install dnsutils -y
+
+echo -e "${CYAN}[+] Installing Build Tools for AI Alice...${NC}"
+pkg install binutils rust python-cryptography -y
 
 # 2. Install Library Python Wajib
 echo -e "${CYAN}[+] Installing Python Libraries (Requests, RouterOS, AI Alice, etc)...${NC}"
+# Alice: Tambahkan --upgrade biar librarinya selalu versi terbaru
+pip install --upgrade pip --break-system-packages
 pip install lolcat routeros-api speedtest-cli requests google-generativeai --break-system-packages
 
 # 3. Setup Oh My Zsh & Plugins
@@ -85,7 +95,7 @@ fi
 
 echo -e "\n${GREEN}==============================================="
 echo -e "  SETUP BERHASIL! SEMUA TOOLS SIAP DIGUNAKAN."
-echo -e "  MTR & TRACEROUTE TELAH TERINSTAL."
+echo -e "  MTR & TRACEROUTE AUTO-READY."
 echo -e "  AI ALICE (Gemini Engine) AKTIF."
 echo -e "  Buka ulang Termux untuk melihat hasilnya."
 echo -e "===============================================${NC}"

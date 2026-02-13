@@ -10,7 +10,7 @@ import json
 import getpass
 from datetime import datetime
 import telnetlib
-import os, requests, json
+import requests
 
 # --- HANDLER LIBRARY ---
 try:
@@ -1346,10 +1346,12 @@ def update_tools_auto(): # Menu 26
 
 def tanya_alice():
     API_KEY = "AIzaSyCAouqgFCbLn83tXO0YmWu89X5hbz4IQ4E" 
+    # Jalur Paling Dasar: Gemini Pro v1
+    URL = f"https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={API_KEY}"
+    
     RED = '\033[0;31m'; CYAN = '\033[0;36m'; MAGENTA = '\033[0;35m'; YELLOW = '\033[0;33m'; RESET = '\033[0m'
     
-    print(f"\n{MAGENTA}[✨ Alice AI Aktif]{RESET} {CYAN}Halo Ucenk! Jalur diperbarui...{RESET}")
-    print(f"{YELLOW}(Ketik '0' untuk selesai){RESET}")
+    print(f"\n{MAGENTA}[✨ Alice AI Aktif]{RESET} {CYAN}Halo Ucenk! Pakai jalur Pro (Tetap Gratis)...{RESET}")
 
     while True:
         try:
@@ -1357,27 +1359,28 @@ def tanya_alice():
             if user_input.lower() in ['0', 'keluar', 'exit']: break
             if not user_input: continue
 
-            payload = {"contents": [{"parts": [{"text": f"Kamu Alice, asisten Ucenk D-Tech. Jawab santai: {user_input}"}]}]}
+            # Struktur payload paling simpel untuk v1
+            payload = {
+                "contents": [{
+                    "parts": [{"text": f"Kamu Alice, asisten Ucenk D-Tech. Jawab santai: {user_input}"}]
+                }]
+            }
             
-            # Jalur 1: v1 (Stabil)
-            URL = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={API_KEY}"
             response = requests.post(URL, json=payload)
-            
-            # Kalau Jalur 1 Gagal, Coba Jalur 2: v1beta
-            if response.status_code != 200:
-                URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
-                response = requests.post(URL, json=payload)
-
             res_json = response.json()
+
             if response.status_code == 200:
                 jawaban = res_json['candidates'][0]['content']['parts'][0]['text']
                 print(f"\n{MAGENTA}Alice: {RESET}{jawaban}\n")
             else:
                 msg = res_json.get('error', {}).get('message', 'Akses Ditolak')
                 print(f"\n{RED}[!] Google Bilang: {msg}{RESET}")
+                print(f"{RED}[!] Coba cek di Google AI Studio, apakah model 'Gemini Pro' bisa dichat di sana?{RESET}")
 
         except Exception as e:
             print(f"\n{RED}[!] Kendala: {e}{RESET}\n")
+
+
 def show_menu():
     v = load_vault(); prof = v.get("active_profile", "Ucenk")
     os.system('clear')

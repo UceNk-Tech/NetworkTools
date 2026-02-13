@@ -14,6 +14,7 @@ import requests
 import io
 from contextlib import redirect_stdout
 
+
 # --- HANDLER LIBRARY ---
 try:
     import requests
@@ -1347,64 +1348,66 @@ def update_tools_auto(): # Menu 26
 
 
 def tanya_alice():
-    API_KEY = "AIzaSyCAouqgFCbLn83tXO0YmWu89X5hbz4IQ4E"
+    # API KEY Ucenk
+    API_KEY = "AIzaSyCAouqgFCbLn83tXO0YmWu89X5hbz4IQ4E" 
+    
+    # Jalur URL paling standar untuk v1beta
     URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
     
     RED = '\033[0;31m'; CYAN = '\033[0;36m'; MAGENTA = '\033[0;35m'; YELLOW = '\033[0;33m'; RESET = '\033[0m'
     
-    print(f"\n{MAGENTA}[✨ Alice Operator Aktif]{RESET} {CYAN}Halo Ucenk! Sebutkan perintahmu...{RESET}")
+    print(f"\n{MAGENTA}[✨ Alice Operator Aktif]{RESET} {CYAN}Halo Ucenk! Aku siap jalanin menu buat kamu.{RESET}")
+    print(f"{YELLOW}(Ketik '0' untuk kembali ke menu utama){RESET}")
 
     while True:
         try:
             user_input = input(f"{YELLOW}Ucenk [90]: {RESET}").lower().strip()
-            if user_input in ['0', 'keluar', 'exit']: break
-            if not user_input: continue
+            
+            if user_input in ['0', 'keluar', 'exit']:
+                print(f"{CYAN}[+] Kembali ke menu...{RESET}\n")
+                break
+            if not user_input:
+                continue
 
             output_eksekusi = ""
 
-            # --- LOGIKA EKSEKUSI OTOMATIS (DI BELAKANG LAYAR) ---
-            if "hotspot aktif" in user_input or "user aktif" in user_input:
-                print(f"{CYAN}(Alice sedang mengecek Hotspot...){RESET}")
+            # --- ALICE CEK MAU JALANIN MENU MANA ---
+            if "user aktif" in user_input or "hotspot aktif" in user_input:
+                print(f"{CYAN}(Sabar ya Ucenk, Alice lagi cek menu nomor 2...){RESET}")
                 f = io.StringIO()
                 with redirect_stdout(f):
-                    mk_hotspot_active() # Memanggil fungsi menu nomor 2
+                    mk_hotspot_active() # Alice panggil fungsi nomor 2 kamu
                 output_eksekusi = f.getvalue()
-
+            
             elif "list onu" in user_input or "onu aktif" in user_input:
-                print(f"{CYAN}(Alice sedang melist ONU...){RESET}")
+                print(f"{CYAN}(Alice lagi cek menu nomor 9...){RESET}")
                 f = io.StringIO()
                 with redirect_stdout(f):
-                    list_onu() # Memanggil fungsi menu nomor 9
+                    list_onu() # Alice panggil fungsi nomor 9 kamu
                 output_eksekusi = f.getvalue()
 
-            elif "speedtest" in user_input:
-                print(f"{CYAN}(Alice sedang speedtest...){RESET}")
-                f = io.StringIO()
-                with redirect_stdout(f):
-                    os.system("speedtest-cli") # Eksekusi langsung
-                output_eksekusi = f.getvalue()
-
-            # --- KIRIM KE AI UNTUK DIRAPIKAN ---
+            # --- PROMPT BIAR ALICE CERDAS ---
             prompt = (
-                f"Ucenk bertanya: '{user_input}'. "
-                f"Hasil eksekusi sistem adalah: '{output_eksekusi}'. "
-                "Tolong rangkum hasilnya dengan bahasa yang santai dan singkat. "
-                "Gunakan 'aku' untuk dirimu (Alice). Jika hasil sistem kosong, jawab saja secara normal."
+                f"Kamu Alice, asisten teknisi ISP Ucenk D-Tech. Ucenk nanya: '{user_input}'. "
+                f"Data sistem yang aku temukan: '{output_eksekusi}'. "
+                "Tolong rangkum hasilnya dengan santai dan pakai 'aku'. "
+                "Kalau data sistem kosong, jawab aja sesuai pengetahuanmu sebagai teknisi."
             )
 
             payload = {"contents": [{"parts": [{"text": prompt}]}]}
-            response = requests.post(URL, json=payload)
+            response = requests.post(URL, headers={'Content-Type': 'application/json'}, json=payload)
             res_json = response.json()
 
             if response.status_code == 200:
                 jawaban = res_json['candidates'][0]['content']['parts'][0]['text']
                 print(f"\n{MAGENTA}Alice: {RESET}{jawaban}\n")
             else:
-                print(f"\n{RED}[!] Google Error: {res_json.get('error', {}).get('message')}{RESET}")
+                # Kalau masih error, Alice kasih tau kode error aslinya
+                err = res_json.get('error', {}).get('message', 'Masalah tak dikenal')
+                print(f"\n{RED}[!] Google bilang: {err}{RESET}")
 
         except Exception as e:
-            print(f"\n{RED}[!] Alice gagal eksekusi: {e}{RESET}\n")
-
+            print(f"\n{RED}[!] Alice pusing dikit: {e}{RESET}\n")
 
 def show_menu():
     v = load_vault(); prof = v.get("active_profile", "Ucenk")

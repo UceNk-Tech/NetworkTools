@@ -1347,108 +1347,74 @@ def update_tools_auto(): # Menu 26
 
 
 def tanya_alice():
-    # ==========================================
-    # ⚠️ WAJIB ISI API KEY DI BAWAH INI
-    # ==========================================
-    API_KEY = "AIzaSyArLs7KtWTwb7p02OUhZtNLDTx1YPvtdlM" 
+    # --- MASUKKAN API KEY BARU ANDA DI SINI ---
+    # Pastikan tidak ada spasi!
+    API_KEY = "AIzaSyArLs7KtWTwb7p02OUhZtNLDTx1YPvtdlM".strip()
     
-    # Config Model
+    # Kita coba Gemini 1.5 Flash (Gratis & Cepat)
     MODEL = "gemini-1.5-flash"
-    URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
     
-    # Warna
+    # PERBAIKAN: Key ditaruh di URL agar lebih stabil di Termux
+    URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={API_KEY}"
+    
     RED = '\033[0;31m'; CYAN = '\033[0;36m'; MAGENTA = '\033[0;35m'; YELLOW = '\033[0;33m'; RESET = '\033[0m'
     
-    print(f"\n{MAGENTA}[✨ Alice Gemini 1.5 Flash]{RESET} {CYAN}Halo Ucenk! Aku siap pantau Mikrotik & OLT kamu.{RESET}")
-    print(f"{YELLOW}(Ketik '0' untuk kembali ke menu utama){RESET}")
+    print(f"\n{MAGENTA}[✨ Alice Gemini 1.5]{RESET} {CYAN}Halo Ucenk! Siap bantu.{RESET}")
+    print(f"{YELLOW}(Ketik '0' untuk kembali){RESET}")
 
     while True:
         try:
             user_input = input(f"{YELLOW}Ucenk [90]: {RESET}").strip()
-            
-            # Logic Keluar
-            if user_input.lower() in ['0', 'keluar', 'exit']: 
-                print(f"{CYAN}Alice offline. Bye!{RESET}")
-                break
-            
+            if user_input.lower() in ['0', 'keluar', 'exit']: break
             if not user_input: continue
 
             output_eksekusi = "Tidak ada data sistem tambahan."
 
-            # --- LOGIKA BACA DATA MIKROTIK/OLT ---
-            # Karena ini satu file, kita bisa panggil fungsinya langsung
-            
-            # 1. Cek User Hotspot
-            if any(key in user_input.lower() for key in ["user aktif", "hotspot", "mikrotik"]):
-                print(f"{CYAN}(Sebentar, aku scan Mikrotik dulu...){RESET}")
+            # --- SCANNING OTOMATIS (Tanpa Import Ribet) ---
+            # Alice langsung membaca output layar dari fungsi yang sudah ada
+            if any(k in user_input.lower() for k in ["hotspot", "mikrotik", "user"]):
+                print(f"{CYAN}(Bentar, cek Mikrotik...){RESET}")
                 f = io.StringIO()
                 with redirect_stdout(f):
-                    try:
-                        mk_hotspot_active() # Langsung panggil fungsi asli
-                    except NameError:
-                        print("Fungsi mk_hotspot_active belum dibuat/diload.")
-                    except Exception as e:
-                        print(f"Error menjalankan fungsi: {e}")
+                    try: mk_hotspot_active()
+                    except: print("Gagal akses fungsi Hotspot")
                 output_eksekusi = f.getvalue()
-
-            # 2. Cek ONU/OLT
-            elif any(key in user_input.lower() for key in ["list onu", "onu", "olt"]):
-                print(f"{CYAN}(Sebentar, aku scan OLT dulu...){RESET}")
+            
+            elif any(k in user_input.lower() for k in ["onu", "olt"]):
+                print(f"{CYAN}(Bentar, cek OLT...){RESET}")
                 f = io.StringIO()
                 with redirect_stdout(f):
-                    try:
-                        list_onu() # Langsung panggil fungsi asli
-                    except NameError:
-                        print("Fungsi list_onu belum dibuat/diload.")
-                    except Exception as e:
-                        print(f"Error menjalankan fungsi: {e}")
+                    try: list_onu()
+                    except: print("Gagal akses fungsi ONU")
                 output_eksekusi = f.getvalue()
 
-            # --- KIRIM KE GOOGLE GEMINI ---
-            headers = {
-                'Content-Type': 'application/json',
-                'x-goog-api-key': API_KEY
-            }
+            # --- KIRIM KE GOOGLE ---
+            headers = {'Content-Type': 'application/json'}
             
-            prompt_system = f"""
-            Kamu adalah Alice, asisten teknisi jaringan (Ucenk D-Tech).
-            Gaya bicara: Santai, teknis, gunakan kata 'aku'.
+            # Prompt Engineering
+            prompt = f"""Kamu Alice, asisten teknisi jaringan (Ucenk). 
+            Data Sistem: {output_eksekusi}
+            Pertanyaan: {user_input}
+            Jawab singkat dan teknis."""
             
-            DATA LIVE DARI SISTEM:
-            {output_eksekusi}
-            
-            Tugas: Jawab pertanyaan Ucenk berdasarkan data di atas (jika ada).
-            """
-
             payload = {
-                "contents": [{
-                    "parts": [{"text": f"{prompt_system}\n\nPertanyaan Ucenk: {user_input}"}]
-                }],
-                "generationConfig": {
-                    "temperature": 0.7,
-                    "maxOutputTokens": 800
-                }
+                "contents": [{"parts": [{"text": prompt}]}]
             }
 
             response = requests.post(URL, headers=headers, json=payload)
-            res_json = response.json()
-
+            
             if response.status_code == 200:
+                res_json = response.json()
                 try:
                     jawaban = res_json['candidates'][0]['content']['parts'][0]['text']
-                    # Hapus tanda bintang markdown biar rapi
-                    jawaban_bersih = jawaban.replace("**", "")
-                    print(f"\n{MAGENTA}Alice: {RESET}{jawaban_bersih}\n")
-                except KeyError:
-                    print(f"\n{RED}[!] Alice bingung (Response kosong){RESET}")
+                    print(f"\n{MAGENTA}Alice: {RESET}{jawaban.replace('**','')}\n")
+                except:
+                    print(f"\n{RED}[!] Respon kosong dari Google.{RESET}")
             else:
-                msg = res_json.get('error', {}).get('message', 'Unknown Error')
-                print(f"\n{RED}[!] Error API Google: {msg}{RESET}")
+                print(f"\n{RED}[!] Error {response.status_code}: {response.text}{RESET}")
 
-        except KeyboardInterrupt:
-            break
         except Exception as e:
-            print(f"\n{RED}[!] Script Error: {e}{RESET}")
+            print(f"\n{RED}[!] Error Script: {e}{RESET}")
 
 
 

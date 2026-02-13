@@ -1345,15 +1345,15 @@ def update_tools_auto(): # Menu 26
 
 
 def tanya_alice():
-    # Pastikan API KEY sudah benar
+    # Ganti dengan API KEY-mu
     API_KEY = "AIzaSyCLcEH13sTfki8wD94tHFvXxO5q6sz379I" 
-    # Alice: URL diperbarui ke versi v1beta/models/gemini-1.5-flash:generateContent
-    URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
+    
+    # Alice: Coba pake v1 (lebih stabil) dan pastiin modelnya gemini-1.5-flash
+    URL = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={API_KEY}"
     
     RED = '\033[0;31m'; CYAN = '\033[0;36m'; MAGENTA = '\033[0;35m'; YELLOW = '\033[0;33m'; RESET = '\033[0m'
     
-    # os.system('clear')  <-- Bagian ini dihapus biar gak buka layar baru
-    print(f"\n{MAGENTA}[✨ Alice AI Aktif]{RESET} {CYAN}Halo Ucenk! Ada yang bisa aku bantu di jaringanmu?{RESET}")
+    print(f"\n{MAGENTA}[✨ Alice AI Aktif]{RESET} {CYAN}Halo Ucenk! Ada yang bisa aku bantu?{RESET}")
     print(f"{YELLOW}(Ketik '0' untuk selesai){RESET}")
 
     while True:
@@ -1361,31 +1361,35 @@ def tanya_alice():
             user_input = input(f"{YELLOW}Ucenk [?]: {RESET}").strip()
             
             if user_input.lower() in ['0', 'keluar', 'exit']:
-                print(f"{CYAN}[+] Kembali ke menu utama...{RESET}")
+                print(f"{CYAN}[+] Kembali ke menu...{RESET}\n")
                 break
             if not user_input:
                 continue
 
-            # Konteks agar Alice tetap asik
+            # Payload sederhana
             payload = {
                 "contents": [{
-                    "parts": [{"text": f"Kamu Alice, asisten teknisi ISP Ucenk D-Tech. Jawab dengan santai dan solutif. Pertanyaan: {user_input}"}]
+                    "parts": [{"text": f"Kamu Alice, asisten teknisi ISP Ucenk D-Tech. Jawab santai. Pertanyaan: {user_input}"}]
                 }]
             }
             
-            response = requests.post(URL, headers={'Content-Type': 'application/json'}, data=json.dumps(payload))
+            headers = {'Content-Type': 'application/json'}
+            response = requests.post(URL, headers=headers, json=payload)
             res_json = response.json()
             
-            if 'candidates' in res_json:
+            if response.status_code == 200 and 'candidates' in res_json:
                 jawaban = res_json['candidates'][0]['content']['parts'][0]['text']
                 print(f"{MAGENTA}Alice: {RESET}{jawaban}\n")
             else:
-                # Alice: Kasih info lebih jelas kalau error lagi
-                error_msg = res_json.get('error', {}).get('message', 'Unknown Error')
-                print(f"{RED}[!] Error: {error_msg}{RESET}")
+                # Alice: Kalau error, dia bakal cetak pesan error dari Google-nya
+                msg = res_json.get('error', {}).get('message', 'Akses Ditolak/Model Salah')
+                print(f"{RED}[!] Google bilang: {msg}{RESET}")
+                print(f"{RED}[!] Cek lagi API KEY di https://aistudio.google.com/app/apikey{RESET}")
 
         except Exception as e:
-            print(f"{RED}[!] Waduh, koneksi bermasalah: {e}{RESET}")
+            print(f"{RED}[!] Kendala teknis: {e}{RESET}")
+
+
 def show_menu():
     v = load_vault(); prof = v.get("active_profile", "Ucenk")
     os.system('clear')
@@ -1457,8 +1461,8 @@ def main():
         elif c == '24': ping_traceroute_tool()
         elif c == '25': dns_tools()
         elif c == '26': update_tools_auto()
-        elif c == '?': tanya_alice()
         elif c == '99': manage_profiles()
+        elif c == '100': tanya_alice()
         elif c == '0': sys.exit()
         input(f"\n{YELLOW}Tekan Enter...{RESET}")
 

@@ -1348,64 +1348,46 @@ def update_tools_auto(): # Menu 26
 
 
 def tanya_alice():
-    # Key baru Ucenk yang sakti
+    # Key sakti Ucenk dari gambar tadi
     API_KEY = "AIzaSyDb0pjVXMzuPJbfbfwkIhPV27qdd9uxIYs"
+    URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
     
-    # URL khusus untuk Gemini 2.0 Flash
-    URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+    headers = {'Content-Type': 'application/json', 'X-goog-api-key': API_KEY}
     
-    RED = '\033[0;31m'; CYAN = '\033[0;36m'; MAGENTA = '\033[0;35m'; YELLOW = '\033[0;33m'; RESET = '\033[0m'
-    
-    print(f"\n{MAGENTA}[✨ Alice 2.0 Aktif]{RESET} {CYAN}Halo Ucenk! Pakai tenaga Gemini 2.0 nih!{RESET}")
-    print(f"{YELLOW}(Ketik '0' untuk kembali){RESET}")
+    print(f"\n[✨ Alice D-Tech] Halo Ucenk! Aku sudah siap di jalur Free Tier.")
 
     while True:
         try:
-            user_input = input(f"{YELLOW}Ucenk [90]: {RESET}").strip()
+            user_input = input(f"Ucenk [90]: ").strip()
             if user_input.lower() in ['0', 'keluar', 'exit']: break
             if not user_input: continue
 
+            # --- Alice Cek Menu Otomatis ---
             output_eksekusi = ""
-            
-            # --- CEK PERINTAH KHUSUS (MENU 2: HOTSPOT) ---
-            if "user aktif" in user_input.lower() or "hotspot aktif" in user_input.lower():
-                print(f"{CYAN}(Bentar Cenk, Alice intip Mikrotik dulu...){RESET}")
+            if "hotspot" in user_input.lower() or "user aktif" in user_input.lower():
+                print("(Alice sedang mengecek Mikrotik...)")
                 f = io.StringIO()
                 with redirect_stdout(f):
-                    # Panggil fungsi menu nomor 2 kamu
                     try: mk_hotspot_active() 
-                    except: print("Gagal akses fungsi mk_hotspot_active")
+                    except: print("Gagal panggil fungsi.")
                 output_eksekusi = f.getvalue()
 
-            # --- KIRIM KE GEMINI 2.0 ---
-            headers = {
-                'Content-Type': 'application/json',
-                'X-goog-api-key': API_KEY
+            # --- Kirim ke Google ---
+            payload = {
+                "contents": [{"parts": [{"text": f"Kamu Alice, asisten Ucenk D-Tech. Data: {output_eksekusi}. Tanya: {user_input}"}]}]
             }
             
-            payload = {
-                "contents": [
-                    {
-                        "parts": [
-                            {"text": f"Kamu adalah Alice, asisten cerdas Ucenk D-Tech. Data sistem: {output_eksekusi}. Pertanyaan Ucenk: {user_input}. Jawab dengan santai pakai 'aku'."}
-                        ]
-                    }
-                ]
-            }
-
             response = requests.post(URL, headers=headers, json=payload)
             res_json = response.json()
 
             if response.status_code == 200:
                 jawaban = res_json['candidates'][0]['content']['parts'][0]['text']
-                print(f"\n{MAGENTA}Alice: {RESET}{jawaban}\n")
+                print(f"\nAlice: {jawaban}\n")
             else:
-                msg = res_json.get('error', {}).get('message', 'Ada kendala teknis')
-                print(f"\n{RED}[!] Google 2.0 Bilang: {msg}{RESET}")
+                print(f"\n[!] Error: {res_json.get('error', {}).get('message')}")
 
         except Exception as e:
-            print(f"\n{RED}[!] Alice Error: {e}{RESET}\n")
-
+            print(f"\n[!] Kendala: {e}")
 
 
 def show_menu():

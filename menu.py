@@ -562,7 +562,9 @@ def list_onu():
         print(f"{RED}[!] Gagal mengambil data OLT.{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
 
-# --- MONITOR & REGISTRASI LENGKAP (MENU 4 FIX & LOOPING) ---
+
+
+# --- MONITOR & REGISTRASI LENGKAP (VERSI FULL REVISI MENU 4) ---
 def config_onu_logic(): 
     creds = get_credentials("olt")
     if not creds: 
@@ -612,7 +614,7 @@ def config_onu_logic():
             saran_id_global = str(missing[0]) if missing else str(max_id + 1)
         print(f"{GREEN}[✓] SARAN ONU ID: {saran_id_global}{RESET}")
 
-    # --- TAMPILKAN MENU HANYA SEKALI DI SINI ---
+    # --- TAMPILKAN MENU HANYA SEKALI ---
     print(f"\n{MAGENTA}--- PILIH JENIS TINDAKAN ---{RESET}")
     print(f" 1. {GREEN}Registrasi ZTE (Hotspot Only){RESET}")
     print(f" 2. {GREEN}Registrasi ZTE (Hotspot + PPPoE){RESET}")
@@ -620,75 +622,80 @@ def config_onu_logic():
     print(f" 4. {CYAN}Cek Detail Power Optik Unconfigured{RESET}") 
     print(f" 0. {YELLOW}Batal/Keluar{RESET}")
 
-    # --- LOOPING UTAMA (Agar Menu 4 bisa diulang tanpa reprint menu) ---
+    # --- LOOPING UTAMA ---
     while True:
         opt = input(f"\n{YELLOW}Pilih (0-4): {RESET}").strip()
         
-        # Keluar
         if opt == '0' or not opt: break
 
-        # --- OPSI 4: CEK MANUAL (FORMAT MENU 13) ---
+        # --- REVISI OPSI 4: CEK OPTIK DENGAN TUNGGU SINKRON ---
         if opt == '4':
             if not found_sn: 
                 print(f"{RED}[!] SN tidak ditemukan. Tidak bisa cek.{RESET}")
-                continue # Balik minta input lagi
+                continue 
             
             test_id = "128"
             print(f"\n{CYAN}[+] Meminjam ID {test_id} untuk diagnosa...{RESET}")
             
-            # Perintah khusus config sementara -> cek -> hapus
-            check_cmds = ["terminal length 0"]
-            if brand == 'fiberhome': check_cmds.append(f"show onu optical-power {p} {test_id}")
-            else: check_cmds.append(f"show pon power attenuation gpon-onu_{p}:{test_id}")
+            # Daftarkan ONU sementara
+            telnet_olt_execute(creds, ["conf t", f"interface gpon-olt_{p}", f"onu {test_id} type ALL sn {found_sn}", "exit"])
             
-            cmds = [
-                "conf t", f"interface gpon-olt_{p}", f"onu {test_id} type ALL sn {found_sn}", "exit",
-            ] + check_cmds + [
-                "conf t", f"interface gpon-olt_{p}", f"no onu {test_id}", "end"
-            ]
-            
-            output = telnet_olt_execute(creds, cmds)
-            
-            if output:
-                lines = output.splitlines()
-                clean_lines = []
-                rx_val = None
+            got_signal = False
+            # Loop tunggu sinkronisasi (4 kali percobaan x 5 detik)
+            for attempt in range(1, 5):
+                print(f"{YELLOW}[Attempt {attempt}/4] Menunggu ONU sinkron & membaca redaman...{RESET}")
+                time.sleep(5)
                 
-                # Filter Output
-                for line in lines:
-                    l_strip = line.strip()
-                    if not l_strip or "% The password" in line or "ZXAN#" in line or "terminal length" in line: continue
-                    clean_lines.append(line)
-                    # Ambil data Rx
-                    if "down" in line.lower() and "Rx" in line:
-                        matches = re.findall(r"Rx\s*:\s*(-?\d+\.\d+)", line)
-                        if matches: rx_val = float(matches[0])
-
-                clean_output = "\n".join(clean_lines)
+                check_cmds = ["terminal length 0"]
+                if brand == 'fiberhome': check_cmds.append(f"show onu optical-power {p} {test_id}")
+                else: check_cmds.append(f"show pon power attenuation gpon-onu_{p}:{test_id}")
                 
-                # TAMPILAN TABEL (Format Menu 13)
-                print(f"\n{WHITE}HASIL DIAGNOSA (SN: {found_sn}):{RESET}")
-                print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
-                print(f"{YELLOW}{clean_output}{RESET}")
-                print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
+                output = telnet_olt_execute(creds, check_cmds)
                 
-                if rx_val is not None:
-                    if rx_val < -27.0: color, status = RED, "CRITICAL (DROP)"
-                    elif rx_val < -25.0: color, status = YELLOW, "WARNING (REDAUP)"
-                    else: color, status = GREEN, "NORMAL (BAGUS)"
+                if output:
+                    lines = output.splitlines()
+                    clean_lines = []
+                    rx_val = None
                     
-                    print(f"{WHITE}Identity ONU        : {MAGENTA}{p}:{test_id} (Temp){RESET}")
-                    print(f"{WHITE}Redaman (Rx ONU)    : {color}{rx_val} dBm{RESET}")
-                    print(f"{WHITE}Kondisi             : {color}{status}{RESET}")
-                else:
-                    print(f"{YELLOW}[!] Data Rx belum terbaca (Mungkin ONU belum up sempurna/kabel putus).{RESET}")
-                
-                print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
+                    # Filter Ketat supaya output rapi (Sama seperti Menu 13)
+                    for line in lines:
+                        ls = line.strip()
+                        if not ls or any(x in ls for x in ["ZXAN", "config", "Successful", "terminal length", "show pon", "Info", "Error", "marker", "^"]):
+                            continue
+                        clean_lines.append(line)
+                        if "down" in line.lower() and "Rx" in line:
+                            matches = re.findall(r"Rx\s*:\s*(-?\d+\.\d+)", line)
+                            if matches: rx_val = float(matches[0])
+
+                    # Jika Rx sudah terbaca angka (bukan no signal/N/A)
+                    if rx_val is not None:
+                        got_signal = True
+                        clean_output = "\n".join(clean_lines)
+                        print(f"\n{WHITE}HASIL DIAGNOSA (SN: {found_sn}):{RESET}")
+                        print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
+                        print(f"{YELLOW}{clean_output}{RESET}")
+                        print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
+                        
+                        if rx_val < -27.0: color, status = RED, "CRITICAL (DROP)"
+                        elif rx_val < -25.0: color, status = YELLOW, "WARNING (REDAUP)"
+                        else: color, status = GREEN, "NORMAL (BAGUS)"
+                        
+                        print(f"{WHITE}Identity ONU        : {MAGENTA}{p}:{test_id} (Temp){RESET}")
+                        print(f"{WHITE}Redaman (Rx ONU)    : {color}{rx_val} dBm{RESET}")
+                        print(f"{WHITE}Kondisi             : {color}{status}{RESET}")
+                        print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
+                        break # Keluar dari loop attempt karena sudah dapet data
+
+            if not got_signal:
+                print(f"{RED}[!] Data Rx belum terbaca (ONU belum up atau kabel putus).{RESET}")
             
-            # PENTING: Continue agar kembali ke "Pilih (0-4)" tanpa keluar
+            # Hapus kembali ONU pancingan
+            telnet_olt_execute(creds, ["conf t", f"interface gpon-olt_{p}", f"no onu {test_id}", "end"])
+            
+            # Langsung lanjut ke input "Pilih (0-4)" lagi
             continue 
 
-        # --- OPSI 1, 2, 3: REGISTRASI (Selesai -> Keluar Loop) ---
+        # --- OPSI 1, 2, 3: REGISTRASI ---
         if opt in ['1', '2', '3']:
             onu_id = input(f"{WHITE}Masukkan ID ONU [Saran: {saran_id_global}]: {RESET}").strip() or saran_id_global
             sn = input(f"{WHITE}Masukkan SN ONU [{found_sn}]: {RESET}").strip() or found_sn
@@ -696,7 +703,6 @@ def config_onu_logic():
             name = raw_name.replace(" ", "_")
             cmds = []
 
-            # Penyiapan Command (Sama seperti sebelumnya)
             if opt == '3': # FH
                 prof = input(f"{WHITE}Profile Tcont [default/server]: {RESET}").strip() or "default"
                 vlan = input(f"{WHITE}Vlan ID: {RESET}").strip()
@@ -730,7 +736,6 @@ def config_onu_logic():
                 telnet_olt_execute(creds, cmds)
                 print(f"{GREEN}[✓] Registrasi Selesai!{RESET}")
                 
-                # --- AUTO CEK OPTIK SETELAH REGISTRASI (Looping Wait) ---
                 print(f"\n{CYAN}[*] Menunggu ONU online untuk cek redaman (Max 20 detik)...{RESET}")
                 got_signal = False
                 for attempt in range(1, 5):
@@ -743,14 +748,13 @@ def config_onu_logic():
                     
                     output = telnet_olt_execute(creds, check_cmds)
                     
-                    # LOGIKA PARSING (SAMA PERSIS MENU 13)
                     if output:
                         lines = output.splitlines()
                         clean_lines = []
                         rx_val = None
                         for line in lines:
                             l_strip = line.strip()
-                            if not l_strip or "% The password" in line or "ZXAN#" in line or "terminal length" in line: continue
+                            if not l_strip or any(x in l_strip for x in ["ZXAN", "config", "Successful", "terminal length", "Info", "Error"]): continue
                             clean_lines.append(line)
                             if "down" in line.lower() and "Rx" in line:
                                 matches = re.findall(r"Rx\s*:\s*(-?\d+\.\d+)", line)
@@ -775,9 +779,9 @@ def config_onu_logic():
                 if not got_signal:
                     print(f"\n{RED}[!] ONU belum terdeteksi Online.{RESET}")
 
-                # Keluar loop setelah registrasi selesai
                 input(f"\n{WHITE}Tekan Enter untuk keluar...{RESET}")
                 break
+                
             
 
 # --- MENU 11: REBOOT / RESTART ONU ---

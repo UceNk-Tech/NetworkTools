@@ -17,25 +17,27 @@ echo -e "${CYAN}[+] Memulai Setup Lingkungan Ucenk D-Tech...${NC}"
 echo -e "${CYAN}[+] Updating System & Adding Repositories...${NC}"
 pkg update && pkg upgrade -y
 
-# Alice: Aktifkan repo tambahan untuk MTR & Traceroute
+# Alice: Kita pasang repo tambahan di awal agar mtr & traceroute terdeteksi
 echo -e "${CYAN}[+] Enabling extra repositories (TUR, X11, & ROOT)...${NC}"
 pkg install tur-repo x11-repo root-repo -y
 pkg update -y
 
 echo -e "${CYAN}[+] Installing System Packages (PHP, Git, Figlet, etc)...${NC}"
+# Alice: Mengelompokkan paket sistem standar
 pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap -y
 
 echo -e "${CYAN}[+] Installing Network Diagnostic Tools (MTR & Traceroute)...${NC}"
-# Alice: Traceroute sekarang dipasang secara mandiri agar stabil
-pkg install mtr traceroute dnsutils -y
+# Alice: Memisahkan instalasi mtr & traceroute agar lebih kuat saat clone ulang
+pkg install mtr -y
+pkg install traceroute -y
+pkg install dnsutils -y
 
 echo -e "${CYAN}[+] Installing Build Tools for AI Alice...${NC}"
-# Alice: Python-cryptography di termux butuh binutils & rust
 pkg install binutils rust python-cryptography -y
 
 # 2. Install Library Python Wajib
 echo -e "${CYAN}[+] Installing Python Libraries (Requests, RouterOS, AI Alice, etc)...${NC}"
-# Alice: JANGAN perbaharui pip di Termux agar tidak Error. Langsung install library-nya saja.
+# Alice: Upgrade pip dilarang di Termux, jadi kita langsung install library utama
 pip install lolcat routeros-api speedtest-cli requests google-generativeai --break-system-packages
 
 # 3. Setup Oh My Zsh & Plugins

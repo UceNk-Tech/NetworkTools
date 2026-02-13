@@ -971,7 +971,7 @@ def port_vlan():
     print(telnet_olt_execute(c, cmds))
 
 
-def alarm_event_viewer(): # Menu 15
+def alarm_event_viewer(): # Menu 15 - Versi Custom Ucenk
     creds = get_credentials("olt")
     if not creds: 
         print(f"{YELLOW}[!] Profile OLT belum aktif.{RESET}")
@@ -980,8 +980,8 @@ def alarm_event_viewer(): # Menu 15
     brand = creds.get('brand', 'zte').lower()
     
     print(f"\n{CYAN}=== ALARM & EVENT VIEWER OLT ==={RESET}")
-    print(" 1. Lihat Alarm Aktif (Current Alarms)")
-    print(" 2. Lihat Riwayat Event (Event Log)")
+    print(" 1. Lihat Alarm Aktif (CRTV Active)")
+    print(" 2. Lihat Riwayat Log (Alarm Log)")
     print(" 0. Kembali")
     
     opt = input(f"\n{YELLOW}Pilih Opsi: {RESET}").strip()
@@ -989,18 +989,15 @@ def alarm_event_viewer(): # Menu 15
 
     print(f"\n{CYAN}[*] Mengambil data...{RESET}")
     
+    # Setup perintah berdasarkan hasil tes manual kamu
     cmds = ["terminal length 0"]
-    
     if brand == 'zte':
-        # Kita pakai perintah yang lebih universal untuk ZTE
         if opt == '1':
-            # Mencoba current alarm (Urutan: Standar -> GPON Specific)
-            cmds += ["show alarm current", "show gpon alarm current"]
+            cmds.append("show alarm crtv-active") # Sesuai hasil tes kamu
         else:
-            # Mencoba history (Urutan: Standar -> Alarm Log)
-            cmds += ["show alarm history", "show alarm-log"]
+            cmds.append("show log alarmlog") # Sesuai hasil tes kamu
     else:
-        # Untuk Fiberhome
+        # Untuk Fiberhome (Tetap pakai standar FH)
         if opt == '1':
             cmds.append("show alarm active")
         else:
@@ -1015,34 +1012,33 @@ def alarm_event_viewer(): # Menu 15
         lines = output.splitlines()
         has_data = False
         
-        # Kata kunci error yang harus diabaikan/dideteksi
-        error_keywords = ["%error", "invalid input", "unrecognized", "^"]
+        # Filter kata kunci sampah agar hasil bersih
+        garbage = ["terminal length", "show alarm", "show log", "zxan#", "zxan>", "^"]
         
         for line in lines:
             l_low = line.lower()
             
-            # Filter baris sampah
-            if not line.strip() or any(x in l_low for x in ["terminal length", "show alarm", "zxan#", "zxan>", "---", "next page"]):
+            if not line.strip() or any(x in l_low for x in garbage):
                 continue
             
-            # Jika baris mengandung tanda panah ^ atau error, abaikan baris itu (cari perintah selanjutnya)
-            if any(x in l_low for x in error_keywords):
-                continue
-            
+            # Cek Error dari OLT
+            if "%error" in l_low:
+                print(f"{RED}[!] OLT menolak perintah. Coba cek hak akses user.{RESET}")
+                break
+
             has_data = True
-            # Tampilkan data dengan warna
-            if any(x in l_low for x in ["critical", "major", "los", "dyinggasp", "off-line"]):
-                print(f"{RED}{line.strip()}{RESET}") # Alice ganti RED biar lebih waspada
+            # Warnai Alarm yang bahaya
+            if any(x in l_low for x in ["critical", "major", "los", "dyinggasp", "off-line", "down"]):
+                print(f"{RED}{line.strip()}{RESET}")
             elif "minor" in l_low or "warning" in l_low:
                 print(f"{YELLOW}{line.strip()}{RESET}")
             else:
                 print(f"{WHITE}{line.strip()}{RESET}")
         
         if not has_data:
-            print(f"{GREEN}[✓] Tidak ada alarm aktif atau perintah tidak didukung firmware ini.{RESET}")
-            print(f"{WHITE}[i] Tips: Coba login manual dan ketik 'show alarm ?' untuk cek command tepatnya.{RESET}")
+            print(f"{GREEN}[✓] Tidak ada alarm atau log terdeteksi.{RESET}")
     else:
-        print(f"{YELLOW}[!] OLT tidak memberikan respon.{RESET}")
+        print(f"{YELLOW}[!] OLT tidak merespon.{RESET}")
         
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     input(f"\n{WHITE}Tekan Enter untuk kembali...{RESET}")

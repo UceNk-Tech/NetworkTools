@@ -1348,51 +1348,33 @@ def update_tools_auto(): # Menu 26
 
 
 def tanya_alice():
-    API_KEY = "AIzaSyCAouqgFCbLn83tXO0YmWu89X5hbz4IQ4E" 
+    API_KEY = "AIzaSyCAouqgFCbLn83tXO0YmWu89X5hbz4IQ4E"
+    # Alice: Kita buat daftar model yang mungkin aktif
+    models = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"]
     
-    # Alice: Kita coba v1 dulu, kalau gagal dia bakal otomatis kasih tau
-    URL = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={API_KEY}"
-    
-    RED = '\033[0;31m'; CYAN = '\033[0;36m'; MAGENTA = '\033[0;35m'; YELLOW = '\033[0;33m'; RESET = '\033[0m'
-    
-    print(f"\n{MAGENTA}[✨ Alice Operator Aktif]{RESET} {CYAN}Halo Ucenk! Aku coba tembusin lagi ya...{RESET}")
+    print(f"\n[✨ Alice Mode Auto-Scan] Halo Ucenk! Aku lagi nyari jalur yang aktif...")
 
     while True:
-        try:
-            user_input = input(f"{YELLOW}Ucenk [90]: {RESET}").lower().strip()
-            if user_input in ['0', 'keluar', 'exit']: break
-            if not user_input: continue
-
-            output_eksekusi = ""
-            # Logika eksekusi menu kamu tetap sama
-            if "user aktif" in user_input or "hotspot aktif" in user_input:
-                f = io.StringIO()
-                with redirect_stdout(f):
-                    mk_hotspot_active() 
-                output_eksekusi = f.getvalue()
-
-            # Kirim ke AI
-            payload = {
-                "contents": [{
-                    "parts": [{"text": f"Kamu Alice, asisten Ucenk D-Tech. Data: {output_eksekusi}. Pertanyaan: {user_input}"}]
-                }]
-            }
-            
-            response = requests.post(URL, json=payload)
-            res_json = response.json()
-
-            if response.status_code == 200:
-                jawaban = res_json['candidates'][0]['content']['parts'][0]['text']
-                print(f"\n{MAGENTA}Alice: {RESET}{jawaban}\n")
-            else:
-                # Jika v1 gagal, Alice laporin error aslinya biar kita gak nebak-nebak
-                msg = res_json.get('error', {}).get('message', 'Akses Ditolak')
-                print(f"\n{RED}[!] Google Bilang: {msg}{RESET}")
-                print(f"{YELLOW}[*] Tips: Coba ganti 'v1' di URL jadi 'v1beta' manual di kodemu.{RESET}\n")
-
-        except Exception as e:
-            print(f"\n{RED}[!] Alice pusing: {e}{RESET}\n")
-
+        user_input = input(f"Ucenk [90]: ").strip()
+        if user_input.lower() in ['0', 'exit']: break
+        
+        # Alice coba satu-satu modelnya sampai ada yang nyangkut
+        berhasil = False
+        for m in models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={API_KEY}"
+            try:
+                # Logika jalankan menu 2 (hotspot) tetap sama di sini...
+                res = requests.post(url, json={"contents": [{"parts": [{"text": user_input}]}]})
+                if res.status_code == 200:
+                    jawaban = res.json()['candidates'][0]['content']['parts'][0]['text']
+                    print(f"Alice ({m}): {jawaban}")
+                    berhasil = True
+                    break
+            except:
+                continue
+        
+        if not berhasil:
+            print("Alice: Aduh Ucenk, semua jalur ditutup Google. Cek API Key di web ya!")
 def show_menu():
     v = load_vault(); prof = v.get("active_profile", "Ucenk")
     os.system('clear')

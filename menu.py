@@ -1346,7 +1346,7 @@ def update_tools_auto(): # Menu 26
 
 def tanya_alice():
     # Masukkan API KEY kamu di sini
-    API_KEY = "ISI_API_KEY_KAMU_DI_SINI" 
+    API_KEY = "AIzaSyCAouqgFCbLn83tXO0YmWu89X5hbz4IQ4E" 
     
     # Alice: Gunakan v1 (lebih stabil) dan tambahkan model 'gemini-1.5-flash'
     URL = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={API_KEY}"

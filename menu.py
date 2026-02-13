@@ -1345,54 +1345,47 @@ def update_tools_auto(): # Menu 26
 
 
 def tanya_alice():
-    # Masukkan API KEY Gemini kamu di sini
-    # Ambil gratis di: https://aistudio.google.com/app/apikey
+    # Pastikan API KEY sudah benar
     API_KEY = "AIzaSyCLcEH13sTfki8wD94tHFvXxO5q6sz379I" 
+    # Alice: URL diperbarui ke versi v1beta/models/gemini-1.5-flash:generateContent
     URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
     
     RED = '\033[0;31m'; CYAN = '\033[0;36m'; MAGENTA = '\033[0;35m'; YELLOW = '\033[0;33m'; RESET = '\033[0m'
     
-    os.system('clear')
-    print(f"{CYAN}==================================================={RESET}")
-    print(f"{MAGENTA}    ✨ ALICE AI - ASISTEN UCENK D-TECH ✨{RESET}")
-    print(f"{CYAN}==================================================={RESET}")
-    print(f" {YELLOW}Ketik '0' untuk kembali ke Menu Utama{RESET}")
-    
-    history = []
+    # os.system('clear')  <-- Bagian ini dihapus biar gak buka layar baru
+    print(f"\n{MAGENTA}[✨ Alice AI Aktif]{RESET} {CYAN}Halo Ucenk! Ada yang bisa aku bantu di jaringanmu?{RESET}")
+    print(f"{YELLOW}(Ketik '0' untuk selesai){RESET}")
 
     while True:
         try:
-            user_input = input(f"\n{YELLOW}Ucenk [?]: {RESET}").strip()
+            user_input = input(f"{YELLOW}Ucenk [?]: {RESET}").strip()
             
             if user_input.lower() in ['0', 'keluar', 'exit']:
+                print(f"{CYAN}[+] Kembali ke menu utama...{RESET}")
                 break
             if not user_input:
                 continue
 
-            # Menambahkan konteks agar Alice tahu dia asisten siapa
-            context_input = f"Kamu adalah Alice, asisten cerdas, santai, dan sedikit lucu milik Ucenk (Teknisi ISP D-Tech). Gunakan 'aku' untuk dirimu. Bantu Ucenk dengan masalah jaringan atau sekadar ngobrol. Pertanyaan: {user_input}"
-
+            # Konteks agar Alice tetap asik
             payload = {
-                "contents": [{"parts": [{"text": context_input}]}]
+                "contents": [{
+                    "parts": [{"text": f"Kamu Alice, asisten teknisi ISP Ucenk D-Tech. Jawab dengan santai dan solutif. Pertanyaan: {user_input}"}]
+                }]
             }
             
-            # Pake requests (enteng banget, gak perlu install grpcio)
             response = requests.post(URL, headers={'Content-Type': 'application/json'}, data=json.dumps(payload))
             res_json = response.json()
             
-            # Ambil teks jawaban
             if 'candidates' in res_json:
                 jawaban = res_json['candidates'][0]['content']['parts'][0]['text']
-                print(f"\n{MAGENTA}Alice: {RESET}{jawaban}")
+                print(f"{MAGENTA}Alice: {RESET}{jawaban}\n")
             else:
-                print(f"\n{RED}[!] Alice lagi pusing, cek API KEY kamu!{RESET}")
-                print(res_json) # Debugging jika ada error
+                # Alice: Kasih info lebih jelas kalau error lagi
+                error_msg = res_json.get('error', {}).get('message', 'Unknown Error')
+                print(f"{RED}[!] Error: {error_msg}{RESET}")
 
         except Exception as e:
-            print(f"\n{RED}[!] Waduh Ucenk, ada kendala: {e}{RESET}")
-
-    print(f"\n{CYAN}[+] Kembali ke menu utama...{RESET}")
-
+            print(f"{RED}[!] Waduh, koneksi bermasalah: {e}{RESET}")
 def show_menu():
     v = load_vault(); prof = v.get("active_profile", "Ucenk")
     os.system('clear')

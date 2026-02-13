@@ -1345,42 +1345,53 @@ def update_tools_auto(): # Menu 26
 
 
 def tanya_alice():
-    API_KEY = "AIzaSyCLcEH13sTfki8wD94tHFvXxO5q6sz379I"
+    # Masukkan API KEY Gemini kamu di sini
+    # Ambil gratis di: https://aistudio.google.com/app/apikey
+    API_KEY = "AIzaSyCLcEH13sTfki8wD94tHFvXxO5q6sz379I" 
     URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
     
     RED = '\033[0;31m'; CYAN = '\033[0;36m'; MAGENTA = '\033[0;35m'; YELLOW = '\033[0;33m'; RESET = '\033[0m'
     
-    print(f"\n{MAGENTA}✨ ALICE CONNECTED VIA API BYPASS ✨{RESET}")
-    print(f"{CYAN}Halo Ucenk! Aku pakai mode hemat data nih, biar gak berat di Termux.{RESET}")
+    os.system('clear')
+    print(f"{CYAN}==================================================={RESET}")
+    print(f"{MAGENTA}    ✨ ALICE AI - ASISTEN UCENK D-TECH ✨{RESET}")
+    print(f"{CYAN}==================================================={RESET}")
+    print(f" {YELLOW}Ketik '0' untuk kembali ke Menu Utama{RESET}")
     
-    history = [] # Untuk simpan konteks obrolan singkat
+    history = []
 
     while True:
-        user_input = input(f"\n{YELLOW}Ucenk [?]: {RESET}").strip()
-        if user_input.lower() in ['0', 'keluar', 'exit']: break
-        if not user_input: continue
-
-        # Tambahkan ke history
-        history.append({"role": "user", "parts": [{"text": f"Kamu Alice, asisten asik Ucenk si teknisi ISP. Jawab santai: {user_input}"}]})
-        
-        payload = {"contents": history}
-        
         try:
-            # Pake requests aja, jauh lebih enteng daripada library google
+            user_input = input(f"\n{YELLOW}Ucenk [?]: {RESET}").strip()
+            
+            if user_input.lower() in ['0', 'keluar', 'exit']:
+                break
+            if not user_input:
+                continue
+
+            # Menambahkan konteks agar Alice tahu dia asisten siapa
+            context_input = f"Kamu adalah Alice, asisten cerdas, santai, dan sedikit lucu milik Ucenk (Teknisi ISP D-Tech). Gunakan 'aku' untuk dirimu. Bantu Ucenk dengan masalah jaringan atau sekadar ngobrol. Pertanyaan: {user_input}"
+
+            payload = {
+                "contents": [{"parts": [{"text": context_input}]}]
+            }
+            
+            # Pake requests (enteng banget, gak perlu install grpcio)
             response = requests.post(URL, headers={'Content-Type': 'application/json'}, data=json.dumps(payload))
             res_json = response.json()
             
-            jawaban = res_json['candidates'][0]['content']['parts'][0]['text']
-            print(f"\n{MAGENTA}Alice: {RESET}{jawaban}")
-            
-            # Simpan jawaban Alice ke history
-            history.append({"role": "model", "parts": [{"text": jawaban}]})
-            
-            # Biar gak kepenuhan (simpan 5 obrolan terakhir aja)
-            if len(history) > 10: history = history[-10:]
+            # Ambil teks jawaban
+            if 'candidates' in res_json:
+                jawaban = res_json['candidates'][0]['content']['parts'][0]['text']
+                print(f"\n{MAGENTA}Alice: {RESET}{jawaban}")
+            else:
+                print(f"\n{RED}[!] Alice lagi pusing, cek API KEY kamu!{RESET}")
+                print(res_json) # Debugging jika ada error
 
         except Exception as e:
-            print(f"{RED}[!] Waduh Ucenk, ada kendala koneksi: {e}{RESET}")
+            print(f"\n{RED}[!] Waduh Ucenk, ada kendala: {e}{RESET}")
+
+    print(f"\n{CYAN}[+] Kembali ke menu utama...{RESET}")
 
 def show_menu():
     v = load_vault(); prof = v.get("active_profile", "Ucenk")

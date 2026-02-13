@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==========================================
 # Installer Otomatis Ucenk D-Tech Pro v3.4
-# Support: Multi-Profile, Rogue DHCP & AI Alice (Auto-Fix Cryptography)
+# Fokus: Network Tools Only (Ringan & Cepat)
 # Author: Ucenk
 # ==========================================
 set -e
@@ -11,13 +11,13 @@ CYAN='\033[0;36m'
 YELLOW='\033[0;33m'
 NC='\033[0m'
 
-echo -e "${CYAN}[+] Memulai Setup Lingkungan Ucenk D-Tech...${NC}"
+echo -e "${CYAN}[+] Memulai Setup Lingkungan Ucenk D-Tech (Light Version)...${NC}"
 
 # 1. Update & Install SEMUA Dependencies
 echo -e "${CYAN}[+] Updating System & Adding Repositories...${NC}"
 pkg update && pkg upgrade -y
 
-# Alice: Pasang repo tambahan di awal agar mtr & traceroute terdeteksi
+# Tetap aktifkan repo tambahan buat MTR & Traceroute
 echo -e "${CYAN}[+] Enabling extra repositories (TUR, X11, & ROOT)...${NC}"
 pkg install tur-repo x11-repo root-repo -y
 pkg update -y
@@ -26,15 +26,13 @@ echo -e "${CYAN}[+] Installing System Packages (PHP, Git, Figlet, etc)...${NC}"
 pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap -y
 
 echo -e "${CYAN}[+] Installing Network Diagnostic Tools (MTR & Traceroute)...${NC}"
+# Alice: Paket wajib buat audit lapangan
 pkg install mtr traceroute dnsutils -y
 
-echo -e "${CYAN}[+] Installing Build Tools for AI Alice...${NC}"
-pkg install binutils rust python-cryptography -y
-
-# 2. Install Library Python Wajib
-echo -e "${CYAN}[+] Installing Python Libraries (Requests, RouterOS, AI Alice, etc)...${NC}"
-# Alice: LANGSUNG install library utama, JANGAN pernah upgrade pip di Termux!
-pip install lolcat routeros-api speedtest-cli requests google-generativeai --break-system-packages --no-cache-dir
+# 2. Install Library Python Wajib (Tanpa AI)
+echo -e "${CYAN}[+] Installing Python Libraries (Requests, RouterOS, etc)...${NC}"
+# Alice: Cuma install yang enteng-enteng aja, nggak pakai build-build lama
+pip install lolcat routeros-api speedtest-cli requests --break-system-packages --no-cache-dir
 
 # 3. Setup Oh My Zsh & Plugins
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
@@ -58,7 +56,7 @@ if [ ! -d "$HOME/mikhmonv3" ]; then
     git clone https://github.com/laksa19/mikhmonv3.git ~/mikhmonv3 || echo "Skip download, folder exist."
 fi
 
-# 6. Konfigurasi .zshrc (Optimal)
+# 6. Konfigurasi .zshrc
 echo -e "${CYAN}[+] Configuring .zshrc...${NC}"
 cat > "$HOME/.zshrc" << 'ZZZ'
 export ZSH="$HOME/.oh-my-zsh"
@@ -89,8 +87,8 @@ if [ "$SHELL" != "/data/data/com.termux/files/usr/bin/zsh" ]; then
 fi
 
 echo -e "\n${GREEN}==============================================="
-echo -e "  SETUP BERHASIL! SEMUA TOOLS SIAP DIGUNAKAN."
-echo -e "  MTR & TRACEROUTE AUTO-READY."
-echo -e "  AI ALICE (Gemini Engine) AKTIF."
+echo -e "  SETUP BERHASIL! (VERSI RINGAN)"
+echo -e "  MTR & TRACEROUTE SIAP TEMPUR."
+echo -e "  Dependencies AI Alice dihapus untuk kecepatan."
 echo -e "  Buka ulang Termux untuk melihat hasilnya."
 echo -e "===============================================${NC}"

@@ -13,7 +13,6 @@ import telnetlib
 import requests
 import io
 from contextlib import redirect_stdout
-from alice_mod import tanya_alice
 
 # --- HANDLER LIBRARY ---
 try:

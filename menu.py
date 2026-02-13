@@ -1177,25 +1177,27 @@ def auto_audit_olt(): # Menu 18 (OLT Tools)
     
     brand = creds.get('brand', 'zte').lower()
     
-    print(f"\n{CYAN}=== AUTO AUDIT OLT SYSTEM ==={RESET}")
-    print(f"{WHITE}[*] Memulai audit kesehatan jaringan...{RESET}")
+    # Nama Menu yang Alice sarankan
+    print(f"\n{CYAN}=== OLT QUICK HEALTH CHECK & AUDIT ==={RESET}")
+    port = input(f"{WHITE}Masukkan Port yang akan di-Audit (contoh 1/1/1): {RESET}").strip()
+    if not port: return
+
+    print(f"\n{WHITE}[*] Menganalisa Port {port}...{RESET}")
     
     if brand == 'zte':
-        # Perintah audit cepat untuk ZTE
+        # Sesuaikan dengan perintah yang tadi tembus manual
         cmds = [
             "terminal length 0",
-            "enable",
-            "show pon power attenuation gpon-olt_1/1/1", # Ganti sesuai port utama
-            "show gpon onu state gpon-olt_1/1/1",
-            "show alarm current severity critical"
+            f"show pon power attenuation gpon-olt_{port}",
+            f"show gpon onu state gpon-olt_{port}",
+            "show alarm crtv-active" # Pakai crtv-active sesuai tes manual kamu
         ]
     else:
-        # Untuk Fiberhome
-        cmds = ["show card", "show port state", "show pon power attenuation"]
+        cmds = ["show card", f"show pon power attenuation gpon-port {port}"]
 
     output = telnet_olt_execute(creds, cmds)
     
-    print(f"\n{WHITE}HASIL AUDIT OTOMATIS:{RESET}")
+    print(f"\n{WHITE}HASIL AUDIT SISTEM:{RESET}")
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     
     if output:
@@ -1203,33 +1205,41 @@ def auto_audit_olt(): # Menu 18 (OLT Tools)
         for line in lines:
             l_low = line.lower()
             
-            # Deteksi Sinyal Lemah (Audit Power)
-            if "dbm" in l_low:
-                try:
-                    # Mencari nilai numerik power, biasanya -27dBm ke atas itu buruk
-                    power_val = float(''.join(filter(lambda x: x in "0123456789.-", line.split()[-1])))
-                    if power_val < -27.0:
-                        print(f"{RED}[BAD SIGNAL] {line.strip()}{RESET}")
+            # Abaikan baris sampah echo
+            if any(x in l_low for x in ["terminal length", "zxan#", "show ", "^"]):
+                continue
+
+            # 1. Audit Power (Redaman)
+            if "rx" in l_low and "dbm" in l_low:
+                # Ambil nilai redaman di sisi ONU (down)
+                match = re.search(r"Rx\s*:\s*(-?\d+\.\d+)", line)
+                if match:
+                    val = float(match.group(1))
+                    if val < -27.0:
+                        print(f"{RED}[BAD SIGNAL] {line.strip()} (Kabel ditekuk/kotor?){RESET}")
+                    elif val < -25.0:
+                        print(f"{YELLOW}[WARNING]    {line.strip()} (Redaman mepet!){RESET}")
                     else:
-                        print(f"{GREEN}[OK] {line.strip()}{RESET}")
-                except:
+                        print(f"{GREEN}[SIGNAL OK]  {line.strip()}{RESET}")
+                else:
                     print(f"{WHITE}{line.strip()}{RESET}")
-            
-            # Deteksi ONU Offline
+
+            # 2. Audit Status ONU
             elif any(x in l_low for x in ["offline", "los", "dyinggasp"]):
-                print(f"{YELLOW}[OFFLINE/ALARM] {line.strip()}{RESET}")
+                print(f"{RED}[ALARM/OFF]  {line.strip()}{RESET}")
             
             elif "working" in l_low or "online" in l_low:
-                print(f"{GREEN}[ONLINE] {line.strip()}{RESET}")
-            else:
-                if line.strip() and "zxan" not in l_low:
-                    print(f"{WHITE}{line.strip()}{RESET}")
+                print(f"{GREEN}[ONLINE]     {line.strip()}{RESET}")
+            
+            # 3. Tampilkan baris lain yang berisi info penting
+            elif line.strip():
+                print(f"{WHITE}{line.strip()}{RESET}")
     else:
-        print(f"{YELLOW}[!] Audit gagal. Periksa koneksi ke OLT.{RESET}")
+        print(f"{RED}[!] Audit gagal. OLT tidak merespon.{RESET}")
         
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
-
-
+    input(f"\n{WHITE}Tekan Enter untuk kembali ke Menu Utama...{RESET}")
+    return
 
 def nmap_scan_tool(): # Menu 20
     print(f"\n{CYAN}=== NMAP NETWORK SCANNER ==={RESET}")
@@ -1553,7 +1563,7 @@ def show_menu():
     print(f"\n{CYAN} 10. ONU Configuration (ZTE/FH)       15. Alarm & Event Viewer     ")
     print(f"\n{CYAN} 11. Restart/Reboot ONU               16. Backup & Restore OLT     ")
     print(f"\n{CYAN} 12. Reset/Delete ONU                 17. Traffic Report per PON   ")
-    print(f"\n{CYAN} 13. Check Optical Power (RX/TX)      18. Auto Audit Script        ")
+    print(f"\n{CYAN} 13. Check Optical Power (RX/TX)      18. Auto Audit OLT        ")
 
     print(f"\n{YELLOW}=== NETWORK TOOLS ===")
 

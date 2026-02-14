@@ -618,7 +618,7 @@ def config_onu_logic():
         print(f"\n{MAGENTA}--- PILIH JENIS REGISTRASI---{RESET}")
         print(f" 1. {GREEN}ZTE        (Hotspot Only){RESET}")
         print(f" 2. {GREEN}ZTE        (Hotspot + PPPoE){RESET}")
-        print(f" 3. {GREEN}FIBERHONE  (Hotspot Only){RESET}")
+        print(f" 3. {GREEN}FIBERHOME  (Hotspot Only){RESET}")
         print(f" 4. {CYAN}Cek Detail Power Optik Unconfigured{RESET}") 
         print(f" 0. {YELLOW}Batal/Keluar{RESET}")
 

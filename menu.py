@@ -608,37 +608,44 @@ p = input(f"\n{WHITE}Input Port Lokasi (contoh 1/1/1): {RESET}").strip()
 if not p: return
 
 print(f"{CYAN}[*] Menganalisa ID kosong di port {p}...{RESET}")
-res_list = telnet_olt_execute(creds, [f"show pon onu information gpon-olt_{p}"])
+res_raw = telnet_olt_execute(creds, [f"show pon onu information gpon-olt_{p}"])
 
-if res_list:
-    # Ambil semua ONU ID yang sudah terdaftar
-    ids_found = re.findall(rf"{re.escape(p)}:(\d+)", res_list)
+
+res_str = "\n".join(res_raw) if isinstance(res_raw, list) else str(res_raw)
+
+if res_str and ":" in res_str: 
+    ids_found = re.findall(rf"{re.escape(p)}:(\d+)", res_str)
     ids_int = sorted(list(set([int(x) for x in ids_found])))
 
+    max_allowed = 128
+    
     if not ids_int:
         saran_id_global = "1"
         print(f"{GREEN}[✓] Port Kosong! SARAN ONU ID: 1{RESET}")
     else:
-        max_allowed = 128  # Batas maksimal ONU per port
         max_id = max(ids_int)
         
-        # Cari semua ID yang bolong (missing) di tengah
+
         missing = [x for x in range(1, max_id + 1) if x not in ids_int]
         
-        # Tambahkan ID setelah ID terakhir yang terpakai (128)
+
         if max_id < max_allowed:
             missing.extend(range(max_id + 1, max_allowed + 1))
 
-        # Ambil maksimal 10 ID kosong pertama
-        top_10_missing = missing[:10]
-        saran_id_global = str(top_10_missing[0])
-
-        print(f"{GREEN}[✓] 10 ONU ID KOSONG TERSEDIA: {RESET}{YELLOW}{', '.join(map(str, top_10_missing))}{RESET}")
-        print(f"{CYAN}[!] SARAN TERBAIK (ID Terkecil): {WHITE}{saran_id_global}{RESET}")
+        if missing:
+            top_10_missing = missing[:10]
+            saran_id_global = str(top_10_missing[0])
+            
+            print(f"{GREEN}[✓] 10 ONU ID KOSONG TERSEDIA: {RESET}{YELLOW}{', '.join(map(str, top_10_missing))}{RESET}")
+            print(f"{CYAN}[!] SARAN TERBAIK (ID Terkecil): {WHITE}{saran_id_global}{RESET}")
+        else:
+            print(f"{RED}[!] Port Penuh! Tidak ada ID tersedia (Max {max_allowed}).{RESET}")
+            return 
 
 else:
-    print(f"{RED}[!] Gagal mengambil data dari OLT atau format salah.{RESET}")
+    print(f"{RED}[!] Gagal mengambil data/Port tidak ditemukan.{RESET}")
 
+    
     # --- LOOPING UTAMA MENU ---
     while True:
         print(f"\n{MAGENTA}--- PILIH JENIS REGISTRASI---{RESET}")

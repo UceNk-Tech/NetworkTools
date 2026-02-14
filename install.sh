@@ -26,12 +26,11 @@ echo -e "${CYAN}[+] Installing System Packages (PHP, Git, Figlet, etc)...${NC}"
 pkg install php git figlet curl python psmisc inetutils neofetch zsh nmap -y
 
 echo -e "${CYAN}[+] Installing Network Diagnostic Tools (MTR & Traceroute)...${NC}"
-# Alice: Paket wajib buat audit lapangan
+# Paket wajib buat audit
 pkg install mtr traceroute dnsutils -y
 
-# 2. Install Library Python Wajib (Tanpa AI)
+# 2. Install Library Python Wajib
 echo -e "${CYAN}[+] Installing Python Libraries (Requests, RouterOS, etc)...${NC}"
-# Alice: Cuma install yang enteng-enteng aja, nggak pakai build-build lama
 pip install lolcat routeros-api speedtest-cli requests --break-system-packages --no-cache-dir
 
 # 3. Setup Oh My Zsh & Plugins

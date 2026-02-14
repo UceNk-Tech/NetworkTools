@@ -75,11 +75,20 @@ def load_vault():
 
 #=================================================================================================================
 def save_vault(data):
-    with open(VAULT_FILE, 'w') as f: 
-        json.dump(data, f, indent=4)
+    """Fungsi ini khusus HANYA untuk simpan file"""
+    try:
+        with open(VAULT_FILE, 'w') as f:
+            json.dump(data, f, indent=4)
+    except Exception as e:
+        print(f"{RED}[!] Gagal menyimpan file: {e}{RESET}")
 
+def manage_profiles():
+    """Fungsi ini untuk logika menu (Add, Select, Delete)"""
+    while True: 
+        profiles = vault.get("profiles", {})
+        p_keys = list(profiles.keys())
         
-        print(f"{MAGENTA}======================================================{RESET}")
+        print(f"\n{MAGENTA}======================================================{RESET}")
         print(f"{CYAN} 1. Add Profile")
         print(" 2. Select Profile (by Number)")
         print(" 3. Delete Profile (by Number)")
@@ -103,18 +112,22 @@ def save_vault(data):
             o_p  = getpass.getpass(f"{WHITE}Pass         : {RESET}")
             o_b  = input(f"{WHITE}Brand (zte/fh): {RESET}").lower()
             
+   
             profiles[name] = {
                 "mikrotik": {"ip": m_ip, "user": m_u, "pass": m_p}, 
                 "olt": {"ip": o_ip, "user": o_u, "pass": o_p, "brand": o_b}
             }
             vault["profiles"] = profiles
             vault["active_profile"] = name
+            
             save_vault(vault)
             print(f"\n{GREEN}[✓] Profile {name} Berhasil Disimpan!{RESET}")
             input(f"{YELLOW}Tekan Enter...{RESET}")
 
         elif opt == '2':
-            if not p_keys: continue
+            if not p_keys: 
+                print(f"{RED}[!] Belum ada profile.{RESET}")
+                continue
             idx = input(f"\n{WHITE}Masukkan Nomor Profile: {RESET}").strip()
             if idx.isdigit():
                 idx = int(idx) - 1
@@ -144,6 +157,8 @@ def save_vault(data):
 
         elif opt == '0':
             break
+
+
 #=================================================================================================================
 def get_credentials(target):
     v = load_vault()

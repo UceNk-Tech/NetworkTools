@@ -201,29 +201,26 @@ def mk_hotspot_active(): # Menu 2
     try:
         pool = routeros_api.RouterOsApiPool(c['ip'], username=c['user'], password=c['pass'], plaintext_login=True)
         api = pool.get_api()
-        # Mengambil semua resource tanpa filter limit
         act = api.get_resource('/ip/hotspot/active').get()
         
         print(f"\n{GREEN}>>> TOTAL USER AKTIF: {len(act)} {RESET}")
         
-        # Header Tabel
         print(f"{WHITE}{'No':<4} | {'User':<15} | {'IP Address':<15} | {'Uptime':<10} | {'MAC Address':<18}{RESET}")
         print("-" * 75)
 
-        # Loop SEMUA user tanpa batasan [:]
         for i, user in enumerate(act, start=1):
             u_name = user.get('user', 'N/A')
             u_ip   = user.get('address', 'N/A')
             u_time = user.get('uptime', '0s')
             u_mac  = user.get('mac-address', 'N/A')
             
-            # Highlight warna hijau untuk pelanggan (bukan admin)
             color = GREEN if u_name.lower() != 'admin' else YELLOW
             print(f" {i:<3} | {color}{u_name:<15}{RESET} | {u_ip:<15} | {CYAN}{u_time:<10}{RESET} | {u_mac:<18}")
             
         pool.disconnect()
     except Exception as e: 
         print(f"{RED}Error: {e}{RESET}")
+        
 
 def cek_dhcp_rogue():
     creds = get_credentials("mikrotik")
@@ -251,6 +248,7 @@ def cek_dhcp_rogue():
         conn.disconnect()
     except Exception as e: 
         print(f"{RED}Error: {e}{RESET}")
+        
 
 def hapus_laporan_mikhmon():
     creds = get_credentials("mikrotik")
@@ -258,14 +256,12 @@ def hapus_laporan_mikhmon():
         print(f"{RED}[!] Profile MikroTik belum diset.{RESET}")
         return
 
-    # Teks ini HARUSNYA tidak ada variabel {creds['ip']}
     print(f"\n{CYAN}[+] Menghubungkan ke MikroTik...{RESET}")
     
     try:
         conn = routeros_api.RouterOsApiPool(creds['ip'], username=creds['user'], password=creds['pass'], port=8728, plaintext_login=True)
         api = conn.get_api()
         
-        # Tarik data identity
         ident = api.get_resource('/system/identity').get()
         r_name = ident[0].get('name', 'MikroTik')
         
@@ -283,7 +279,6 @@ def hapus_laporan_mikhmon():
         else:
             print(f"{YELLOW}[!] Terdeteksi {WHITE}{count}{YELLOW} script di {MAGENTA}{r_name}{RESET}")
             
-            # PAKSA WARNA: Merah dulu, lalu Kuning, lalu Merah lagi
             tanya = f"{CYAN}>>> Hapus semua script laporan ini? {YELLOW}(y/n){RED}: {RESET}"
             confirm = input(tanya).lower()
             
@@ -300,6 +295,7 @@ def hapus_laporan_mikhmon():
         conn.disconnect()
     except Exception:
         print(f"{RED}[!] Gagal Konek. Cek API MikroTik.{RESET}")
+        
 
 def bandwidth_usage_report(): # Menu 5 - LIVE TRAFFIC
     creds = get_credentials("mikrotik")
@@ -325,18 +321,14 @@ def bandwidth_usage_report(): # Menu 5 - LIVE TRAFFIC
         num_interfaces = 0
 
         while True:
-            # Filter hanya port fisik ethernet/sfp
             all_interfaces = resource.get()
             active_eth = [i for i in all_interfaces if i.get('type') in ['ether', 'sfp']]
             
             current_time = time.time()
             
-            # Jika bukan baris pertama, naikkan kursor sebanyak jumlah interface + header
             if not first_run:
-                # Naik sebanyak jumlah interface yang ditampilkan + 2 baris header
                 sys.stdout.write(f"\033[{num_interfaces + 2}F")
 
-            # Cetak Header
             print(f"{MAGENTA}{'INTERFACE':<20} | {'TX (UPLOAD)':<15} | {'RX (DOWNLOAD)':<15}{RESET}")
             print(f"{WHITE}{'-'*55}{RESET}")
 
@@ -353,10 +345,8 @@ def bandwidth_usage_report(): # Menu 5 - LIVE TRAFFIC
                     tx_bps = ((tx_byte - last_tx) * 8) / interval
                     rx_bps = ((rx_byte - last_rx) * 8) / interval
 
-                    # \033[K digunakan untuk menghapus sisa karakter di baris tersebut agar tidak tumpang tindih
                     print(f"{CYAN}{name:<20}{RESET} | {YELLOW}{format_speed(tx_bps):<15}{RESET} | {GREEN}{format_speed(rx_bps):<15}{RESET}\033[K")
                 else:
-                    # Tampilan awal saat data delta belum ada
                     print(f"{CYAN}{name:<20}{RESET} | {YELLOW}{'0 bps':<15}{RESET} | {GREEN}{'0 bps':<15}{RESET}\033[K")
                 
                 prev_data[name] = (tx_byte, rx_byte, current_time)
@@ -368,11 +358,13 @@ def bandwidth_usage_report(): # Menu 5 - LIVE TRAFFIC
             time.sleep(1.5)
             
     except KeyboardInterrupt:
-        # Pindahkan kursor ke paling bawah setelah selesai agar tidak menimpa saat balik ke menu
         print(f"\n\n{YELLOW}[-] Monitoring dihentikan. Kembali ke menu utama...{RESET}")
         if 'pool' in locals(): pool.disconnect()
     except Exception as e:
         print(f"\n{RED}[!] Error: {e}{RESET}")
+
+
+
 def backup_restore_mikrotik(): 
     creds = get_credentials("mikrotik")
     if not creds:
@@ -459,6 +451,7 @@ def snmp_monitoring():
         pool.disconnect()
     except Exception as e:
         print(f"{YELLOW}[!] Gagal SNMP Scan: {e}{RESET}")
+        
 
 def log_viewer_mikrotik(): 
     creds = get_credentials("mikrotik")
@@ -618,14 +611,14 @@ def config_onu_logic():
             top_10_missing = missing[:10]
             saran_id_global = str(top_10_missing[0])
             
-            print(f"{GREEN}[✓] 10 ONU ID KOSONG TERSEDIA: {RESET}{YELLOW}{', '.join(map(str, top_10_missing))}{RESET}")
+            print(f"{GREEN}[✓] ONU ID KOSONG: {RESET}{YELLOW}{', '.join(map(str, top_10_missing))}{RESET}")
             print(f"{CYAN}[!] SARAN TERBAIK (ID Terkecil): {WHITE}{saran_id_global}{RESET}")
 
     while True:
         print(f"\n{MAGENTA}--- PILIH JENIS REGISTRASI---{RESET}")
-        print(f" 1. {GREEN}Registrasi ZTE (Hotspot Only){RESET}")
-        print(f" 2. {GREEN}Registrasi ZTE (Hotspot + PPPoE){RESET}")
-        print(f" 3. {GREEN}Registrasi FH  (Hotspot Only){RESET}")
+        print(f" 1. {GREEN}ZTE        (Hotspot Only){RESET}")
+        print(f" 2. {GREEN}ZTE        (Hotspot + PPPoE){RESET}")
+        print(f" 3. {GREEN}FIBERHONE  (Hotspot Only){RESET}")
         print(f" 4. {CYAN}Cek Detail Power Optik Unconfigured{RESET}") 
         print(f" 0. {YELLOW}Batal/Keluar{RESET}")
 
@@ -777,7 +770,6 @@ def config_onu_logic():
                         rx_val = None
                         lines = output.splitlines()
                         for line in lines:
-                            # Mengambil baris 'down' agar dapat Rx sisi ONU
                             if "down" in line.lower() and "Rx" in line:
                                 match = re.search(r"Rx\s*:\s*(-?\d+\.\d+)", line)
                                 if match:
@@ -801,9 +793,9 @@ def config_onu_logic():
                 if not got_signal_final:
                     print(f"{RED}[!] ONU belum terdeteksi Online atau Rx ONU tidak terbaca.{RESET}")
 
-                # --- BAGIAN KEMBALI KE MENU UTAMA ---
                 input(f"\n{WHITE}Tekan Enter untuk kembali ke Menu Utama...{RESET}")
-                return # Ini yang bikin dia langsung keluar ke menu awal
+                return 
+
                 
 
 # --- MENU 11: REBOOT / RESTART ONU ---
@@ -822,13 +814,11 @@ def restart_onu():
         print(f"{RED}[!] Input tidak lengkap!{RESET}"); return
 
     print(f"\n{CYAN}[*] Mengambil info ONU {port}:{onu_id}...{RESET}")
-    # Alice: Pakai detail-info supaya SN-nya pasti keluar
     check_cmd = ["terminal length 0", f"show gpon onu detail-info gpon-onu_{port}:{onu_id}"]
     output = telnet_olt_execute(creds, check_cmd)
     
     if output and "No related" not in output:
         print(f"\n{YELLOW}--- DETAIL ONU DITEMUKAN ---{RESET}")
-        # Alice: Tampilkan semua baris yang ada isinya biar SN kelihatan
         lines = output.splitlines()
         for line in lines:
             if any(x in line for x in [":", "SN", "State", "Phase", "Model", "Type"]):
@@ -839,7 +829,6 @@ def restart_onu():
         
         if confirm == 'y':
             print(f"{YELLOW}[*] Mengirim perintah restart...{RESET}")
-            # Alice: Tambahin 'conf t' supaya perintahnya lebih prioritas
             reboot_cmds = [
                 "conf t",
                 f"request gpon onu restart gpon-onu_{port}:{onu_id}",
@@ -869,7 +858,6 @@ def reset_onu():
         print(f"{RED}[!] Input tidak lengkap!{RESET}"); return
 
     print(f"\n{CYAN}[*] Mengambil data ONU {port}:{onu_id}...{RESET}")
-    # Alice: Samakan pakai detail-info biar SN-nya muncul
     check_cmd = ["terminal length 0", f"show gpon onu detail-info gpon-onu_{port}:{onu_id}"]
     output = telnet_olt_execute(creds, check_cmd)
     
@@ -900,7 +888,6 @@ def reset_onu():
         print(f"{RED}[!] ONU tidak ditemukan.{RESET}")
 
 
-
 # --- MENU 13: CEK POWER OPTIC/REDAMAN ---
 def check_optical_power_fast():
     creds = get_credentials("olt")
@@ -927,28 +914,22 @@ def check_optical_power_fast():
     print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
     
     if output:
-        # --- PROSES PEMBERSIHAN OUTPUT ---
         lines = output.splitlines()
         clean_lines = []
         for line in lines:
             l_strip = line.strip()
-            # Sembunyikan banner password, prompt ZXAN, dan baris kosong di awal
             if not l_strip or "% The password" in line or "ZXAN#" in line or "terminal length" in line:
                 continue
             clean_lines.append(line)
         
         clean_output = "\n".join(clean_lines)
         
-        # Tampilkan tabel yang sudah bersih
         print(f"{YELLOW}{clean_output}{RESET}")
         print(f"{MAGENTA}--------------------------------------------------------------------------------------------------------------------------------------{RESET}")
 
-        # --- LOGIKA PENGAMBILAN RX ONU (BARIS DOWN) ---
         rx_val = None
         for line in clean_lines:
-            # Kita cari baris 'down' dan ambil angka Rx (bukan Tx)
             if "down" in line.lower() and "Rx" in line:
-                # Regex mencari angka negatif (Rx biasanya negatif)
                 matches = re.findall(r"Rx\s*:\s*(-?\d+\.\d+)", line)
                 if matches:
                     rx_val = float(matches[0])
@@ -999,15 +980,13 @@ def alarm_event_viewer(): # Menu 15 - Versi Custom Ucenk
 
     print(f"\n{CYAN}[*] Mengambil data...{RESET}")
     
-    # Setup perintah berdasarkan hasil tes manual kamu
     cmds = ["terminal length 0"]
     if brand == 'zte':
         if opt == '1':
-            cmds.append("show alarm crtv-active") # Sesuai hasil tes kamu
+            cmds.append("show alarm crtv-active") 
         else:
-            cmds.append("show log alarmlog") # Sesuai hasil tes kamu
+            cmds.append("show log alarmlog") 
     else:
-        # Untuk Fiberhome (Tetap pakai standar FH)
         if opt == '1':
             cmds.append("show alarm active")
         else:
@@ -1022,7 +1001,6 @@ def alarm_event_viewer(): # Menu 15 - Versi Custom Ucenk
         lines = output.splitlines()
         has_data = False
         
-        # Filter kata kunci sampah agar hasil bersih
         garbage = ["terminal length", "show alarm", "show log", "zxan#", "zxan>", "^"]
         
         for line in lines:
@@ -1031,13 +1009,11 @@ def alarm_event_viewer(): # Menu 15 - Versi Custom Ucenk
             if not line.strip() or any(x in l_low for x in garbage):
                 continue
             
-            # Cek Error dari OLT
             if "%error" in l_low:
                 print(f"{RED}[!] OLT menolak perintah. Coba cek hak akses user.{RESET}")
                 break
 
             has_data = True
-            # Warnai Alarm yang bahaya
             if any(x in l_low for x in ["critical", "major", "los", "dyinggasp", "off-line", "down"]):
                 print(f"{RED}{line.strip()}{RESET}")
             elif "minor" in l_low or "warning" in l_low:
@@ -1088,7 +1064,6 @@ def backup_restore_olt(): # Menu 16
             print(f"{YELLOW}[!] Gagal menarik konfigurasi.{RESET}")
 
     elif opt == '2':
-        # Fitur ini biasanya butuh server FTP aktif di PC Ucenk
         ftp_ip = input(f"{WHITE}Masukkan IP FTP Server: {RESET}").strip()
         user = input(f"{WHITE}User FTP: {RESET}").strip()
         pw = input(f"{WHITE}Pass FTP: {RESET}").strip()
@@ -1100,12 +1075,13 @@ def backup_restore_olt(): # Menu 16
                 f"upload configuration ftp {ftp_ip} user {user} password {pw} config.dat"
             ]
         else:
-            cmds = ["copy running-config ftp"] # Contoh FH
+            cmds = ["copy running-config ftp"]
 
         result = telnet_olt_execute(creds, cmds)
         print(f"{GREEN}[✓] Perintah backup dikirim. Silakan cek di server FTP kamu.{RESET}")
 
     print(f"{MAGENTA}-----------------------------------------------------------------------{RESET}")
+    
 
 
 def traffic_report_pon(): # Menu 17 (OLT Tools)
@@ -1122,8 +1098,6 @@ def traffic_report_pon(): # Menu 17 (OLT Tools)
 
     print(f"\n{CYAN}[*] Mengambil data statistik trafik...{RESET}")
     
-    # Berdasarkan tes manual Ucenk, format ini yang tembus:
-    # show interface gpon-olt_1/1/1
     cmds = [
         "terminal length 0",
         f"show interface gpon-olt_{port}"
@@ -1141,13 +1115,10 @@ def traffic_report_pon(): # Menu 17 (OLT Tools)
         for line in lines:
             l_low = line.lower()
             
-            # Cari Input/Output Rate
             if "rate :" in l_low or "rate:" in l_low:
-                # Ekstrak angka Bps menggunakan regex
                 match = re.search(r":\s+(\d+)\s+Bps", line)
                 if match:
                     bps = int(match.group(1))
-                    # Rumus: (Bps * 8) / 1.000.000 = Mbps
                     mbps = (bps * 8) / 1000000
                     
                     label = "DOWNLOAD (Out)" if "output" in l_low else "UPLOAD (In)  "
@@ -1156,16 +1127,13 @@ def traffic_report_pon(): # Menu 17 (OLT Tools)
                     print(f"{WHITE}{label} : {color}{mbps:.2f} Mbps {WHITE}({bps} Bps){RESET}")
                     found = True
             
-            # Tampilkan informasi ONU terdaftar
             elif "registered onus" in l_low:
                 print(f"{CYAN}{line.strip()}{RESET}")
             
-            # Tampilkan Bandwidth Throughput (%)
             elif "bandwidth throughput" in l_low:
                 print(f"{YELLOW}{line.strip()}{RESET}")
 
         if not found:
-            # Jika regex gagal, tampilkan saja baris raw yang ada kata 'rate'
             for line in lines:
                 if "rate" in line.lower() and "bps" in line.lower():
                     print(f"{GREEN}{line.strip()}{RESET}")
@@ -1187,7 +1155,6 @@ def auto_audit_olt(): # Menu 18 (OLT Tools)
     
     brand = creds.get('brand', 'zte').lower()
     
-    # Nama Menu yang Alice sarankan
     print(f"\n{CYAN}=== OLT QUICK HEALTH CHECK & AUDIT ==={RESET}")
     port = input(f"{WHITE}Masukkan Port yang akan di-Audit (contoh 1/1/1): {RESET}").strip()
     if not port: return
@@ -1195,12 +1162,11 @@ def auto_audit_olt(): # Menu 18 (OLT Tools)
     print(f"\n{WHITE}[*] Menganalisa Port {port}...{RESET}")
     
     if brand == 'zte':
-        # Sesuaikan dengan perintah yang tadi tembus manual
         cmds = [
             "terminal length 0",
             f"show pon power attenuation gpon-olt_{port}",
             f"show gpon onu state gpon-olt_{port}",
-            "show alarm crtv-active" # Pakai crtv-active sesuai tes manual kamu
+            "show alarm crtv-active"
         ]
     else:
         cmds = ["show card", f"show pon power attenuation gpon-port {port}"]
@@ -1215,13 +1181,10 @@ def auto_audit_olt(): # Menu 18 (OLT Tools)
         for line in lines:
             l_low = line.lower()
             
-            # Abaikan baris sampah echo
             if any(x in l_low for x in ["terminal length", "zxan#", "show ", "^"]):
                 continue
 
-            # 1. Audit Power (Redaman)
             if "rx" in l_low and "dbm" in l_low:
-                # Ambil nilai redaman di sisi ONU (down)
                 match = re.search(r"Rx\s*:\s*(-?\d+\.\d+)", line)
                 if match:
                     val = float(match.group(1))
@@ -1234,14 +1197,12 @@ def auto_audit_olt(): # Menu 18 (OLT Tools)
                 else:
                     print(f"{YELLOW}{line.strip()}{RESET}")
 
-            # 2. Audit Status ONU
             elif any(x in l_low for x in ["offline", "los", "dyinggasp"]):
                 print(f"{RED}[ALARM/OFF]  {line.strip()}{RESET}")
             
             elif "working" in l_low or "online" in l_low:
                 print(f"{GREEN}[ONLINE]     {line.strip()}{RESET}")
             
-            # 3. Tampilkan baris lain yang berisi info penting
             elif line.strip():
                 print(f"{YELLOW}{line.strip()}{RESET}")
     else:
@@ -1250,6 +1211,8 @@ def auto_audit_olt(): # Menu 18 (OLT Tools)
     print(f"{MAGENTA}-------------------------------------------------------------------------------{RESET}")
     input(f"\n{WHITE}Tekan Enter untuk kembali ke Menu Utama...{RESET}")
     return
+    
+    
 
 def nmap_scan_tool(): # Menu 20
     print(f"\n{CYAN}=== NMAP NETWORK SCANNER ==={RESET}")
@@ -1274,22 +1237,31 @@ def nmap_scan_tool(): # Menu 20
 
 def mac_lookup_tool(): # Menu 21
     print(f"\n{CYAN}=== MAC LOOKUP ==={RESET}")
-    mac = input(f"{WHITE}MAC Address: {RESET}").strip()
+    mac_input = input(f"{WHITE}MAC Address: {RESET}").strip()
     
-    if not mac:
+    if not mac_input:
         print(f"{YELLOW}[!] MAC tidak boleh kosong.{RESET}")
         return
 
-    print(f"{CYAN}[*] Mencari vendor...{RESET}")
+    pure_hex = re.sub(r'[^a-fA-F0-9]', '', mac_input).upper()
+
+    if len(pure_hex) < 6:
+        print(f"{RED}[!] MAC Address tidak valid.{RESET}")
+        return
+
+    oui = pure_hex[:6]
+    prefix = f"{oui[0:2]}:{oui[2:4]}:{oui[4:6]}"
+
+    print(f"{CYAN}[*] Mencari vendor untuk prefix: {prefix}...{RESET}")
     
-    prefix = mac.upper().replace("-", ":")[:8]
     vendor = BRAND_MAP.get(prefix)
 
     if vendor:
         print(f"\n{GREEN}[✓] HASIL (Local): {vendor}{RESET}")
     else:
-        vendor = get_brand(mac)
+        vendor = get_brand(mac_input)
         print(f"\n{GREEN}[✓] VENDOR: {vendor}{RESET}")
+    
     print(f"{MAGENTA}--------------------------------------------------{RESET}")
 
 
@@ -1365,14 +1337,12 @@ def ping_traceroute_tool(): # Menu 24
 
         if opt == '1':
             print(f"\n{CYAN}[*] Menjalankan Ping ke {target}...{RESET}")
-            # Aku batasi 5 paket biar gak nunggu kelamaan
             os.system(f"ping -c 5 {target}")
             
         elif opt == '2':
             print(f"\n{CYAN}[*] Menjalankan Traceroute ke {target}...{RESET}")
             print(f"{WHITE}[i] Menganalisa jalur network...{RESET}\n")
             
-            # Cek apakah traceroute sudah ada, kalau belum bantu instal otomatis
             check_tr = os.system("command -v traceroute > /dev/null 2>&1")
             if check_tr != 0:
                 print(f"{YELLOW}[!] Traceroute belum terinstal. Menginstal dulu...{RESET}")
@@ -1381,10 +1351,11 @@ def ping_traceroute_tool(): # Menu 24
             os.system(f"traceroute {target}")
             
         elif opt == '0' or not opt:
-            return # Balik ke Menu Utama
+            return 
 
         print(f"\n{MAGENTA}--------------------------------------------------{RESET}")
         input(f"{WHITE}Tekan Enter untuk lanjut...{RESET}")
+        
 
 def dns_tools(): # Menu 25
     print(f"\n{CYAN}=== DNS LOOKUP TOOLS ==={RESET}")
@@ -1405,13 +1376,10 @@ def dns_tools(): # Menu 25
 
     print(f"\n{CYAN}[*] Mengambil data DNS untuk {domain}...{RESET}")
     
-    # Mapping tipe record untuk API Google
-    # Tipe 1=A, 2=NS, 15=MX, 16=TXT, 255=ANY
     type_map = {'1': 1, '2': 2, '3': 255}
     record_type = type_map.get(opt, 1)
 
     try:
-        # Menggunakan Google Public DNS API (Sangat stabil)
         url = f"https://dns.google/resolve?name={domain}&type={record_type}"
         resp = requests.get(url, timeout=10)
         
@@ -1425,7 +1393,6 @@ def dns_tools(): # Menu 25
             print(f"\n{GREEN}HASIL LOOKUP ({domain}):{RESET}")
             print(f"{WHITE}{'-'*55}{RESET}")
             
-            # Dictionary untuk menerjemahkan angka tipe DNS ke teks
             names = {1: "A", 2: "NS", 5: "CNAME", 15: "MX", 16: "TXT", 28: "AAAA"}
             
             for ans in data['Answer']:
@@ -1443,9 +1410,8 @@ def dns_tools(): # Menu 25
 
 def update_tools_auto(): # Menu 26
     print(f"\n{CYAN}=== UPDATE & RESET TOOLS (FORCE SYNC) ==={RESET}")
-    repo_url = "https://github.com/USERNAME_KAMU/NAMA_REPO.git" # <-- GANTI DENGAN URL REPO KAMU
+    repo_url = "https://github.com/USERNAME_KAMU/NAMA_REPO.git"
     
-    # Cek apakah ini folder git
     if not os.path.exists(".git"):
         print(f"{YELLOW}[!] Folder ini bukan repository Git.{RESET}")
         confirm = input(f"{WHITE}Ingin menginisialisasi ulang Git di folder ini? (y/n): {RESET}").lower()
@@ -1461,13 +1427,11 @@ def update_tools_auto(): # Menu 26
         os.system("git fetch --all")
         print(f"{CYAN}[*] Mendapatkan kode terbaru dari GitHub...{RESET}")
         
-        # Coba paksa sinkronisasi ke branch main atau master
         result = os.popen("git reset --hard origin/main 2>&1").read()
         
         if "HEAD is now at" in result:
             print(f"\n{GREEN}[✓] BERHASIL! Kode sudah paling baru (Main).{RESET}")
         else:
-            # Jika main gagal, coba master
             result_master = os.popen("git reset --hard origin/master 2>&1").read()
             if "HEAD is now at" in result_master:
                 print(f"\n{GREEN}[✓] BERHASIL! Kode sudah paling baru.{RESET}")
@@ -1552,7 +1516,6 @@ def main():
         elif c == '24': ping_traceroute_tool()
         elif c == '25': dns_tools()
         elif c == '26': update_tools_auto()
-      # elif c == '90': tanya_alice()
         elif c == '99': manage_profiles()
         elif c == '0': sys.exit()
         input(f"\n{YELLOW}Tekan Enter...{RESET}")

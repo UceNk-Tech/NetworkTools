@@ -612,7 +612,7 @@ def config_onu_logic():
             saran_id_global = str(top_10_missing[0])
             
             print(f"{GREEN}[✓] ONU ID KOSONG: {RESET}{YELLOW}{', '.join(map(str, top_10_missing))}{RESET}")
-            print(f"{CYAN}[!] SARAN TERBAIK (ID Terkecil): {WHITE}{saran_id_global}{RESET}")
+            print(f"{CYAN}[!] SARAN (ID Terkecil): {WHITE}{saran_id_global}{RESET}")
 
     while True:
         print(f"\n{MAGENTA}--- PILIH JENIS REGISTRASI---{RESET}")

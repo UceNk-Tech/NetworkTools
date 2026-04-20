@@ -714,10 +714,10 @@ def config_onu_logic():
             elif opt == '2': # ZTE MIX (PPPoE + Hotspot)
                 vp = input(f"{WHITE}VLAN PPPoE: {RESET}").strip()
                 vh = input(f"{WHITE}VLAN Hotspot: {RESET}").strip()
+                vlan_prof = input(f"{WHITE}VLAN-Profile: {RESET}").strip() # Input manual vlan-profile
                 prof = input(f"{WHITE}Tcont Profile [{CYAN}default{RESET}/{YELLOW}server{RESET}]: {RESET}").strip() or "default"
                 u = input(f"{WHITE}User PPPoE: {RESET}").strip()
                 pw = input(f"{WHITE}Pass PPPoE: {RESET}").strip()
-                auto_v_w = f"VLAN{vp}-PPPOE"
                 ssid = input(f"{WHITE}Nama SSID Hotspot: {RESET}").strip()
                 
                 cmds = [
@@ -726,13 +726,12 @@ def config_onu_logic():
                     f"tcont 1 profile {prof}", f"tcont 2 profile {prof}", "gemport 1 tcont 1", "gemport 2 tcont 2",
                     f"service-port 1 vport 1 user-vlan {vp} vlan {vp}", f"service-port 2 vport 2 user-vlan {vh} vlan {vh}", "exit",
                     f"pon-onu-mng gpon-onu_{p}:{onu_id}", f"service 1 gemport 1 vlan {vp}", f"service 2 gemport 2 vlan {vh}",
-                    f"wan-ip 1 mode pppoe username {u} password {pw} vlan-profile {auto_v_w} host 1",
+                    f"wan-ip 1 mode pppoe username {u} password {pw} vlan-profile {vlan_prof} host 1", # Menggunakan variabel vlan_prof
                     "security-mgmt 212 state enable mode forward protocol web", "interface wifi wifi_0/2 state unlock",
                     "ssid auth wep wifi_0/2 open-system", f"ssid ctrl wifi_0/2 name {ssid}", f"vlan port wifi_0/2 mode tag vlan {vh}",
                     f"vlan port eth_0/1 mode tag vlan {vp}", f"vlan port eth_0/2 mode tag vlan {vp}", f"vlan port eth_0/3 mode tag vlan {vp}",
                     "end", "write"
                 ]
-
             elif opt == '3': # FIBERHOME HOTSPOT
                 prof = input(f"{WHITE}Profile Tcont [{CYAN}default{RESET}/{YELLOW}server{RESET}]: {RESET}").strip() or "default"
                 vlan = input(f"{WHITE}Vlan ID: {RESET}").strip()
